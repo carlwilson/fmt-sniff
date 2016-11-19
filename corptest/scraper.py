@@ -10,17 +10,19 @@
 # about the terms of this license.
 #
 # Classes for scraping the corpus data from the Amazon Index page
+import sys, re, requests, tempfile
 from lxml import html
 import xml.etree.ElementTree as ET
-import requests, tempfile
 from const import *
-import sys
 
+# Temp hack to set up UTF-8 encoding
 reload(sys)
 sys.setdefaultencoding('utf-8')
 ROOT = 'http://rdss-test-data.s3-eu-west-1.amazonaws.com/'
 
 class AS3Element(object):
+    # Search for trailing slash to test for S3 folders
+    folderPattern = re.compile('.*/$')
     def __init__(self, key, etag, size, last_modified):
         self.key = key
         self.etag = etag
@@ -39,6 +41,9 @@ class AS3Element(object):
     def getModified(self):
         return self.modified
 
+    def isFile(self):
+        return self.folderPattern.match(self.key) == None
+
     def __str__(self):
         retVal = []
         retVal.append("AS3Element:[key=")
@@ -49,6 +54,8 @@ class AS3Element(object):
         retVal.append(self.size.decode("utf-8", "ignore"))
         retVal.append(", modified=")
         retVal.append(self.modified.decode("utf-8", "ignore"))
+        retVal.append(", isFile=")
+        retVal.append(str(self.isFile()))
         retVal.append("]")
         return "".join(retVal)
 
@@ -67,20 +74,23 @@ class AS3Corpus(object):
 
     @classmethod
     def fromRootUrl(cls, rootUrl):
+        # Grab the contents of the Amazon S3 bucket
         session = requests.Session()
         response = session.get(url=rootUrl)
-        file = open("out.txt", "w")
-        file.write(response.content)
-        file.flush()
-        file.close();
-        file = open("out.txt", "r")
-        tree = ET.parse(file)
-        xmlRoot = tree.getroot() # root node
-        for child in xmlRoot:
-            if (strip_namespace(child.tag) == AS3Tags.CONTENTS):
-                print str(AS3Element.fromS3XmlContentNode(child))
-            else:
-                print str(child.tag)
+        # Temp file for S3 index
+        with tempfile.NamedTemporaryFile() as temp:
+            temp.write(response.content)
+            temp.flush()
+            # Reset temp for reading the XML
+            temp.seek(0)
+            tree = ET.parse(temp)
+            xmlRoot = tree.getroot() # root node
+            # Loop the child nodes
+            for child in xmlRoot:
+                # Strip the namespace and check to see if it's a content node
+                if (strip_namespace(child.tag) == AS3Tags.CONTENTS):
+                    # For now just print the node
+                    print str(AS3Element.fromS3XmlContentNode(child))
 
 #
 # Recursively parses an XML structure and maps tag names / tag values to the
@@ -105,6 +115,7 @@ def mapped_dict_from_element(root, parent_tags, tag_dict):
 
 def strip_namespace(name):
     if (name[0] == "{"):
+        # If we have a namespace strip it and return the tag
         uri, tag = name[1:].split("}")
         return tag
     else:
