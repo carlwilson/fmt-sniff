@@ -7,6 +7,7 @@ python:
   - "3.4"
 # command to install dependencies
 install:
-  - sudo apt-get install python-lxml python-requests
+  - sudo apt-get install python-lxml
+  - sudo apt-get install python-requests
 # command to run tests
 script: python corptest/scraper.py
