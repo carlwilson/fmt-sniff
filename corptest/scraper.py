@@ -152,14 +152,15 @@ def main():
     totalEles = int(corpus.getElementCount())
     eleCount = 1
     downloadedBytes = 0
-    print 'Starting courpus download of {0:d} items totalling {1:d} bytes.'.format(totalEles, corpus.getTotalSize())
+    print ('Starting courpus download of {0:d} items totalling {1:d} bytes.'.format(totalEles, corpus.getTotalSize()))
     for element in corpus.getElements():
         print ('Downloading item number {0:d}/{1:d}, {2:d} of {3:d} bytes\r'.format(eleCount, totalEles, downloadedBytes, corpus.getTotalSize())),
         sys.stdout.flush()
         blobstore.addAS3EleBlob(SOURCE_ROOT, element)
         downloadedBytes += element.getSize();
         eleCount += 1
-    print '\n'
+    print(chr(27) + "[2K")
+    print 'Downloaded {0:d} items totalling {1:d} bytes.'.format(totalEles, corpus.getTotalSize())
 
 if __name__ == "__main__":
     main()
