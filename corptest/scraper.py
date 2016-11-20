@@ -14,19 +14,19 @@ import sys, re, requests, tempfile
 from lxml import html
 import xml.etree.ElementTree as ET
 from const import *
+from blobstore import BlobStore
 
 # Temp hack to set up UTF-8 encoding
 reload(sys)
 sys.setdefaultencoding('utf-8')
-ROOT = 'http://rdss-test-data.s3-eu-west-1.amazonaws.com/'
 
 class AS3Element(object):
     # Search for trailing slash to test for S3 folders
     folderPattern = re.compile('.*/$')
     def __init__(self, key, etag, size, last_modified):
         self.key = key
-        self.etag = etag
-        self.size = size
+        self.etag = etag[1:-1]
+        self.size = int(size)
         self.modified = last_modified
 
     def getKey(self):
@@ -68,30 +68,45 @@ class AS3Corpus(object):
     def __init__(self, root, elements):
         self.root = root
         self.elements = elements
+        self.totalSize = 0
+        for ele in elements:
+            self.totalSize += ele.getSize()
 
     def getElements(self):
         return self.elements
 
+    def getElementCount(self):
+        return len(self.elements)
+
+    def getTotalSize(self):
+        return self.totalSize
+
     @classmethod
     def fromRootUrl(cls, rootUrl):
-        # Grab the contents of the Amazon S3 bucket
-        session = requests.Session()
-        response = session.get(url=rootUrl)
+        elements = cls.parseElesViaTemp(rootUrl)
+        return AS3Corpus(rootUrl, elements)
+
+    @classmethod
+    def parseElesViaTemp(cls, rootUrl):
         # Temp file for S3 index
         with tempfile.NamedTemporaryFile() as temp:
-            temp.write(response.content)
-            temp.flush()
-            # Reset temp for reading the XML
-            temp.seek(0)
+            fill_file_from_response(rootUrl, temp)
+            # parse element tree from XML
             tree = ET.parse(temp)
             xmlRoot = tree.getroot() # root node
-            # Loop the child nodes
-            for child in xmlRoot:
-                # Strip the namespace and check to see if it's a content node
-                if (strip_namespace(child.tag) == AS3Tags.CONTENTS):
-                    # For now just print the node
-                    print str(AS3Element.fromS3XmlContentNode(child))
+            return cls.elesFromTree(xmlRoot)
 
+    @staticmethod
+    def elesFromTree(tree_root):
+        elements = []
+        # Loop the child nodes
+        for child in tree_root:
+            # Strip the namespace and check to see if it's a content node
+            if (strip_namespace(child.tag) == AS3Tags.CONTENTS):
+                # For now just print the node
+                as3Ele = AS3Element.fromS3XmlContentNode(child);
+                elements.append(as3Ele)
+        return elements
 #
 # Recursively parses an XML structure and maps tag names / tag values to the
 # equivalent database field names. This info is stacked up in a dictionary that
@@ -121,4 +136,29 @@ def strip_namespace(name):
     else:
         return name
 
-AS3Corpus.fromRootUrl(ROOT)
+def fill_file_from_response(source_url, temp_file):
+    # Grab the contents of the Amazon S3 bucket
+    session = requests.Session()
+    response = session.get(url=source_url)
+    # Write response content and flush
+    temp_file.write(response.content)
+    temp_file.flush()
+    # Reset temp for reading the XML
+    temp_file.seek(0)
+
+def main():
+    corpus = AS3Corpus.fromRootUrl(SOURCE_ROOT)
+    blobstore = BlobStore(BLOB_STORE_ROOT)
+    totalEles = int(corpus.getElementCount())
+    eleCount = 1
+    downloadedBytes = 0
+    print 'Starting courpus download of {0} items totalling {1} bytes.'.format(totalEles, corpus.getTotalSize())
+    for element in corpus.getElements():
+        print 'Downloading item number {}/{}, {} of {} bytes\r'.format(eleCount, totalEles, downloadedBytes, corpus.getTotalSize()),
+        sys.stdout.flush()
+        blobstore.addAS3EleBlob(SOURCE_ROOT, element)
+        downloadedBytes += element.getSize();
+        eleCount += 1
+
+if __name__ == "__main__":
+    main()

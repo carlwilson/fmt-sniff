@@ -13,6 +13,9 @@
 
 import datetime
 
+SOURCE_ROOT = 'http://rdss-test-data.s3-eu-west-1.amazonaws.com/'
+BLOB_STORE_ROOT = '/tmp/jisc/blobs/'
+
 class AS3EleFields:
     KEY = 'key'
     ETAG = 'etag'

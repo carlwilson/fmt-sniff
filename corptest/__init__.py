@@ -11,3 +11,4 @@
 #
 # This is a python __init__ script to create the app and import the
 # main package contents
+import scraper
