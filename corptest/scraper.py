@@ -15,6 +15,8 @@ from lxml import html
 import xml.etree.ElementTree as ET
 from const import *
 from blobstore import BlobStore
+from formats import Extension
+
 
 # Temp hack to set up UTF-8 encoding
 reload(sys)
@@ -51,7 +53,7 @@ class AS3Element(object):
         retVal.append(", etag=")
         retVal.append(self.etag.decode("utf-8", "ignore"))
         retVal.append(", size=")
-        retVal.append(self.size.decode("utf-8", "ignore"))
+        retVal.append(str(self.size))
         retVal.append(", modified=")
         retVal.append(self.modified.decode("utf-8", "ignore"))
         retVal.append(", isFile=")
@@ -161,6 +163,20 @@ def main():
         eleCount += 1
     print(chr(27) + "[2K")
     print 'Downloaded {0:d} items totalling {1:d} bytes.'.format(totalEles, corpus.getTotalSize())
+    blobstore.hashCheck()
+    blobstore.identifyContents()
+    types = BlobStore.getFormatInfo()
+    for element in corpus.getElements():
+        if element.isFile():
+            print str(element)
+            blob_name = element.getEtag();
+            extension = Extension.fromFileName(element.getKey())
+            print extension.getExt()
+            print "File MAGIC: " + str(types[blob_name]["magic"])
+            print "File MIME:  " + str(types[blob_name]["magicMime"])
+            print "Tika MIME:  " + str(types[blob_name]["tika"])
+            for fido_match in types[blob_name]["fido"]:
+                print "Fido MATCH: " +str(fido_match)
 
 if __name__ == "__main__":
     main()
