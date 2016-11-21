@@ -5,6 +5,7 @@ python:
 install:
   - pip install lxml
   - pip install requests
+  - pip install pystache
   - pip install python-magic
   - pip install tika
   - pip install opf-fido

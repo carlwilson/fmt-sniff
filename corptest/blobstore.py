@@ -10,10 +10,11 @@
 # about the terms of this license.
 # http://stackoverflow.com/questions/3431825/generating-an-md5-checksum-of-a-file
 # Classes for binary object store
-import os, collections
+import sys, os, collections
 import urllib
 import hashlib
 from formats import MimeType, MagicType, PronomId
+from const import *
 
 class BlobStore(object):
     FORMAT_INFO = collections.defaultdict(dict)
@@ -56,12 +57,24 @@ class BlobStore(object):
             magicType = MagicType.fromFileByMagic(self.getBlobPath(blob_name))
             tikaType = MimeType.fromFileByTika(self.getBlobPath(blob_name))
             fidoTypes = PronomId.fromFileByFido(self.getBlobPath(blob_name))
-            if (len(fidoTypes) > 0):
-                print "TYPE " + str(fidoTypes[0])
             self.FORMAT_INFO[blob_name]['magic'] = magicType
             self.FORMAT_INFO[blob_name]['magicMime'] = mimeType
             self.FORMAT_INFO[blob_name]['tika'] = tikaType
             self.FORMAT_INFO[blob_name]['fido'] = fidoTypes
+
+    def loadCorpus(self, corpus):
+        totalEles = int(corpus.getElementCount())
+        eleCount = 1
+        downloadedBytes = 0
+        print ('Starting courpus download of {0:d} items totalling {1:d} bytes.'.format(totalEles, corpus.getTotalSize()))
+        for element in corpus.getElements():
+            print ('Downloading item number {0:d}/{1:d}, {2:d} of {3:d} bytes\r'.format(eleCount, totalEles, downloadedBytes, corpus.getTotalSize())),
+            sys.stdout.flush()
+            self.addAS3EleBlob(SOURCE_ROOT, element)
+            downloadedBytes += element.getSize();
+            eleCount += 1
+        print(chr(27) + "[2K")
+        print 'Downloaded {0:d} items totalling {1:d} bytes inot corpus.'.format(totalEles, corpus.getTotalSize())
 
     @classmethod
     def getFormatInfo(cls):

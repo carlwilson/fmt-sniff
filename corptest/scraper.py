@@ -16,7 +16,8 @@ import xml.etree.ElementTree as ET
 from const import *
 from blobstore import BlobStore
 from formats import Extension
-
+from reporter import CorpusReporter
+import pystache
 
 # Temp hack to set up UTF-8 encoding
 reload(sys)
@@ -151,32 +152,11 @@ def fill_file_from_response(source_url, temp_file):
 def main():
     corpus = AS3Corpus.fromRootUrl(SOURCE_ROOT)
     blobstore = BlobStore(BLOB_STORE_ROOT)
-    totalEles = int(corpus.getElementCount())
-    eleCount = 1
-    downloadedBytes = 0
-    print ('Starting courpus download of {0:d} items totalling {1:d} bytes.'.format(totalEles, corpus.getTotalSize()))
-    for element in corpus.getElements():
-        print ('Downloading item number {0:d}/{1:d}, {2:d} of {3:d} bytes\r'.format(eleCount, totalEles, downloadedBytes, corpus.getTotalSize())),
-        sys.stdout.flush()
-        blobstore.addAS3EleBlob(SOURCE_ROOT, element)
-        downloadedBytes += element.getSize();
-        eleCount += 1
-    print(chr(27) + "[2K")
-    print 'Downloaded {0:d} items totalling {1:d} bytes.'.format(totalEles, corpus.getTotalSize())
+    blobstore.loadCorpus(corpus)
     blobstore.hashCheck()
     blobstore.identifyContents()
-    types = BlobStore.getFormatInfo()
-    for element in corpus.getElements():
-        if element.isFile():
-            print str(element)
-            blob_name = element.getEtag();
-            extension = Extension.fromFileName(element.getKey())
-            print extension.getExt()
-            print "File MAGIC: " + str(types[blob_name]["magic"])
-            print "File MIME:  " + str(types[blob_name]["magicMime"])
-            print "Tika MIME:  " + str(types[blob_name]["tika"])
-            for fido_match in types[blob_name]["fido"]:
-                print "Fido MATCH: " +str(fido_match)
+    reporter = CorpusReporter.corpusReport(corpus, blobstore)
+    reporter.renderReport()
 
 if __name__ == "__main__":
     main()
