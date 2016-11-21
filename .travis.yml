@@ -1,10 +1,13 @@
 language: python
 python:
   - "2.7"
-  - "3.4"
 # command to install dependencies
 install:
   - pip install lxml
   - pip install requests
+  - pip install python-magic
+  - pip install tika
+  - pip install opf-fido
+
 # command to run tests
 script: python corptest/scraper.py
