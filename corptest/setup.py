@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+"""Setup for the JISC Research Data format sniffing module!"""
 from setuptools import setup
 
 setup(name='python-fmtsniff',
@@ -22,4 +22,4 @@ setup(name='python-fmtsniff',
           'Programming Language :: Python :: 2',
           'Programming Language :: Python :: 3',
       ],
-      )
+     )
