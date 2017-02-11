@@ -9,110 +9,125 @@
 # License, Version 3. See the text file "COPYING" for further details
 # about the terms of this license.
 #
-# Classes for reporting corpus results
+"""Classes for reporting corpus results"""
 
 from blobstore import BlobStore
 from formats import Extension
 import pystache
 
 class CorpusReporter(object):
-    def __init__(self, items, extensions, tikaMimes, magicMimes, magics, fidoPuids):
+    """Class that reports the results of running format id tools across a
+    corpus.
+    """
+    def __init__(self, items, extensions, tika_mimes, magic_mimes, magics, fido_puids):
         self.items = int(items)
         self.extensions = extensions
-        self.tikaMimes = tikaMimes
-        self.magicMimes = magicMimes
+        self.tika_mimes = tika_mimes
+        self.magic_mimes = magic_mimes
         self.magics = magics
-        self.fidoPuids = fidoPuids
+        self.fido_puids = fido_puids
 
-    def getItemCount(self):
+    def get_item_count(self):
+        """Reports the number of items in the corpus"""
         return self.items
 
-    def getExtensions(self):
-        mustache_list = [{"key": k, "val": v} for k,v in self.extensions.items()]
+    def get_extensions(self):
+        """Get the list of unique file extensions in the corpus"""
+        mustache_list = [{"key": k, "val": v} for k, v in self.extensions.items()]
         return mustache_list
 
-    def getTikaMimes(self):
-        mustache_list = [{"key": k, "val": v} for k,v in self.tikaMimes.items()]
+    def get_tika_mimes(self):
+        """Reports the MIME types identified by Apache Tika"""
+        mustache_list = [{"key": k, "val": v} for k, v in self.tika_mimes.items()]
         return mustache_list
 
-    def getMagicMimes(self):
-        mustache_list = [{"key": k, "val": v} for k,v in self.magicMimes.items()]
+    def get_magic_mimes(self):
+        """Reports the MIME types identified by libmagic"""
+        mustache_list = [{"key": k, "val": v} for k, v in self.magic_mimes.items()]
         return mustache_list
 
-    def getMagics(self):
-        mustache_list = [{"key": k, "val": v} for k,v in self.magics.items()]
+    def get_magics(self):
+        """Reports the MIME types identified by libmagic"""
+        mustache_list = [{"key": k, "val": v} for k, v in self.magics.items()]
         return mustache_list
 
-    def getFidoPuids(self):
-        mustache_list = [{"key": k, "val": v} for k,v in self.fidoPuids.items()]
+    def get_fido_puids(self):
+        """Reports the PRONOM types identified by FIDO"""
+        mustache_list = [{"key": k, "val": v} for k, v in self.fido_puids.items()]
         return mustache_list
 
-    def renderReport(self):
-        exts = self.getExtensions()
-        tikas = self.getTikaMimes()
-        magicMimes = self.getMagicMimes()
-        droids = self.getFidoPuids()
+    def render_report(self):
+        """Renders and HTML representation of the instance using a mustache
+        template.
+        """
+        exts = self.get_extensions()
+        tikas = self.get_tika_mimes()
+        magic_mimes = self.get_magic_mimes()
+        droids = self.get_fido_puids()
         renderer = pystache.Renderer()
-        print renderer.render_path('corptest/corpus_reporter.mustache', {"exts": exts, "tikas": tikas, "magicMimes": magicMimes, "droids": droids})
+        print renderer.render_path('corptest/corpus_reporter.mustache',
+                                   {
+                                       "exts": exts,
+                                       "tikas": tikas,
+                                       "magic_mimes": magic_mimes,
+                                       "droids": droids
+                                       })
 
     def __str__(self):
-        retVal = []
-        retVal.append("CorpusReporter:[items=")
-        retVal.append(str(self.items))
-        retVal.append(", extensions=")
-        retVal.append(str(len(self.extensions)))
-        retVal.append(", tikaMimes=")
-        retVal.append(str(len(self.tikaMimes)))
-        retVal.append(", magics=")
-        retVal.append(str(len(self.magics)))
-        retVal.append(", magicMimes=")
-        retVal.append(str(len(self.magicMimes)))
-        retVal.append(", fidoPuids=")
-        retVal.append(str(len(self.fidoPuids)))
-        retVal.append("]")
-        return "".join(retVal)
+        ret_val = []
+        ret_val.append("CorpusReporter:[items=")
+        ret_val.append(str(self.items))
+        ret_val.append(", extensions=")
+        ret_val.append(str(len(self.extensions)))
+        ret_val.append(", tika_mimes=")
+        ret_val.append(str(len(self.tika_mimes)))
+        ret_val.append(", magics=")
+        ret_val.append(str(len(self.magics)))
+        ret_val.append(", magic_mimes=")
+        ret_val.append(str(len(self.magic_mimes)))
+        ret_val.append(", fido_puids=")
+        ret_val.append(str(len(self.fido_puids)))
+        ret_val.append("]")
+        return "".join(ret_val)
 
     @classmethod
-    def corpusReport(cls, corpus,  blobstore):
-        types = BlobStore.getFormatInfo()
+    def corpus_report(cls, corpus, blobstore):
+        """Generates a corpus report from corpus and blobstore"""
+        types = BlobStore.get_format_info()
         extensions = {}
-        tikaMimes = {}
+        tika_mimes = {}
         magics = {}
-        magicMimes = {}
-        fidoPuids = {}
-        for element in corpus.getElements():
-            if element.isFile():
-                blob_name = element.getEtag();
-                extension = Extension.fromFileName(element.getKey())
-                if extension.getExt() in extensions:
-                    extensions[extension.getExt()] += 1
+        magic_mimes = {}
+        fido_puids = {}
+        for element in corpus.get_elements():
+            if element.is_file():
+                blob_name = element.get_etag()
+                extension = Extension.from_file_name(element.get_key())
+                if extension.get_ext() in extensions:
+                    extensions[extension.get_ext()] += 1
                 else:
-                    extensions[extension.getExt()] = 1
-                tikaMime = types[blob_name]["tika"]
-                if str(tikaMime) in tikaMimes:
-                    tikaMimes[str(tikaMime)] += 1
-                else:
-                    tikaMimes[str(tikaMime)] = 1
+                    extensions[extension.get_ext()] = 1
                 magic = types[blob_name]["magic"]
                 if str(magic) in magics:
                     magics[str(magic)] += 1
                 else:
                     magics[str(magic)] = 1
-                magicMime = types[blob_name]["magicMime"]
-                if str(magicMime) in magicMimes:
-                    magicMimes[str(magicMime)] += 1
+                magic_mime = types[blob_name]["magic_mime"]
+                if str(magic_mime) in magic_mimes:
+                    magic_mimes[str(magic_mime)] += 1
                 else:
-                    magicMimes[str(magicMime)] = 1
-                fidoPuidList = types[blob_name]["fido"]
-                for fidoPuid in fidoPuidList:
-                    if fidoPuid.getPuid() in fidoPuids:
-                        fidoPuids[str(fidoPuid.getPuid())] += 1
+                    magic_mimes[str(magic_mime)] = 1
+                fido_puid_list = types[blob_name]["fido"]
+                for fido_puid in fido_puid_list:
+                    if fido_puid.get_puid() in fido_puids:
+                        fido_puids[str(fido_puid.get_puid())] += 1
                     else:
-                        fidoPuids[str(fidoPuid.getPuid())] = 1
-        return cls(corpus.getElementCount(), extensions, tikaMimes, magicMimes, magics, fidoPuids)
-                # print extension.getExt()
+                        fido_puids[str(fido_puid.get_puid())] = 1
+        return cls(corpus.get_element_count(), extensions,
+                   tika_mimes, magic_mimes, magics, fido_puids)
+                # print extension.get_ext()
                 # print "File MAGIC: " + str(types[blob_name]["magic"])
-                # print "File MIME:  " + str(types[blob_name]["magicMime"])
+                # print "File MIME:  " + str(types[blob_name]["magic_mime"])
                 # print "Tika MIME:  " + str()
                 # fido_matches = types[blob_name]["fido"]
                 # for fido_match in fido_matches:
