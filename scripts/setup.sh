@@ -2,7 +2,7 @@
 # Update the apt repo and install the necessary packages:
 # - unzip : unpackage DROID download
 sudo apt-get update
-sudo apt-get install -y unzip openjdk-7-jre
+sudo apt-get install -y unzip openjdk-7-jre python-dev libxml2-dev libxslt1-dev zlib1g-dev python3-dev virtualenv
 
 # Dump the downloads in /tmp, download the software packages
 # - DROID v6.3 binary
@@ -24,3 +24,9 @@ sudo wget http://mirror.ox.ac.uk/sites/rsync.apache.org/tika/tika-app-1.14.jar
 sudo cp /vagrant/scripts/tika.sh ./
 sudo chmod +x tika.sh
 sudo ln -s /usr/local/lib/apache-tika/tika.sh /usr/local/bin/tika
+
+# Create virtual env for project and install requirements
+mkdir -p ~/.venvs
+virtualenv ~/.venvs/fmt-sniff
+source ~/.venvs/fmt-sniff/bin/activate
+pip install -r /vagrant/requirements.txt

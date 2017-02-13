@@ -13,9 +13,6 @@
 import os
 from fido import fido
 import magic
-from tika import detector
-import tika
-tika.TikaClientOnly = True
 
 class FormatTool(object):
     """Class to hold the details of a format identification tool."""
