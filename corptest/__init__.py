@@ -9,6 +9,12 @@
 # License, Version 3. See the text file "COPYING" for further details
 # about the terms of this license.
 #
-# This is a python __init__ script to create the app and import the
-# main package contents
-import scraper
+"""
+JISC Research Data Shared Service : Format Indentification and analysis.
+
+corptest : This packages Python modules that
+
+TODO: Package exports docstring.
+"""
+
+__version__ = '0.2.0'
