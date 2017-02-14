@@ -16,6 +16,9 @@ import datetime
 SOURCE_ROOT = 'http://rdss-test-data.s3-eu-west-1.amazonaws.com/'
 BLOB_STORE_ROOT = '/home/cfw/arch/data/samp/JISC/blobstore/'
 JISC_BUCKET = 'testdata.researchdata.alpha.jisc.ac.uk'
+DATACITE_PAGES = [1, 2, 3, 4]
+DATACITE_HTML_ROOT = 'https://search.datacite.org'
+DATACITE_PAGE_QUERY = '/data-centers?member-id=bl&page='
 
 
 class AS3EleFields(object):
