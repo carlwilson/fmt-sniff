@@ -2,7 +2,7 @@
 # Update the apt repo and install the necessary packages:
 # - unzip : unpackage DROID download
 sudo apt-get update
-sudo apt-get install -y unzip openjdk-7-jre python-dev libxml2-dev libxslt1-dev zlib1g-dev python3-dev virtualenv
+sudo apt-get install -y unzip openjdk-7-jre python-dev libxml2-dev libxslt1-dev zlib1g-dev python3-dev virtualenv git
 
 # Dump the downloads in /tmp, download the software packages
 # - DROID v6.3 binary

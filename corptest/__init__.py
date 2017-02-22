@@ -16,5 +16,8 @@ corptest : This packages Python modules that
 
 TODO: Package exports docstring.
 """
+from os.path import abspath, dirname, join
 
 __version__ = '0.2.0'
+
+CONFIG_DIR = join(abspath(dirname(__file__)), 'conf')

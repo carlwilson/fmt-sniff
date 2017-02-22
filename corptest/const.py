@@ -15,11 +15,20 @@ import datetime
 
 SOURCE_ROOT = 'http://rdss-test-data.s3-eu-west-1.amazonaws.com/'
 BLOB_STORE_ROOT = '/home/cfw/arch/data/samp/JISC/blobstore/'
+S3_META = '/home/cfw/arch/data/samp/JISC/s3/'
+DOI_STORE = '/home/cfw/arch/data/samp/JISC/doi/lookup.json'
 JISC_BUCKET = 'testdata.researchdata.alpha.jisc.ac.uk'
-DATACITE_PAGES = [1, 2, 3, 4]
+RESULTS_ROOT = '/home/cfw/arch/data/samp/JISC/results/'
+DATACITE_PAGES = range(1, 41)
 DATACITE_HTML_ROOT = 'https://search.datacite.org'
-DATACITE_PAGE_QUERY = '/data-centers?member-id=bl&page='
-
+DATACITE_PAGE_QUERY = '/data-centers?page='
+EPILOG = """
+JISC (https://www.jisc.ac.uk)
+Open Preservation Foundation (http://www.openpreservation.org)
+See License.txt for license information.
+Author: Carl Wilson (OPF), 2016-17
+This work was funded by the JISC Research Data Shared Service project
+You can read more about this at https://www.jisc.ac.uk/rd/projects/research-data-shared-service"""
 
 class AS3EleFields(object):
     """Field names and default for AS3 Element type"""
@@ -34,6 +43,10 @@ class AS3EleFields(object):
         MODIFIED: datetime.date.today()
     }
 
+    @classmethod
+    def default(cls):
+        """Return the default instance"""
+        return cls.DEFAULT
 
 class AS3Tags(object):
     """XML tag names for AS3 element"""

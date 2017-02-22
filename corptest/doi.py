@@ -11,11 +11,15 @@
 #
 """ Gathers institution ID and name data from DOI web site into a lookup map. """
 import collections
+import json
+import os.path
 import sys
 from lxml import html
 import requests
-from const import DATACITE_HTML_ROOT, DATACITE_PAGES, DATACITE_PAGE_QUERY
+#import simplejson as json
 
+from const import DOI_STORE, DATACITE_HTML_ROOT, DATACITE_PAGES, DATACITE_PAGE_QUERY
+from utilities import ObjectJsonEncoder, create_dirs
 # Temp hack to set up UTF-8 encoding
 reload(sys)
 sys.setdefaultencoding('utf-8')
@@ -31,7 +35,30 @@ class DataciteDoiLookup(object):
     @classmethod
     def lookup_by_doi(cls, doi):
         """ Looks up and returns a Datacite datacentre by DOI """
+        if doi not in cls.DATACENTRES:
+            return DataciteDatacentre("Unknown", doi, "")
         return cls.DATACENTRES.get(doi)
+
+    @classmethod
+    def initialise(cls, persist_to=None):
+        """ If persist_to exists, tries to load a serialised lookup table from it.
+        Populates lookup table and saves to persist_to if persist_to doesn't exist.
+        """
+        cls.DATACENTRES.clear()
+        if persist_to is None:
+            # No persist value passed, populate the dictionary
+            cls.populate_lookup_table()
+        elif os.path.isfile(persist_to):
+            # Persistence file exists, load the dictionary
+            lookup_file = open(persist_to, 'r')
+            cls.load(lookup_file)
+        else:
+            # Persistence file doesn't exist
+            create_dirs(os.path.dirname(persist_to))
+            # populate and save the lookup dictionary
+            cls.populate_lookup_table()
+            lookup_file = open(persist_to, 'w')
+            cls.save(lookup_file)
 
     @classmethod
     def populate_lookup_table(cls):
@@ -41,8 +68,19 @@ class DataciteDoiLookup(object):
             if datacentre_doi != None and bl_id != None:
                 datacentre = DataciteDatacentre(datacentre_name, datacentre_doi,
                                                 bl_id)
-                print "adding : ", datacentre_name
                 cls.DATACENTRES.update({datacentre.doi : datacentre})
+
+    @classmethod
+    def save(cls, dest):
+        """ Serialise the datacentre lookup dictionary to fp (a write() supporting
+        file-like object). """
+        json.dump(cls.DATACENTRES, dest, cls=ObjectJsonEncoder)
+
+    @classmethod
+    def load(cls, src):
+        """ Loads the datacentre lookup dictionary from fp (a read() supporting
+        file like object)."""
+        cls.DATACENTRES = json.load(src, object_hook=DataciteDatacentre.json_decode)
 
 class DataciteDatacentre(object):
     """ Skinny class to hold Datacite Datacentre details. """
@@ -51,11 +89,37 @@ class DataciteDatacentre(object):
         self.doi = doi
         self.bl_id = bl_id
 
+    def get_name(self):
+        """ Get the name of the datacentre. """
+        return self.name
+
+    def get_doi(self):
+        """ Get the Digital Object Identifier (DOI) of the the datacenter. """
+        return self.doi
+
+    def get_bl_id(self):
+        """ Get the British Library identifier for the datacenter. """
+        return self.bl_id
+
     def __str__(self):
-        return 'DataciteDatacentre ' + \
-               '[doi : {}, name : {}, BLID : {}]'.format(self.doi,
-                                                         self.name,
-                                                         self.bl_id)
+        ret_val = []
+        ret_val.append("DataciteDatacentre : [doi=")
+        ret_val.append(self.doi)
+        ret_val.append(", name=")
+        ret_val.append(self.name)
+        ret_val.append(", BLID=")
+        ret_val.append(self.bl_id)
+        ret_val.append("]")
+        return "".join(ret_val)
+
+    @classmethod
+    def json_decode(cls, obj):
+        """ Custom JSON decoder for DataciteDatacentre. """
+        cls_name = '__{}__'.format(cls.__name__)
+        if cls_name in obj:
+            data_cent = obj[cls_name]
+            return cls(data_cent['name'], data_cent['doi'], data_cent['bl_id'])
+        return obj
 
 def datacite_datacentre_iterator():
     """
@@ -96,16 +160,10 @@ def main():
     Main method entry point, parses DOIs from Datacite and outputs to
     STDOUT.
     """
-    DataciteDoiLookup.populate_lookup_table()
+    DataciteDoiLookup.initialise(DOI_STORE)
     for doi in DataciteDoiLookup.DATACENTRES:
         datacentre = DataciteDoiLookup.lookup_by_doi(doi)
         print str(datacentre)
-        # print 'Datacentre lookup {} yields {} '.format(doi,
-        #                                                datacentre.name) + \
-        #       'DOI {} and BL ID {}'.format(datacentre.doi,
-        #                                    datacentre.bl_id)
-    #     datacentre_doi, bl_id = scrape_datacite_doi(datacentre_page_rel_url)
-    #     if datacentre_doi != None and bl_id != None:
 
 if __name__ == "__main__":
     main()
