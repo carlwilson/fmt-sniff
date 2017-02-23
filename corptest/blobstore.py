@@ -133,6 +133,9 @@ class BlobStore(object):
         """ Adds file at path to corpus and returns the sha1. """
         if key in cls.BLOBS or not os.path.isfile(path):
             raise IOError
+        if sha1 is None:
+            with open(path, 'rb') as src:
+                sha1 = hashfile(src, hashlib.sha1())
         dest_path = cls.get_blob_path(sha1)
         with open(path, 'rb') as src:
             with open(dest_path, 'w+') as dest:
@@ -140,7 +143,7 @@ class BlobStore(object):
         size = os.path.getsize(path)
         cls.BLOBS.update({key : Blob(key, dest_path, ByteSequence(size, calc_sha1))})
         cls.SHA1_LOOKUP.update({calc_sha1 : key})
-        return sha1
+        return calc_sha1
 
     @classmethod
     def update_sha1_lookup(cls):

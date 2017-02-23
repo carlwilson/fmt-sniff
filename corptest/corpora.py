@@ -107,7 +107,7 @@ class Corpus(object):
         """ Update the sha1 of an item by path. """
         item = self.get_item_by_path(path)
         item.sha1 = sha1
-        self.items.update(path, item)
+        self.items.update({path : item})
 
     def add_items(self, items):
         """ Add a list of items to the corpus. """

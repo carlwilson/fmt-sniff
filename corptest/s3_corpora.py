@@ -129,7 +129,7 @@ class AS3Corpus(object):
     def update_sha1(self, etag, sha1):
         """ Updates the sha1 of an item by etag. """
         ele = self.elements.get(etag)
-        self.corpus.update(ele.key.encode('utf-8'), sha1)
+        self.corpus.update_sha1(ele.key.encode('utf-8'), sha1)
 
     def add_s3_object(self, s3_obj):
         """ Add an S3 Object to the corpus. """
