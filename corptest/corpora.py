@@ -103,12 +103,18 @@ class Corpus(object):
         """ Lookup and retrieve item by path, returns None if no path matches. """
         return self.items.get(path, None)
 
+    def update_sha1(self, path, sha1):
+        """ Update the sha1 of an item by path. """
+        item = self.get_item_by_path(path)
+        item.sha1 = sha1
+        self.items.update(path, item)
+
     def add_items(self, items):
         """ Add a list of items to the corpus. """
         for item in items:
             self.add_item(item)
 
-    def add_item(self, item, include_json=False):
+    def add_item(self, item, include_json=True):
         """ Add an item to the corpus. """
         if not include_json:
             ext = Extension.from_file_name(item.path.encode('utf-8'))

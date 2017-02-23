@@ -33,10 +33,9 @@ from boto3 import resource
 from blobstore import BlobStore
 from corpora import CorpusItem, Corpus
 from doi import DataciteDoiLookup, DataciteDatacentre
-from format_tools import Sha1Lookup
 from utilities import ObjectJsonEncoder, create_dirs, Extension
 
-from const import S3_META, EPILOG, DOI_STORE, JISC_BUCKET, BLOB_STORE_ROOT
+from const import S3_META, EPILOG, DOI_STORE, JISC_BUCKET, BLOB_STORE_ROOT, EMPTY_SHA1
 
 from . import __version__
 
@@ -92,13 +91,10 @@ class AS3Element(object):
         return obj
 
     @classmethod
-    def from_s3_object(cls, s3_obj, sha1=None):
+    def from_s3_object(cls, s3_obj, sha1=EMPTY_SHA1):
         """Create a new CorpusItem and AS3Element from a boto3 S3 key.
         """
         etag = s3_obj.e_tag[1:-1].encode('utf-8')
-        if sha1 is None:
-            sha1 = Sha1Lookup.get_sha1(etag)
-
         corpus_item = CorpusItem(sha1, s3_obj.content_length, s3_obj.last_modified,
                                  s3_obj.key.encode('utf-8'))
         s3_ele = AS3Element(s3_obj.key.encode('utf-8'), etag,
@@ -130,14 +126,19 @@ class AS3Corpus(object):
         item = self.corpus.get_item_by_path(ele.key.encode('utf-8'))
         return item, ele
 
+    def update_sha1(self, etag, sha1):
+        """ Updates the sha1 of an item by etag. """
+        ele = self.elements.get(etag)
+        self.corpus.update(ele.key.encode('utf-8'), sha1)
+
     def add_s3_object(self, s3_obj):
         """ Add an S3 Object to the corpus. """
         item, element = AS3Element.from_s3_object(s3_obj)
         self.corpus.add_item(item)
         self.add_element(element)
 
-    def add_element(self, element, include_json=False):
-        # """ Add an S3 Element to the corpus. """
+    def add_element(self, element, include_json=True):
+        """ Add an S3 Element to the corpus. """
         if not include_json:
             ext = Extension.from_file_name(element.key.encode('utf-8'))
             if ext.is_json():
@@ -197,7 +198,6 @@ class AS3Bucket(object):
         the users home dir ~/.aws/credentials and ~/.aws/config. See boto3
         documentation for details.
         """
-        Sha1Lookup.initialise()
         persist_to = cls.get_meta_file_path(bucket.name)
         if not persist:
             # No persist value passed, populate the dictionary
@@ -307,7 +307,8 @@ class AS3Bucket(object):
                 sys.stdout.flush()
                 if BlobStore.get_blob(etag) is None:
                     filename = cls.download_s3_ele_from_bucket(bucket, element, tmpdir)
-                    BlobStore.add_file(filename, element.key, item.sha1)
+                    sha1 = BlobStore.add_file(filename, element.key)
+                    corpus.update_sha1(etag, sha1)
         finally:
             try:
                 shutil.rmtree(tmpdir)
