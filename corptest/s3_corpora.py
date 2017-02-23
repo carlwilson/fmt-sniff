@@ -276,6 +276,7 @@ class AS3Bucket(object):
         """ Download corpus content from the bucket. """
         total_eles = 0
         total_size = 0
+        BlobStore.initialise(BLOB_STORE_ROOT, persist=True)
         for key in cls.CORPORA.keys():
             corpus = cls.CORPORA.get(key)
             cls.download_corpus(bucket, corpus)
@@ -305,9 +306,8 @@ class AS3Bucket(object):
                                         corpus.get_total_size()),
                 sys.stdout.flush()
                 if BlobStore.get_blob(etag) is None:
-                    continue
-                filename = cls.download_s3_ele_from_bucket(bucket, element, tmpdir)
-                BlobStore.add_file(filename, element.key, item.sha1)
+                    filename = cls.download_s3_ele_from_bucket(bucket, element, tmpdir)
+                    BlobStore.add_file(filename, element.key, item.sha1)
         finally:
             try:
                 shutil.rmtree(tmpdir)
@@ -320,8 +320,8 @@ class AS3Bucket(object):
         """Add a new BLOB from an S3 element"""
         if not ele.is_file():
             return
-        filename = os.path.join(directory, ele.get_etag())
-        bucket.download_file(ele.get_key(), filename)
+        filename = os.path.join(directory, ele.etag)
+        bucket.download_file(ele.key, filename)
         return filename
 
 def doi_from_key(key):

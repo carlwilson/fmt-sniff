@@ -182,9 +182,9 @@ class PronomId(object):
     def from_file_by_fido(cls, file_to_id):
         """Uses FIDO to identify file_to_id and returns the PronomId"""
         ret_val = []
-        file_to_id = open(file_to_id, 'rb')
+        fp_to_id = open(file_to_id, 'rb')
         size = os.stat(file_to_id)[6]
-        bofbuffer, eofbuffer, _ = cls.FIDO.get_buffers(file_to_id, size, seekable=True)
+        bofbuffer, eofbuffer, _ = cls.FIDO.get_buffers(fp_to_id, size, seekable=True)
         matches = cls.FIDO.match_formats(bofbuffer, eofbuffer)
         for (sig, sig_name) in matches:
             mime = sig.find('mime')

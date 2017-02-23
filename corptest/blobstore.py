@@ -176,19 +176,22 @@ class BlobStore(object):
     def identify_contents(cls):
         """Perform format identification for all BLOBs in the store using
             * libmagic
-            * Apache Tika
             * FIDO
         """
         blob_root = cls.ROOT + cls.__blobpath__
         for blob_name in only_files(blob_root):
-            mime_type = MimeType.from_file_by_magic(cls.get_blob_path(blob_name))
-            magic_type = MagicType.from_file_by_magic(cls.get_blob_path(blob_name))
+            path = cls.get_blob_path(blob_name)
+            mime_type = MimeType.from_file_by_magic(path)
+            magic_type = MagicType.from_file_by_magic(path)
             # tika_type = MimeType.from_file_by_tika(self.get_blob_path(blob_name))
-            fido_types = PronomId.from_file_by_fido(cls.get_blob_path(blob_name))
-            cls.FORMAT_INFO[blob_name]['magic'] = magic_type
-            cls.FORMAT_INFO[blob_name]['magic_mime'] = mime_type
+            fido_types = PronomId.from_file_by_fido(path)
+            print '{} {}'.format(str(mime_type), str(magic_type))
+            for ft in fido_types:
+                print str(ft)
+            #cls.FORMAT_INFO[blob_name]['magic'] = magic_type
+            #cls.FORMAT_INFO[blob_name]['magic_mime'] = mime_type
             # self.FORMAT_INFO[blob_name]['tika'] = tika_type
-            cls.FORMAT_INFO[blob_name]['fido'] = fido_types
+            #cls.FORMAT_INFO[blob_name]['fido'] = fido_types
 
     @classmethod
     def recalc_size(cls):
@@ -286,6 +289,7 @@ def main():
     """
     Sha1Lookup.initialise()
     BlobStore.initialise(BLOB_STORE_ROOT, persist=True)
+    BlobStore.identify_contents()
     print '{} blobs, {} bytes'.format(BlobStore.get_blob_count(), BlobStore.get_total_blob_size())
 #    print "hash checking BLOB store"
 #    blobstore.hash_check()

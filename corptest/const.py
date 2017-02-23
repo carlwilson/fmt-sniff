@@ -14,11 +14,11 @@
 import datetime
 
 SOURCE_ROOT = 'http://rdss-test-data.s3-eu-west-1.amazonaws.com/'
-BLOB_STORE_ROOT = '/home/cfw/arch/data/samp/JISC/blobstore/'
-S3_META = '/home/cfw/arch/data/samp/JISC/s3/'
-DOI_STORE = '/home/cfw/arch/data/samp/JISC/doi/lookup.json'
+BLOB_STORE_ROOT = '/vagrant_data/blobstore/'
+S3_META = '/vagrant_data/s3/'
+DOI_STORE = '/vagrant_data/doi/lookup.json'
 JISC_BUCKET = 'testdata.researchdata.alpha.jisc.ac.uk'
-RESULTS_ROOT = '/home/cfw/arch/data/samp/JISC/results/'
+RESULTS_ROOT = '/vagrant_data/results/'
 DATACITE_PAGES = range(1, 41)
 DATACITE_HTML_ROOT = 'https://search.datacite.org'
 DATACITE_PAGE_QUERY = '/data-centers?page='
