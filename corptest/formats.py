@@ -103,7 +103,7 @@ class MagicType(object):
 
 class PronomId(object):
     """Models PRONOM unique identifiers, or PUIDs and their attributes"""
-    FIDO = fido.Fido(quiet=True)
+    FIDO = fido.Fido(quiet=True, nocontainer=True)
     PUIDS = collections.defaultdict(dict)
 
     def __init__(self, puid, sig_name, mime):
@@ -152,11 +152,11 @@ class PronomId(object):
             return cls(pronom_type['puid'], pronom_type['sig'], pronom_type['mime'])
         return obj
 
-    PUIDS = collections.defaultdict(dict)
 
     @classmethod
     def initialise(cls):
         """ Load the puid info lookup from Fidos sig utilities. """
+        cls.PUIDS = collections.defaultdict(dict)
         pron_id = PronomId.get_default()
         cls.PUIDS.update({pron_id.puid : pron_id})
         for form in cls.FIDO.formats:

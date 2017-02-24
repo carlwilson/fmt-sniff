@@ -18,7 +18,7 @@ from lxml import html
 import requests
 #import simplejson as json
 
-from const import DOI_STORE, DATACITE_HTML_ROOT, DATACITE_PAGES, DATACITE_PAGE_QUERY
+from const import DOI_STORE, DATACITE_HTML_ROOT, DATACITE_PAGES, DATACITE_BL_QUERY
 from utilities import ObjectJsonEncoder, create_dirs
 # Temp hack to set up UTF-8 encoding
 reload(sys)
@@ -69,6 +69,11 @@ class DataciteDoiLookup(object):
                 datacentre = DataciteDatacentre(datacentre_name, datacentre_doi,
                                                 bl_id)
                 cls.DATACENTRES.update({datacentre.doi : datacentre})
+
+    @classmethod
+    def persist(cls, name=DOI_STORE):
+        with open(name, 'w+') as persit_file:
+            cls.save(persit_file)
 
     @classmethod
     def save(cls, dest):
@@ -129,7 +134,7 @@ def datacite_datacentre_iterator():
     # Iterate through the BL institutions, page numbers currently a constant
     for datacite_page_num in DATACITE_PAGES:
         # Print format a URL for the page scrape and grab the page HTML
-        datacite_url = '{}{}{}'.format(DATACITE_HTML_ROOT, DATACITE_PAGE_QUERY,
+        datacite_url = '{}{}{}'.format(DATACITE_HTML_ROOT, DATACITE_BL_QUERY,
                                        datacite_page_num)
         datacentre_page = requests.get(datacite_url)
         datacentre_tree = html.fromstring(datacentre_page.content)
@@ -160,7 +165,7 @@ def main():
     Main method entry point, parses DOIs from Datacite and outputs to
     STDOUT.
     """
-    DataciteDoiLookup.initialise(DOI_STORE)
+    DataciteDoiLookup.initialise()
     for doi in DataciteDoiLookup.DATACENTRES:
         datacentre = DataciteDoiLookup.lookup_by_doi(doi)
         print str(datacentre)

@@ -64,8 +64,7 @@ def main(args=None):
             sys.exit('No AS3 bucket called {} found.'.format(bucket_name))
         AS3Bucket.initialise(bucket, persist=True)
 
-    for key in AS3Bucket.CORPORA.keys():
-        corpus = AS3Bucket.CORPORA.get(key)
+    for corpus in AS3Bucket.get_corpora():
         print '{} : {}, {} items, {} bytes.'.format(corpus.datacentre.doi,
                                                     corpus.datacentre.name,
                                                     corpus.get_element_count(),

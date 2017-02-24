@@ -16,7 +16,6 @@ import json
 import os
 
 from const import BLOB_STORE_ROOT
-from formats import MimeType, MagicType, PronomId
 from format_tools import Sha1Lookup
 from utilities import ObjectJsonEncoder, only_files, hashfile, create_dirs, hash_copy_file
 
@@ -101,7 +100,6 @@ class BlobStore(object):
     ROOT = None
     BLOBS = collections.defaultdict(dict)
     SHA1_LOOKUP = collections.defaultdict(dict)
-    FORMAT_INFO = collections.defaultdict(dict)
 
     @classmethod
     def get_blob(cls, key):
@@ -174,27 +172,6 @@ class BlobStore(object):
     def get_blob_path(cls, blob_name):
         """Returns the file path of a the BLOB called blob_name"""
         return cls.ROOT + cls.__blobpath__ + blob_name
-
-    @classmethod
-    def identify_contents(cls):
-        """Perform format identification for all BLOBs in the store using
-            * libmagic
-            * FIDO
-        """
-        blob_root = cls.ROOT + cls.__blobpath__
-        for blob_name in only_files(blob_root):
-            path = cls.get_blob_path(blob_name)
-            mime_type = MimeType.from_file_by_magic(path)
-            magic_type = MagicType.from_file_by_magic(path)
-            # tika_type = MimeType.from_file_by_tika(self.get_blob_path(blob_name))
-            fido_types = PronomId.from_file_by_fido(path)
-            print '{} {}'.format(str(mime_type), str(magic_type))
-            for ft in fido_types:
-                print str(ft)
-            #cls.FORMAT_INFO[blob_name]['magic'] = magic_type
-            #cls.FORMAT_INFO[blob_name]['magic_mime'] = mime_type
-            # self.FORMAT_INFO[blob_name]['tika'] = tika_type
-            #cls.FORMAT_INFO[blob_name]['fido'] = fido_types
 
     @classmethod
     def recalc_size(cls):
@@ -280,11 +257,6 @@ class BlobStore(object):
             blob = Blob(blob_name, path, byte_seq)
             cls.BLOBS.update({blob_name : blob})
 
-    @classmethod
-    def get_format_info(cls):
-        """Get the collections of format information"""
-        return cls.FORMAT_INFO
-
 def main():
     """
     Main method entry point, parses DOIs from Datacite and outputs to
@@ -292,14 +264,9 @@ def main():
     """
     Sha1Lookup.initialise()
     BlobStore.initialise(BLOB_STORE_ROOT, persist=True)
-    BlobStore.identify_contents()
     print '{} blobs, {} bytes'.format(BlobStore.get_blob_count(), BlobStore.get_total_blob_size())
-#    print "hash checking BLOB store"
-#    blobstore.hash_check()
-
-#    print "Running blobstore format identification"
-#    blobstore.identify_contents()
-
+    print "hash checking BLOB store"
+    BlobStore.hash_check()
 
 if __name__ == "__main__":
     main()

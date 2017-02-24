@@ -120,11 +120,21 @@ class AS3Corpus(object):
         """Returns the total size of all S3 elements in the corpus in bytes"""
         return self.corpus.get_total_size()
 
+    def get_pairs(self, include_json=True):
+        """Generator that iterates through the corpus and S3 pairs. """
+        for etag in self.elements.keys():
+            element = self.elements.get(etag)
+            if not include_json:
+                ext = Extension.from_file_name(element.key.encode('utf-8'))
+                if ext.is_json():
+                    continue
+            yield self.get_pair(etag)
+
     def get_pair(self, etag):
         """Returns a corups intem and AS3 element pair for a given etag."""
-        ele = self.elements.get(etag)
-        item = self.corpus.get_item_by_path(ele.key.encode('utf-8'))
-        return item, ele
+        element = self.elements.get(etag)
+        item = self.corpus.get_item_by_path(element.key.encode('utf-8'))
+        return item, element
 
     def update_sha1(self, etag, sha1):
         """ Updates the sha1 of an item by etag. """
@@ -137,12 +147,8 @@ class AS3Corpus(object):
         self.corpus.add_item(item)
         self.add_element(element)
 
-    def add_element(self, element, include_json=True):
+    def add_element(self, element):
         """ Add an S3 Element to the corpus. """
-        if not include_json:
-            ext = Extension.from_file_name(element.key.encode('utf-8'))
-            if ext.is_json():
-                return
         self.elements.update({element.etag : element})
 
     def __str__(self):
@@ -190,6 +196,12 @@ class AS3Bucket(object):
     def get_corpus(cls, corpus_key):
         """Lookup and retrieve a corpus by name, returns None if no corpus."""
         return cls.CORPORA.get(corpus_key, None)
+
+    @classmethod
+    def get_corpora(cls):
+        """Python generator function that returns the corpora."""
+        for corpus in cls.CORPORA.values():
+            yield corpus
 
     @classmethod
     def initialise(cls, bucket, persist=False):
@@ -277,8 +289,7 @@ class AS3Bucket(object):
         total_eles = 0
         total_size = 0
         BlobStore.initialise(BLOB_STORE_ROOT, persist=True)
-        for key in cls.CORPORA.keys():
-            corpus = cls.CORPORA.get(key)
+        for corpus in cls.get_corpora():
             cls.download_corpus(bucket, corpus)
             total_eles += corpus.get_element_count()
             total_size += corpus.get_total_size()
@@ -296,8 +307,8 @@ class AS3Bucket(object):
                "totalling {1:d} bytes.").format(total_eles, corpus.get_total_size())
         tmpdir = tempfile.mkdtemp()
         try:
-            for etag in corpus.elements.keys():
-                item, element = corpus.get_pair(etag)
+            for item, element in corpus.get_pairs():
+                etag = element.etag
                 downloaded_bytes += item.size
                 ele_count += 1
                 print ('Downloading item number {0:d}/{1:d}, {2:d} of ' + \
@@ -384,13 +395,18 @@ def main(args=None):
         sys.stdout.write(version_header)
         sys.exit(0)
 
+    bucket_name = args.bucket
+    bucket_exists, bucket = get_s3_bucket_by_name(bucket_name)
+    if not bucket_exists:
+        sys.exit('No AS3 bucket called {} found.'.format(bucket_name))
+    AS3Bucket.initialise(bucket, persist=True)
+
     if args.download:
-        bucket_name = args.bucket
-        bucket_exists, bucket = get_s3_bucket_by_name(bucket_name)
-        if not bucket_exists:
-            sys.exit('No AS3 bucket called {} found.'.format(bucket_name))
-        AS3Bucket.initialise(bucket, persist=True)
         AS3Bucket.download_bucket(bucket)
+
+    if args.list:
+        for corpus in AS3Bucket.get_corpora():
+            print '{} : {}'.format(corpus.datacentre.doi, corpus.datacentre.name)
 
 if __name__ == "__main__":
     main()

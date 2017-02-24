@@ -16,8 +16,7 @@ import os.path
 
 from blobstore import BlobStore
 from const import RESULTS_ROOT, BLOB_STORE_ROOT
-from formats import FormatTool, ToolResult, PronomId
-from format_tools import MagicLookup, MimeLookup, Sha1Lookup, DroidLookup
+from formats import FormatTool, MagicType, MimeType, ToolResult, PronomId
 from utilities import ObjectJsonEncoder, create_dirs
 
 class ToolRegistry(object):
@@ -140,10 +139,6 @@ def main():
     ToolRegistry.initialise(tools=[FormatTool("file", "5.25"), FormatTool("tika", "1.14"),
                                    FormatTool("droid", "6.3"), FormatTool("fido", "1.3.5"),
                                    FormatTool("python-magic", "0.4.12")], persist=True)
-    Sha1Lookup.initialise()
-    MagicLookup.initialise()
-    MimeLookup.initialise()
-    DroidLookup.initialise()
 
     BlobStore.initialise(BLOB_STORE_ROOT, persist=True)
     ResultRegistry.initialise(persist=True)
@@ -177,13 +172,33 @@ def main():
     #     ResultRegistry.add_result(sha_1, "droid", droid_result)
     #
     # ResultRegistry.persist()
-
+    ele_count = 0
+    total_eles = BlobStore.get_blob_count()
+    PronomId.initialise()
     for key in BlobStore.BLOBS.keys():
+        ele_count += 1
+        print ('Identifying blob {0:d} of {1:d}\r').format(ele_count, total_eles),
         blob = BlobStore.get_blob(key)
         sha_1 = blob.byte_sequence.sha_1
-        results = ResultRegistry.results_for_sha1(sha_1)
-        print 'droid : ' + str(results.get('droid'))
-        print 'file : ' + str(results.get('file'))
+        path = BlobStore.get_blob_path(key)
+        # mime_type = MimeType.from_file_by_magic(path)
+        # magic_type = MagicType.from_file_by_magic(path)
+        # py_magic_result = ToolResult(FormatTool("python-magic", "0.4.12"),
+        #                              mime_type, magic_type, PronomId.get_default())
+        # ResultRegistry.add_result(sha_1, "python-magic", py_magic_result)
+        fido_types = PronomId.from_file_by_fido(path)
+        if len(fido_types) > 0:
+            pronom_result = fido_types[0]
+            pronom_result = PronomId.get_pronom_type(pronom_result.puid)
+            mime_type = MimeType.get_default()
+            if not pronom_result is None and not pronom_result.mime is None:
+                mime_type = MimeType.from_mime_string(pronom_result.mime)
+        # mime_string = TikaLookup.mime_lookup.get(sha_1)
+        # mime_type = MimeType.from_mime_string(mime_string)
+        fido_result = ToolResult(FormatTool("fido", "1.3.5"), mime_type,
+                                 MagicType.get_default(), pronom_result)
+        ResultRegistry.add_result(sha_1, "fido-nocont", fido_result)
+    ResultRegistry.persist()
 
 if __name__ == "__main__":
     main()

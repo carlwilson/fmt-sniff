@@ -89,7 +89,8 @@ class DroidLookup(object):
                 parts = line.split(',')
                 if len(parts) < 2:
                     continue
-                key = Sha1Lookup.get_sha1(parts[0].split('/')[3])
+                tag = parts[0].split('/')[3].strip()
+                key = Sha1Lookup.get_sha1(tag)
                 puid = parts[1][:-1]
                 if not key in cls.puid_lookup:
                     cls.puid_lookup.update({key : puid})
@@ -98,3 +99,22 @@ class DroidLookup(object):
     def get_puid(cls, key):
         """ Retrieve and return PUID string by key. """
         return cls.puid_lookup.get(key, None)
+
+class TikaLookup(object):
+    """ Lookup class for Tika tika-ident pairs in serialised output. """
+    mime_lookup = collections.defaultdict(dict)
+
+    @classmethod
+    def initialise(cls, source_path='/home/cfw/arch/data/samp/JISC/test-output/tika-ident.txt'):
+        """ Clear and load the lookup table from the supplied or default source_path. """
+        cls.mime_lookup.clear()
+        with open(source_path) as src_file:
+            for line in src_file:
+                parts = line.split(':')
+                if len(parts) < 2:
+                    continue
+                tag = parts[0].strip()
+                key = Sha1Lookup.get_sha1(tag)
+                mime_string = parts[1].strip()
+                if not key in cls.mime_lookup:
+                    cls.mime_lookup.update({key : mime_string})

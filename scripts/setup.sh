@@ -16,6 +16,7 @@ sudo unzip /tmp/droid-binary-6.3-bin.zip
 sudo chmod +x droid.sh
 sudo ln -s /usr/local/lib/tna-droid/droid.sh /usr/local/bin/droid
 sudo wget http://www.nationalarchives.gov.uk/documents/DROID_SignatureFile_V88.xml
+http://www.nationalarchives.gov.uk/documents/container-signature-20160927.xml
 
 # Create the handy application works for Apache Tika
 sudo mkdir /usr/local/lib/apache-tika

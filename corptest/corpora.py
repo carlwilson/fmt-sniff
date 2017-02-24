@@ -95,6 +95,17 @@ class Corpus(object):
         """Returns the total size of all items in the corpus in bytes"""
         return self.total_size
 
+    def get_items(self, include_json=True):
+        """ Iterate through items. """
+        for key in self.items.keys():
+            item = self.items.get(key)
+            if not include_json:
+                ext = Extension.from_file_name(item.path.encode('utf-8'))
+                if ext.is_json():
+                    continue
+            yield item
+
+
     def get_paths(self):
         """Returns the list of unique paths in the corpus."""
         return self.items.keys()
@@ -114,12 +125,8 @@ class Corpus(object):
         for item in items:
             self.add_item(item)
 
-    def add_item(self, item, include_json=True):
+    def add_item(self, item):
         """ Add an item to the corpus. """
-        if not include_json:
-            ext = Extension.from_file_name(item.path.encode('utf-8'))
-            if ext.is_json():
-                return
         if item.path in self.items:
             self.total_size -= self.items.get(item.path).size
         self.items.update({item.path.encode('utf-8') : item})

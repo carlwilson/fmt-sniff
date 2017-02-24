@@ -16,7 +16,7 @@ import datetime
 EMPTY_SHA1 = 'da39a3ee5e6b4b0d3255bfef95601890afd80709'
 SOURCE_ROOT = 'http://rdss-test-data.s3-eu-west-1.amazonaws.com/'
 JISC_BUCKET = 'testdata.researchdata.alpha.jisc.ac.uk'
-RDSS_ROOT='/vagrant_data/'
+RDSS_ROOT = '/home/cfw/arch/data/samp/JISC/'
 BLOB_STORE_ROOT = ''.join([RDSS_ROOT, 'blobstore/'])
 S3_META = ''.join([RDSS_ROOT, 's3/'])
 DOI_STORE = ''.join([RDSS_ROOT, 'doi/lookup.json'])
@@ -24,6 +24,7 @@ RESULTS_ROOT = ''.join([RDSS_ROOT, 'results/'])
 DATACITE_PAGES = range(1, 41)
 DATACITE_HTML_ROOT = 'https://search.datacite.org'
 DATACITE_PAGE_QUERY = '/data-centers?page='
+DATACITE_BL_QUERY = '/data-centers?member-id=bl&page='
 EPILOG = """
 JISC (https://www.jisc.ac.uk)
 Open Preservation Foundation (http://www.openpreservation.org)
