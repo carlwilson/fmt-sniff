@@ -15,11 +15,12 @@ import datetime
 
 EMPTY_SHA1 = 'da39a3ee5e6b4b0d3255bfef95601890afd80709'
 SOURCE_ROOT = 'http://rdss-test-data.s3-eu-west-1.amazonaws.com/'
-BLOB_STORE_ROOT = '/vagrant_data/blobstore/'
-S3_META = '/vagrant_data/s3/'
-DOI_STORE = '/vagrant_data/doi/lookup.json'
 JISC_BUCKET = 'testdata.researchdata.alpha.jisc.ac.uk'
-RESULTS_ROOT = '/vagrant_data/results/'
+RDSS_ROOT='/vagrant_data/'
+BLOB_STORE_ROOT = ''.join([RDSS_ROOT, 'blobstore/'])
+S3_META = ''.join([RDSS_ROOT, 's3/'])
+DOI_STORE = ''.join([RDSS_ROOT, 'doi/lookup.json'])
+RESULTS_ROOT = ''.join([RDSS_ROOT, 'results/'])
 DATACITE_PAGES = range(1, 41)
 DATACITE_HTML_ROOT = 'https://search.datacite.org'
 DATACITE_PAGE_QUERY = '/data-centers?page='
