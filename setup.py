@@ -22,41 +22,41 @@ def find_version(*file_paths):
         return version_match.group(1)
     raise RuntimeError("Unable to find version string.")
 
-
-install_requires = [
+INSTALL_REQUIRES = [
     'setuptools',
     'six == 1.10.0',
 ]
 
-
-setup_requires = [
+SETUP_REQUIRES = [
     'pytest-runner',
 ]
 
-
-tests_require = [
+TEST_REQUIRES = [
     'pytest',
 ]
 
-
 setup(name='jiscrdss-fmtsniff',
       description='JISC Research Data Shared Service : Format identification toolset.',
-      long_description='JISCRDSS Python tools to test format identification tools across test corpora, primarily held on Amazon S3 storage.',
+      long_description='JISCRDSS Python tools to test format identification tools \
+                        across test corpora, primarily held on Amazon S3 storage.',
       author='Carl Wilson',
       author_email='carl@openpreservation.org',
       url="http://github.com/carlwilson/fmt-sniff",
       version=find_version('corptest', '__init__.py'),
-      install_requires=install_requires,
-      setup_requires=setup_requires,
-      tests_require=tests_require,
+      install_requires=INSTALL_REQUIRES,
+      setup_requires=SETUP_REQUIRES,
+      tests_require=TEST_REQUIRES,
       packages=['corptest'],
       package_data={'corptest': ['*.*', 'conf/*.*']},
       keywords="mime magic",
       license="GPL",
       test_suite='test',
       entry_points={'console_scripts': [
-          'corptest = corptest.scraper:main',
-          'doi-parse = corptest.doi:main',
+          'analyse = corptest.analyser:main',
+          'corptest = corptest.corptest:main',
+          'blob-tools = corptest.blobstore:main',
+          'doi-tools = corptest.doi:main',
+          's3-tools = corptest.s3_corpora:main'
       ]},
       classifiers=[
           'Intended Audience :: Archivists',

@@ -11,8 +11,7 @@
 #
 """Classes for reporting corpus results"""
 
-from blobstore import BlobStore
-from formats import Extension
+from utilities import Extension
 import pystache
 
 class CorpusReporter(object):
@@ -93,7 +92,8 @@ class CorpusReporter(object):
     @classmethod
     def corpus_report(cls, corpus, blobstore):
         """Generates a corpus report from corpus and blobstore"""
-        types = BlobStore.get_format_info()
+        # types = BlobStore.get_format_info()
+        types = []
         extensions = {}
         tika_mimes = {}
         magics = {}

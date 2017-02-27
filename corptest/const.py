@@ -13,13 +13,25 @@
 
 import datetime
 
+EMPTY_SHA1 = 'da39a3ee5e6b4b0d3255bfef95601890afd80709'
 SOURCE_ROOT = 'http://rdss-test-data.s3-eu-west-1.amazonaws.com/'
-BLOB_STORE_ROOT = '/home/cfw/arch/data/samp/JISC/blobstore/'
 JISC_BUCKET = 'testdata.researchdata.alpha.jisc.ac.uk'
-DATACITE_PAGES = [1, 2, 3, 4]
+RDSS_ROOT = '/home/cfw/arch/data/samp/JISC/'
+BLOB_STORE_ROOT = ''.join([RDSS_ROOT, 'blobstore/'])
+S3_META = ''.join([RDSS_ROOT, 's3/'])
+DOI_STORE = ''.join([RDSS_ROOT, 'doi/lookup.json'])
+RESULTS_ROOT = ''.join([RDSS_ROOT, 'results/'])
+DATACITE_PAGES = range(1, 41)
 DATACITE_HTML_ROOT = 'https://search.datacite.org'
-DATACITE_PAGE_QUERY = '/data-centers?member-id=bl&page='
-
+DATACITE_PAGE_QUERY = '/data-centers?page='
+DATACITE_BL_QUERY = '/data-centers?member-id=bl&page='
+EPILOG = """
+JISC (https://www.jisc.ac.uk)
+Open Preservation Foundation (http://www.openpreservation.org)
+See License.txt for license information.
+Author: Carl Wilson (OPF), 2016-17
+This work was funded by the JISC Research Data Shared Service project
+You can read more about this at https://www.jisc.ac.uk/rd/projects/research-data-shared-service"""
 
 class AS3EleFields(object):
     """Field names and default for AS3 Element type"""
@@ -34,6 +46,10 @@ class AS3EleFields(object):
         MODIFIED: datetime.date.today()
     }
 
+    @classmethod
+    def default(cls):
+        """Return the default instance"""
+        return cls.DEFAULT
 
 class AS3Tags(object):
     """XML tag names for AS3 element"""
