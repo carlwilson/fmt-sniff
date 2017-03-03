@@ -11,6 +11,7 @@
 # http://stackoverflow.com/questions/3431825/generating-an-md5-checksum-of-a-file
 """Classes for binary object store"""
 import collections
+import errno
 import hashlib
 import json
 import os
@@ -21,26 +22,32 @@ from utilities import ObjectJsonEncoder, only_files, hashfile, create_dirs, hash
 
 class ByteSequence(object):
     """Key attributes for all byte sequences, i.e. arbitary blobs of data."""
-    def __init__(self, size, sha_1):
+    EMPTY_SHA1 = 'da39a3ee5e6b4b0d3255bfef95601890afd80709'
+    def __init__(self, sha1=EMPTY_SHA1, size=0):
+        self.sha1 = sha1
         self.size = size
-        self.sha_1 = sha_1
+
+    def get_sha1(self):
+        """Returns the SHA-1 hash of the ByteSequence, use as an id."""
+        return self.sha1
 
     def get_size(self):
         """Return the size of the ByteSequence in bytes."""
         return self.size
 
-    def get_sha1(self):
-        """Returns the SHA-1 hash of the ByteSequence, use as an id."""
-        return self.sha_1
-
     def __str__(self):
         ret_val = []
-        ret_val.append("ByteSequence : [size=")
+        ret_val.append("ByteSequence : [sha1=")
+        ret_val.append(self.sha1)
+        ret_val.append(", size=")
         ret_val.append(str(self.size))
-        ret_val.append(", sha_1=")
-        ret_val.append(self.sha_1)
         ret_val.append("]")
         return "".join(ret_val)
+
+    @classmethod
+    def default_instance(cls):
+        """ Returns the default instance, an empty byte sequence. """
+        return ByteSequence()
 
     @classmethod
     def json_decode(cls, obj):
@@ -48,47 +55,7 @@ class ByteSequence(object):
         cls_name = '__{}__'.format(cls.__name__)
         if cls_name in obj:
             byte_seq = obj[cls_name]
-            return cls(byte_seq['size'], byte_seq['sha_1'])
-        return obj
-
-class Blob(object):
-    """ Wrapper for blobs stored in the blob store. """
-    def __init__(self, key, path, byte_seq):
-        self.key = key
-        self.path = path
-        self.byte_sequence = byte_seq
-
-    def get_key(self):
-        """ Get the key for the Blob. """
-        return self.key
-
-    def get_path(self):
-        """ Get the path to the file for the Blob. """
-        return self.path
-
-    def get_byte_sequence(self):
-        """ Get the ByteSequence details. """
-        return self.byte_sequence
-
-    def __str__(self):
-        ret_val = []
-        ret_val.append("Blob : [key=")
-        ret_val.append(self.key)
-        ret_val.append(", path=")
-        ret_val.append(self.path)
-        ret_val.append(", byte_sequence=")
-        ret_val.append(str(self.byte_sequence))
-        ret_val.append("]")
-        return "".join(ret_val)
-
-    @classmethod
-    def json_decode(cls, obj):
-        """ Custom JSON decoder for ByteSequence. """
-        cls_name = '__{}__'.format(cls.__name__)
-        if cls_name in obj:
-            blob = obj[cls_name]
-            return cls(blob['key'], blob['path'],
-                       ByteSequence.json_decode(blob['byte_sequence']))
+            return cls(byte_seq['sha1'], byte_seq['size'])
         return obj
 
 class BlobStore(object):
@@ -96,177 +63,149 @@ class BlobStore(object):
     __blobpath__ = 'blobs/'
     __metapath__ = 'meta/'
     __blobmeta__ = __metapath__ + 'blob.json'
-    SIZE = 0
-    ROOT = None
-    BLOBS = collections.defaultdict(dict)
-    SHA1_LOOKUP = collections.defaultdict(dict)
+    def __init__(self, root, persist=True):
+        self.root = root
+        self.size = 0
+        self.blobs = collections.defaultdict(dict)
+        self.is_persistent = persist
+        self.initialise()
 
-    @classmethod
-    def get_blob(cls, key):
+    def get_blob(self, sha1):
         """ Get a blob by it's key. """
-        return cls.BLOBS.get(key, None)
+        return self.blobs.get(sha1, None)
 
-    @classmethod
-    def get_blob_by_sha1(cls, sha1):
-        """ Get a blob by it's sha1. """
-        key = cls.SHA1_LOOKUP.get(sha1, None)
-        if key is None:
-            return None
-        return cls.BLOBS.get(key, None)
-
-    @classmethod
-    def get_blob_count(cls):
+    def get_blob_count(self):
         """ Returns the number of blobs in the store. """
-        return len(cls.BLOBS)
+        return len(self.blobs)
 
-    @classmethod
-    def get_total_blob_size(cls):
+    def get_size(self):
         """ Returns the number of bytes in the store. """
-        if cls.SIZE < 1:
-            cls.SIZE = cls.recalc_size()
-        return cls.SIZE
+        if self.size < 1:
+            self.size = self.calculate_size()
+        return self.size
 
-    @classmethod
-    def add_file(cls, path, key, sha1=None):
+    def is_store_persistent(self):
+        """ Return true if the blob store is persistent. """
+        return self.is_persistent
+
+    def add_file(self, path, sha1=None):
         """ Adds file at path to corpus and returns the sha1. """
-        if key in cls.BLOBS or not os.path.isfile(path):
-            raise IOError
+        if not os.path.isfile(path):
+            raise IOError(errno.ENOENT, os.strerror(errno.ENOENT), path)
         if sha1 is None:
             with open(path, 'rb') as src:
                 sha1 = hashfile(src, hashlib.sha1())
-        dest_path = cls.get_blob_path(sha1)
-        with open(path, 'rb') as src:
-            with open(dest_path, 'w+') as dest:
-                calc_sha1 = hash_copy_file(src, dest, hashlib.sha1())
-        size = os.path.getsize(path)
-        cls.BLOBS.update({key : Blob(key, dest_path, ByteSequence(size, calc_sha1))})
-        cls.SHA1_LOOKUP.update({calc_sha1 : key})
-        return calc_sha1
+        if not sha1 in self.blobs.keys():
+            dest_path = self.get_blob_path(sha1)
+            with open(path, 'rb') as src:
+                with open(dest_path, 'w+') as dest:
+                    calc_sha1 = hash_copy_file(src, dest, hashlib.sha1())
+            if calc_sha1 != sha1:
+                raise IOError(errno.ENOENT, os.strerror(errno.ENOENT),
+                              'SHA1 failure copying {}.'.format(path))
+            size = os.path.getsize(path)
+            self.blobs.update({calc_sha1 : ByteSequence(calc_sha1, size)})
+        return sha1
 
-    @classmethod
-    def update_sha1_lookup(cls):
-        """Recalcs the sha1 to key lookup table."""
-        cls.SHA1_LOOKUP.clear()
-        for key in cls.BLOBS.keys():
-            blob = cls.BLOBS.get(key)
-            cls.SHA1_LOOKUP.update({blob.byte_sequence.sha_1 : key})
-
-    @classmethod
-    def hash_check(cls):
+    def hash_check(self):
         """Performs a hash check of all BLOBs in the store"""
-        blob_root = cls.ROOT + cls.__blobpath__
+        blob_root = self.root + self.__blobpath__
         fnamelst = only_files(blob_root)
         tuples_to_check = [(fname, hashfile(open(blob_root + fname, 'rb'),
-                                            hashlib.md5())) for fname in fnamelst]
+                                            hashlib.sha1())) for fname in fnamelst]
         for to_check in tuples_to_check:
             if to_check[0] != to_check[1]:
                 print "Digest mis-maatch for file " + blob_root + to_check[0] + \
                 ", calculated: " + to_check[1]
 
-    @classmethod
-    def get_root(cls):
+    def get_root(self):
         """Get the root directory for the BLOB store"""
-        return cls.ROOT
+        return self.root
 
-    @classmethod
-    def get_blob_path(cls, blob_name):
+    def get_blob_path(self, sha1):
         """Returns the file path of a the BLOB called blob_name"""
-        return cls.ROOT + cls.__blobpath__ + blob_name
+        return self.root + self.__blobpath__ + sha1
 
-    @classmethod
-    def recalc_size(cls):
+    def calculate_size(self):
         """ Returns the recalculated total size of the blob store but doesn't
         update the cls.SIZE attribute.
         """
         total_size = 0
-        for val in cls.BLOBS.values():
-            total_size += val.get_byte_sequence().get_size()
+        for byte_seq in self.blobs.values():
+            total_size += byte_seq.get_size()
         return total_size
 
-    @classmethod
-    def initialise(cls, root_dir, persist=False):
+    def initialise(self):
         """ If persist_to exists, tries to load a serialised lookup table from it.
         Populates lookup table and saves to persist_to if persist_to doesn't exist.
         """
-        cls.check_and_create_root(root_dir)
+        self.check_and_create_root()
 
-        if not persist:
+        if not self.is_persistent:
             # No persist requested, populate the dictionary
-            cls.reload_blobs()
+            self.reload_blobs()
             return
 
-        persist_to = cls.get_blob_meta_path()
+        persist_to = self.get_blob_meta_path()
         if os.path.isfile(persist_to):
             # Persistence file exists, load the dictionary
             with open(persist_to, 'r') as lookup_file:
-                cls.load(lookup_file)
+                self.load(lookup_file)
         else:
-            cls.reload_blobs()
+            self.reload_blobs()
             with open(persist_to, 'w+') as lookup_file:
-                cls.save(lookup_file)
+                self.save(lookup_file)
 
-    @classmethod
-    def get_blob_meta_path(cls):
+    def get_blob_meta_path(self):
         """ Returns the full path of the Blob metadata file. """
-        return cls.ROOT + cls.__blobmeta__
+        return self.root + self.__class__.__blobmeta__
 
-    @classmethod
-    def persist(cls):
+    def persist(self):
         """ Persists the current state of the internal blobstore dictionary
         to the default location, overwriting the existing state.
         """
-        persist_to = cls.get_blob_meta_path()
+        persist_to = self.get_blob_meta_path()
         with open(persist_to, 'w+') as lookup_file:
-            cls.save(lookup_file)
+            self.save(lookup_file)
 
-    @classmethod
-    def save(cls, dest):
+    def save(self, dest):
         """ Serialise the datacentre lookup dictionary to fp (a write() supporting
         file-like object). """
-        json.dump(cls.BLOBS, dest, cls=ObjectJsonEncoder)
+        json.dump(self.blobs, dest, cls=ObjectJsonEncoder)
 
-    @classmethod
-    def load(cls, src):
+    def load(self, src):
         """ Loads the datacentre lookup dictionary from fp (a read() supporting
         file like object)."""
-        cls.BLOBS.clear()
-        cls.SIZE = 0
-        cls.BLOBS = json.load(src, object_hook=Blob.json_decode)
-        cls.update_sha1_lookup()
+        self.blobs.clear()
+        self.size = 0
+        self.blobs = json.load(src, object_hook=ByteSequence.json_decode)
 
-    @classmethod
-    def check_and_create_root(cls, root_dir):
+    def check_and_create_root(self):
         """ Checks that the root dirs for the BlobStore exist and makes
         them if missing.
         """
-        cls.ROOT = root_dir
-        dirs = ['', cls.__blobpath__, cls.__metapath__]
+        dirs = ['', self.__blobpath__, self.__metapath__]
         for directory in dirs:
-            create_dirs(cls.ROOT + directory)
+            create_dirs(self.root + directory)
 
-    @classmethod
-    def reload_blobs(cls):
+    def reload_blobs(self):
         """ Clears the lookup dictionary and loads the details of blob files
         from scratch.
         """
-        cls.BLOBS.clear()
-        blob_root = cls.ROOT + cls.__blobpath__
+        self.blobs.clear()
+        blob_root = self.root + self.__blobpath__
         for blob_name in only_files(blob_root):
             path = blob_root + blob_name
-            byte_seq = ByteSequence(os.path.getsize(path), Sha1Lookup.get_sha1(blob_name))
-            blob = Blob(blob_name, path, byte_seq)
-            cls.BLOBS.update({blob_name : blob})
+            byte_seq = ByteSequence(Sha1Lookup.get_sha1(blob_name), os.path.getsize(path))
+            self.blobs.update({blob_name : byte_seq})
 
 def main():
     """
     Main method entry point, parses DOIs from Datacite and outputs to
     STDOUT.
     """
-    Sha1Lookup.initialise()
-    BlobStore.initialise(BLOB_STORE_ROOT, persist=True)
-    print '{} blobs, {} bytes'.format(BlobStore.get_blob_count(), BlobStore.get_total_blob_size())
-    print "hash checking BLOB store"
-    BlobStore.hash_check()
+    blob_store = BlobStore(BLOB_STORE_ROOT, persist=False)
+    print 'Blobstore contains {} blobs, {} bytes'.format(blob_store.get_blob_count(), blob_store.get_size())
 
 if __name__ == "__main__":
     main()

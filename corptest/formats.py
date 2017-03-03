@@ -108,12 +108,8 @@ class PronomId(object):
 
     def __init__(self, puid, sig_name, mime):
         self.puid = puid
-        if sig_name is None:
-            sig_name = "Unknown"
-        self.sig = sig_name
-        if mime is None:
-            mime = str(MimeType.get_default())
-        self.mime = mime
+        self.sig = "Unknown" if sig_name is None else sig_name
+        self.mime = str(MimeType.get_default()) if mime is None else mime
 
     def get_puid(self):
         """The PUID's String value"""
@@ -151,7 +147,6 @@ class PronomId(object):
             pronom_type = obj[cls_name]
             return cls(pronom_type['puid'], pronom_type['sig'], pronom_type['mime'])
         return obj
-
 
     @classmethod
     def initialise(cls):
@@ -217,6 +212,13 @@ class MimeType(object):
     def get_parameters(self):
         """Returns any parameters for the MIME id"""
         return self.params
+
+    def get_short_string(self):
+        ret_val = []
+        ret_val.append(self.type)
+        ret_val.append(self.TYPE_DELIM)
+        ret_val.append(self.subtype)
+        return "".join(ret_val)
 
     def __str__(self):
         ret_val = []

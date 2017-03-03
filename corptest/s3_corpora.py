@@ -30,12 +30,12 @@ import tempfile
 from botocore import exceptions
 from boto3 import resource
 
-from blobstore import BlobStore
+from blobstore import BlobStore, ByteSequence
 from corpora import CorpusItem, Corpus
-from doi import DataciteDoiLookup, DataciteDatacentre
+from format_tools import Sha1Lookup
 from utilities import ObjectJsonEncoder, create_dirs, Extension
 
-from const import S3_META, EPILOG, DOI_STORE, JISC_BUCKET, BLOB_STORE_ROOT, EMPTY_SHA1
+from const import S3_META, EPILOG, JISC_BUCKET, BLOB_STORE_ROOT
 
 from . import __version__
 
@@ -91,10 +91,12 @@ class AS3Element(object):
         return obj
 
     @classmethod
-    def from_s3_object(cls, s3_obj, sha1=EMPTY_SHA1):
+    def from_s3_object(cls, s3_obj, sha1=ByteSequence.EMPTY_SHA1):
         """Create a new CorpusItem and AS3Element from a boto3 S3 key.
         """
         etag = s3_obj.e_tag[1:-1].encode('utf-8')
+        if sha1 == ByteSequence.EMPTY_SHA1:
+            sha1 = Sha1Lookup.get_sha1(etag)
         corpus_item = CorpusItem(sha1, s3_obj.content_length, s3_obj.last_modified,
                                  s3_obj.key.encode('utf-8'))
         s3_ele = AS3Element(s3_obj.key.encode('utf-8'), etag,
@@ -103,9 +105,9 @@ class AS3Element(object):
 
 class AS3Corpus(object):
     """A corpus of test data downloaded from S3"""
-    def __init__(self, corpus, datacentre):
+    def __init__(self, corpus, doi):
         self.corpus = corpus
-        self.datacentre = datacentre
+        self.doi = doi
         self.elements = collections.defaultdict(dict)
 
     def get_corpus(self):
@@ -155,8 +157,8 @@ class AS3Corpus(object):
         ret_val = []
         ret_val.append("AS3Corpus : [corpus=")
         ret_val.append(str(self.corpus))
-        ret_val.append(", datacentre=")
-        ret_val.append(str(self.datacentre))
+        ret_val.append(", doi=")
+        ret_val.append(str(self.doi))
         ret_val.append(", elements=[")
         ele_count = 0
         for value in self.elements.values():
@@ -173,8 +175,7 @@ class AS3Corpus(object):
         cls_name = '__{}__'.format(cls.__name__)
         if cls_name in obj:
             as3_corp = obj[cls_name]
-            corpus = cls(Corpus.json_decode(as3_corp['corpus']),
-                         DataciteDatacentre.json_decode(as3_corp['datacentre']))
+            corpus = cls(Corpus.json_decode(as3_corp['corpus']), as3_corp['doi'])
             for ele in as3_corp['elements'].values():
                 corpus.add_element(AS3Element.json_decode(ele))
             return corpus
@@ -183,128 +184,142 @@ class AS3Corpus(object):
 class AS3Bucket(object):
     """Holds bucket details and a collection of contained copora."""
     UNKNOWN_KEY = "Unknown"
-    CORPORA = collections.defaultdict(dict)
+    def __init__(self, bucket_name, persist=False):
+        self.bucket_name = bucket_name
+        self.persist = persist
+        self.size = 0
+        self.corpora = collections.defaultdict(dict)
+        self.initialise()
 
-    @classmethod
-    def get_corpus_keys(cls):
+    def get_corpus_keys(self):
         """Returns the list of corpus keys which can be used to retrieve a
         paticular corpus.
         """
-        return cls.CORPORA.keys()
+        return self.corpora.keys()
 
-    @classmethod
-    def get_corpus(cls, corpus_key):
+    def get_corpus(self, corpus_key):
         """Lookup and retrieve a corpus by name, returns None if no corpus."""
-        return cls.CORPORA.get(corpus_key, None)
+        return self.corpora.get(corpus_key, None)
 
-    @classmethod
-    def get_corpora(cls):
+    def get_corpora(self):
         """Python generator function that returns the corpora."""
-        for corpus in cls.CORPORA.values():
+        for corpus in self.corpora.values():
             yield corpus
 
-    @classmethod
-    def initialise(cls, bucket, persist=False):
+    def initialise(self):
         """Creates a new AS3Corpus from a given bucket using boto3 and
         the S3 API. It assumes that credentials and regio are supplied in
         the users home dir ~/.aws/credentials and ~/.aws/config. See boto3
         documentation for details.
         """
-        persist_to = cls.get_meta_file_path(bucket.name)
-        if not persist:
+        if not self.persist:
             # No persist value passed, populate the dictionary
-            cls.reload_corpora(bucket)
-        elif os.path.isfile(persist_to):
+            self.reload()
+            return
+
+        persist_to = self.get_meta_file_path()
+        if os.path.isfile(persist_to):
             # Persistence file exists, load the dictionary
-            cls.load(bucket.name)
+            self.load()
         else:
             # Persistence file doesn't exist
             create_dirs(os.path.dirname(persist_to))
             # populate and save the lookup dictionary
-            cls.reload_corpora(bucket)
-            cls.persist(bucket.name)
+            self.reload()
+            self.save()
 
-    @classmethod
-    def persist(cls, name):
+    def save(self):
         """ Serialise the bucket corpora to a file called name. """
-        path = cls.get_meta_file_path(name)
+        path = self.get_meta_file_path()
         with open(path, 'w') as dest:
-            cls.save(dest)
+            json.dump(self.corpora, dest, cls=ObjectJsonEncoder)
 
-    @classmethod
-    def save(cls, dest):
-        """ Serialise the bucket lookup dictionary to fp (a write() supporting
-        file-like object). """
-        json.dump(cls.CORPORA, dest, cls=ObjectJsonEncoder)
-
-    @classmethod
-    def load(cls, name):
+    def load(self):
         """ Loads the bucket from the file name in it's metadata directory."""
-        path = cls.get_meta_file_path(name)
+        path = self.get_meta_file_path()
         with open(path, 'r') as src:
-            cls.load_file(src)
+            self.corpora.clear()
+            self.size = 0
+            self.corpora = json.load(src, object_hook=AS3Corpus.json_decode)
 
-    @classmethod
-    def load_file(cls, src):
-        """ Loads the datacentre lookup dictionary from fp (a read() supporting
-        file like object)."""
-        cls.CORPORA.clear()
-        cls.SIZE = 0
-        cls.CORPORA = json.load(src, object_hook=AS3Corpus.json_decode)
-
-    @classmethod
-    def reload_corpora(cls, bucket):
+    def reload(self):
         """ Clear the dictionary and reload the corupus from the bucket. """
-        cls.CORPORA.clear()
-        DataciteDoiLookup.initialise(DOI_STORE)
+        bucket_exists, bucket = self.validate_and_return_bucket(self.bucket_name)
+        if not bucket_exists:
+            raise IOError('No AS3 bucket called {} found.'.format(self.bucket_name))
+
+        self.corpora.clear()
         eles_processed = 0
+        batch = eles_processed + 1000
         for key in bucket.objects.all():
-            corpus_key = cls.UNKNOWN_KEY
+            corpus_key = self.UNKNOWN_KEY
             doi = doi_from_key(key.key)
             if not doi is None:
                 corpus_key = doi
-            if corpus_key not in cls.CORPORA:
-                datacentre = DataciteDoiLookup.lookup_by_doi(corpus_key)
-                if datacentre is None:
-                    datacentre = DataciteDatacentre(cls.UNKNOWN_KEY, corpus_key,
-                                                    cls.UNKNOWN_KEY)
-                corpus = Corpus(datacentre.doi, datacentre.name)
-                s3_corpus = AS3Corpus(corpus, datacentre)
-                cls.CORPORA.update({corpus_key : s3_corpus})
+            if corpus_key not in self.corpora:
+                corpus = Corpus(doi)
+                s3_corpus = AS3Corpus(corpus, doi)
+                self.corpora.update({corpus_key : s3_corpus})
 
-            s3_corpus = cls.CORPORA.get(corpus_key)
+            s3_corpus = self.corpora.get(corpus_key)
             s3_corpus.add_s3_object(key.Object())
             eles_processed += 1
-            print ('Reloading S3 corpus, item number : {:d}\r').format(eles_processed),
+            sys.stdout.write('Reloading S3 corpus, item number : {:d}\r'.format(eles_processed))
             sys.stdout.flush()
+            if eles_processed > batch:
+                self.save()
+                batch = eles_processed + 1000
+        self.save()
 
-    @classmethod
-    def get_meta_file_path(cls, name):
+    def get_meta_file_path(self):
         """ Return the path to the corpus metadata file. """
-        return S3_META + name
+        return S3_META + self.bucket_name
 
     @classmethod
-    def download_bucket(cls, bucket):
+    def validate_and_return_bucket(cls, bucket_name):
+        """Retrieve the bucket named bucket_name from the passed s3_resource and
+        validate it could be found (no 404) before returning the bucket.
+        """
+        s3_resource = resource('s3')
+        bucket = s3_resource.Bucket(bucket_name)
+        exists = True
+        try:
+            s3_resource.meta.client.head_bucket(Bucket=bucket_name)
+        except exceptions.ClientError as boto_excep:
+            # If a client error is thrown, then check that it was a 404 error.
+            # If it was a 404 error, then the bucket does not exist.
+            error_code = int(boto_excep.response['Error']['Code'])
+            if error_code == 404:
+                exists = False
+        return exists, bucket
+
+    def download_bucket(self, blobstore):
         """ Download corpus content from the bucket. """
         total_eles = 0
         total_size = 0
-        BlobStore.initialise(BLOB_STORE_ROOT, persist=True)
-        for corpus in cls.get_corpora():
-            cls.download_corpus(bucket, corpus)
+        for corpus in self.get_corpora():
+            self.download_corpus(corpus, blobstore)
             total_eles += corpus.get_element_count()
             total_size += corpus.get_total_size()
-        print chr(27) + "[2K"
-        print ('Downloaded {0:d} items totalling {1:d} bytes from ' + \
-               'corpus.').format(total_eles, total_size)
+            sys.stdout.write(chr(27) + "[2K")
+            sys.stdout.write(
+                'Downloading {0:d} items totalling {1:d} bytes from bucket.'.format(total_eles,
+                                                                                    total_size))
+            sys.stdout.flush()
 
-    @classmethod
-    def download_corpus(cls, bucket, corpus):
+    def download_corpus(self, corpus, blobstore):
         """Downloads the contents of corpus into the BLOB store."""
+        bucket_exists, bucket = self.validate_and_return_bucket(self.bucket_name)
+        if not bucket_exists:
+            raise IOError('No AS3 bucket called {} found.'.format(self.bucket_name))
+
         total_eles = int(corpus.get_element_count())
         ele_count = 0
         downloaded_bytes = 0
-        print ("\nStarting courpus download of {0:d} items " + \
-               "totalling {1:d} bytes.").format(total_eles, corpus.get_total_size())
+        sys.stdout.write(
+            ('\nDownloading {0:d} items totalling {1:d} bytes.\n').format(total_eles,
+                                                                          corpus.get_total_size()))
+        sys.stdout.flush()
         tmpdir = tempfile.mkdtemp()
         try:
             for item, element in corpus.get_pairs():
@@ -316,9 +331,12 @@ class AS3Bucket(object):
                                         downloaded_bytes,
                                         corpus.get_total_size()),
                 sys.stdout.flush()
-                if BlobStore.get_blob(etag) is None:
-                    filename = cls.download_s3_ele_from_bucket(bucket, element, tmpdir)
-                    sha1 = BlobStore.add_file(filename, element.key)
+                if item.sha1 != ByteSequence.EMPTY_SHA1:
+                    if blobstore.get_blob_by_sha1(item.sha1) is not None:
+                        continue
+                filename = self.download_s3_ele_from_bucket(bucket, element, tmpdir)
+                sha1 = blobstore.add_file(filename)
+                if blobstore.get_blob(etag) is None:
                     corpus.update_sha1(etag, sha1)
         finally:
             try:
@@ -326,6 +344,8 @@ class AS3Bucket(object):
             except OSError as excep:
                 if excep.errno != errno.ENOENT:
                     raise
+        self.save()
+        blobstore.persist()
 
     @classmethod
     def download_s3_ele_from_bucket(cls, bucket, ele, directory):
@@ -344,27 +364,6 @@ def doi_from_key(key):
         doi = key_parts[1]
     return doi
 
-def get_s3_bucket_by_name(bucket_name):
-    """ Get an S3 bucket by name """
-    s3_resource = resource('s3')
-    return validate_return_s3_bucket(s3_resource, bucket_name)
-
-def validate_return_s3_bucket(s3_resource, bucket_name):
-    """Retrieve the bucket named bucket_name from the passed s3_resource and
-    validate it could be found (no 404) before returning the bucket.
-    """
-    bucket = s3_resource.Bucket(bucket_name)
-    exists = True
-    try:
-        s3_resource.meta.client.head_bucket(Bucket=bucket_name)
-    except exceptions.ClientError as boto_excep:
-        # If a client error is thrown, then check that it was a 404 error.
-        # If it was a 404 error, then the bucket does not exist.
-        error_code = int(boto_excep.response['Error']['Code'])
-        if error_code == 404:
-            exists = False
-    return exists, bucket
-
 def main(args=None):
     """Main method entry point."""
     if not args:
@@ -375,9 +374,11 @@ def main(args=None):
                             fromfile_prefix_chars='@',
                             formatter_class=RawTextHelpFormatter)
     parser.add_argument('-v', '--version', default=False, action='store_true',
-                        help='show version information')
+                        help='show version information and exits')
     parser.add_argument('-d', '--download', default=False, action='store_true',
                         help='download the corpus data and content')
+    parser.add_argument('--defaults', default=False, action='store_true',
+                        help='show the default values abd exits')
     parser.add_argument('-l', '--list', default=False, action='store_true',
                         help='list all of the corpora')
     parser.add_argument('-b', '--bucket', default=DEFAULTS['bucket'],
@@ -395,18 +396,28 @@ def main(args=None):
         sys.stdout.write(version_header)
         sys.exit(0)
 
+    if args.defaults:
+        sys.stdout.write('Bucket: {}\n'.format(DEFAULTS['bucket']))
+        sys.stdout.write('BlobStore: {}\n'.format(DEFAULTS['blobstore']))
+        sys.exit(0)
+
     bucket_name = args.bucket
-    bucket_exists, bucket = get_s3_bucket_by_name(bucket_name)
-    if not bucket_exists:
-        sys.exit('No AS3 bucket called {} found.'.format(bucket_name))
-    AS3Bucket.initialise(bucket, persist=True)
+    sys.stdout.write('Initialising bucket: {}\n'.format(bucket_name))
+    sys.stdout.flush()
+    Sha1Lookup.initialise()
+    as3_bucket = AS3Bucket(bucket_name, persist=True)
 
     if args.download:
-        AS3Bucket.download_bucket(bucket)
+        sys.stdout.write('Initialising blobstore: {}\n'.format(BLOB_STORE_ROOT))
+        sys.stdout.flush()
+        blobstore = BlobStore(BLOB_STORE_ROOT, persist=True)
+        sys.stdout.write('Downloading bucket: {}\n'.format(bucket_name))
+        sys.stdout.flush()
+        as3_bucket.download_bucket(blobstore)
 
     if args.list:
-        for corpus in AS3Bucket.get_corpora():
-            print '{} : {}'.format(corpus.datacentre.doi, corpus.datacentre.name)
+        for corpus in as3_bucket.get_corpora():
+            sys.stdout.write('{} : {}\n'.format(corpus.datacentre.doi, corpus.datacentre.name))
 
 if __name__ == "__main__":
     main()
