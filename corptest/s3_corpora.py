@@ -332,12 +332,11 @@ class AS3Bucket(object):
                                         corpus.get_total_size()),
                 sys.stdout.flush()
                 if item.sha1 != ByteSequence.EMPTY_SHA1:
-                    if blobstore.get_blob_by_sha1(item.sha1) is not None:
+                    if blobstore.get_blob(item.sha1) is not None:
                         continue
                 filename = self.download_s3_ele_from_bucket(bucket, element, tmpdir)
                 sha1 = blobstore.add_file(filename)
-                if blobstore.get_blob(etag) is None:
-                    corpus.update_sha1(etag, sha1)
+                corpus.update_sha1(etag, sha1)
         finally:
             try:
                 shutil.rmtree(tmpdir)

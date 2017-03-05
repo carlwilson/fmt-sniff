@@ -140,7 +140,7 @@ def main():
                                    FormatTool("droid", "6.3"), FormatTool("fido", "1.3.5"),
                                    FormatTool("python-magic", "0.4.12")], persist=True)
 
-    BlobStore.initialise(BLOB_STORE_ROOT, persist=True)
+    blobstore = BlobStore(BLOB_STORE_ROOT, persist=True)
     ResultRegistry.initialise(persist=True)
 
     # item_count = 0
