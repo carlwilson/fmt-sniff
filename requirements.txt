@@ -7,7 +7,6 @@ configparser==3.5.0
 docutils==0.13.1
 futures==3.0.5
 isort==4.2.5
-jiscrdss-fmtsniff==0.2.0
 jmespath==0.9.1
 lazy-object-proxy==1.2.2
 lxml==3.7.2
