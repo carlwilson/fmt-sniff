@@ -36,33 +36,36 @@ TEST_REQUIRES = [
 ]
 
 setup(name='jiscrdss-fmtsniff',
+      version=find_version('corptest', '__init__.py'),
       description='JISC Research Data Shared Service : Format identification toolset.',
       long_description='JISCRDSS Python tools to test format identification tools \
                         across test corpora, primarily held on Amazon S3 storage.',
+      url="http://github.com/carlwilson/fmt-sniff",
       author='Carl Wilson',
       author_email='carl@openpreservation.org',
-      url="http://github.com/carlwilson/fmt-sniff",
-      version=find_version('corptest', '__init__.py'),
-      install_requires=INSTALL_REQUIRES,
-      setup_requires=SETUP_REQUIRES,
-      tests_require=TEST_REQUIRES,
-      packages=['corptest'],
-      package_data={'corptest': ['*.*', 'conf/*.*']},
-      keywords="mime magic",
       license="GPL",
-      test_suite='test',
-      entry_points={'console_scripts': [
-          'analyse = corptest.analyser:main',
-          'corptest = corptest.corptest:main',
-          'blob-tools = corptest.blobstore:main',
-          'doi-tools = corptest.doi:main',
-          's3-tools = corptest.s3_corpora:main'
-      ]},
       classifiers=[
           'Intended Audience :: Archivists',
           'License :: OSI Approved :: GPL License',
           'Programming Language :: Python :: 2',
           'Programming Language :: Python :: 2.7',
-          'Programming Language :: Python :: 3',
       ],
+      install_requires=INSTALL_REQUIRES,
+      setup_requires=SETUP_REQUIRES,
+      tests_require=TEST_REQUIRES,
+      packages=['corptest'],
+      package_data={
+          'corptest': ['*.*', 'conf/*.*'],
+      },
+      keywords="mime magic",
+      test_suite='test',
+      entry_points={
+          'console_scripts': [
+              'analyse = corptest.analyser:main',
+              'corptest = corptest.corptest:main',
+              'blob-tools = corptest.blobstore:main',
+              'doi-tools = corptest.doi:main',
+              's3-tools = corptest.s3_corpora:main',
+          ],
+      },
      )
