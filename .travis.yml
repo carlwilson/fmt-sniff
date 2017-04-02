@@ -1,14 +1,23 @@
 language: python
 python:
   - "2.7"
+
 # command to install dependencies
 install:
-  - pip install lxml
-  - pip install requests
-  - pip install pystache
-  - pip install python-magic
-  - pip install tika
-  - pip install opf-fido
+  - pip install -r requirements.txt
+  - pip install pytest-cov
+  - pip install codecov
+  - pip install codacy-coverage
+
+
+  - python setup.py install
 
 # command to run tests
-script: python corptest/scraper.py
+script:
+  - pytest --cov
+
+after_success:
+  - codecov
+  - coverage xml -i
+  - python-codacy-coverage -r coverage.xml
+

@@ -12,13 +12,14 @@
 """ Wrappers, serialisers and decoders for format identification tools. """
 import collections
 
+from const import RDSS_ROOT
+
 class Sha1Lookup(object):
     """ Look up class for serialsed sha1sum() results. """
     sha1_lookup = collections.defaultdict(dict)
 
     @classmethod
-    def initialise(cls, source_path='/home/cfw/arch/data/samp/' + \
-                                    'JISC/test-output/blobstore-sha1s.txt'):
+    def initialise(cls, source_path=RDSS_ROOT + 'blobstore-sha1s.txt'):
         """ Clear and load the lookup table from the supplied or default source_path. """
         cls.sha1_lookup.clear()
         with open(source_path) as src_file:

@@ -13,10 +13,9 @@
 
 import datetime
 
-EMPTY_SHA1 = 'da39a3ee5e6b4b0d3255bfef95601890afd80709'
 SOURCE_ROOT = 'http://rdss-test-data.s3-eu-west-1.amazonaws.com/'
 JISC_BUCKET = 'testdata.researchdata.alpha.jisc.ac.uk'
-RDSS_ROOT = '/home/cfw/arch/data/samp/JISC/'
+RDSS_ROOT = '/vagrant_data/'
 BLOB_STORE_ROOT = ''.join([RDSS_ROOT, 'blobstore/'])
 S3_META = ''.join([RDSS_ROOT, 's3/'])
 DOI_STORE = ''.join([RDSS_ROOT, 'doi/lookup.json'])

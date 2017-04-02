@@ -14,7 +14,7 @@ from argparse import ArgumentParser, RawTextHelpFormatter
 import sys
 
 from const import JISC_BUCKET, EPILOG
-from s3_corpora import get_s3_bucket_by_name, AS3Bucket
+from s3_corpora import AS3Bucket
 from registries import ResultRegistry
 
 from . import __version__
@@ -59,12 +59,9 @@ def main(args=None):
 
     if args.test:
         bucket_name = args.bucket
-        bucket_exists, bucket = get_s3_bucket_by_name(bucket_name)
-        if not bucket_exists:
-            sys.exit('No AS3 bucket called {} found.'.format(bucket_name))
-        AS3Bucket.initialise(bucket, persist=True)
+        bucket = AS3Bucket(bucket_name, persist=True)
 
-    for corpus in AS3Bucket.get_corpora():
+    for corpus in bucket.get_corpora():
         print '{} : {}, {} items, {} bytes.'.format(corpus.datacentre.doi,
                                                     corpus.datacentre.name,
                                                     corpus.get_element_count(),
