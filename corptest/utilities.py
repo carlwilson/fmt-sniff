@@ -52,6 +52,13 @@ def hashfile(afile, hasher, blocksize=65536):
         buf = afile.read(blocksize)
     return hasher.hexdigest()
 
+def hashstring(astring, hasher):
+    """Calculates the digest of astring using the supplied hasher which should
+    implement update(buffer) and hexdigest() methods.
+    """
+    hasher.update(astring)
+    return hasher.hexdigest()
+
 def hash_copy_file(src, dest, hasher, blocksize=65536):
     """Calculates the digest of afile using the supplied hasher which should
     implement update(buffer) and hexdigest() methods.
