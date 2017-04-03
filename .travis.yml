@@ -14,10 +14,8 @@ install:
 
 # command to run tests
 script:
-  - pytest --cov
+  - pytest --cov=corptest
 
 after_success:
   - codecov
-  - coverage xml -i
   - python-codacy-coverage -r coverage.xml
-
