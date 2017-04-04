@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # coding=UTF-8
 #
 # JISC Format Sniffing
@@ -14,9 +14,13 @@
 """ Classes to model corpora of test data, really just views on a blob store. """
 import collections
 from datetime import datetime
+import errno
+import hashlib
+import os
 import sys
+import time
 
-from utilities import Extension
+from utilities import Extension, hashfile
 
 reload(sys)
 sys.setdefaultencoding('utf-8')
@@ -45,6 +49,16 @@ class CorpusItem(object):
         """Returns the date the item was last modified"""
         return self.last_modified
 
+    def __eq__(self, other):
+        """ Define an equality test for CorpusItem """
+        if isinstance(other, self.__class__):
+            return self.__dict__ == other.__dict__
+        return False
+
+    def __ne__(self, other):
+        """ Define an inequality test for CorpusItem """
+        return not self.__eq__(other)
+
     def __str__(self):
         ret_val = []
         ret_val.append("CorpusItem : [sha1=")
@@ -57,6 +71,17 @@ class CorpusItem(object):
         ret_val.append(self.path)
         ret_val.append("]")
         return "".join(ret_val)
+
+    @classmethod
+    def from_file(cls, src_path):
+        """ Creates a new ByteStream instance from the supplied file path. """
+        if not os.path.isfile(src_path):
+            raise IOError(errno.ENOENT, os.strerror(errno.ENOENT), src_path)
+        with open(src_path, 'rb') as src:
+            sha1 = hashfile(src, hashlib.sha1())
+        statinfo = os.stat(src_path)
+        mtime = time.ctime(statinfo.st_mtime)
+        return cls(sha1, statinfo.st_size, mtime, src_path)
 
     @classmethod
     def json_decode(cls, obj):
@@ -104,7 +129,6 @@ class Corpus(object):
                 if ext.is_json():
                     continue
             yield item
-
 
     def get_paths(self):
         """Returns the list of unique paths in the corpus."""
