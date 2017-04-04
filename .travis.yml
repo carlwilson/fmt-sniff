@@ -9,13 +9,11 @@ install:
   - pip install codecov
   - pip install codacy-coverage
 
-
-  - python setup.py install
-
 # command to run tests
 script:
   - pytest --cov=corptest
 
 after_success:
+  - coverage xml
   - codecov
   - python-codacy-coverage -r coverage.xml
