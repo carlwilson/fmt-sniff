@@ -124,10 +124,10 @@ class BlobStore(object):
         byte_sequence = ByteSequence.from_file(path)
         if sha1 is not None and sha1 != byte_sequence.get_sha1():
             raise IOError(errno.ENOENT, os.strerror(errno.ENOENT),
-                          'Supplied hash {} does not \
-                           match {} calculated from {}.'.format(sha1,
+                          'Supplied hash {} does not match {} calculated from {}.'.format(sha1,
                                                                 byte_sequence.get_sha1(),
                                                                 path))
+        sha1 = byte_sequence.get_sha1()
         if sha1 not in self.blobs.keys():
             dest_path = self.get_blob_path(sha1)
             with open(path, 'rb') as src:
@@ -140,20 +140,35 @@ class BlobStore(object):
 
         return byte_sequence
 
+    def get_blob_root(self):
+        return self.root + self.__blobpath__
+
+    def clear(self):
+        """ Clears all blobs from a store. """
+        blob_root = self.get_blob_root()
+        for blob_name in only_files(blob_root):
+            path = blob_root + blob_name
+            os.remove(path)
+        self.blobs.clear()
+        self.size = 0
+
     def hash_check(self):
         """Performs a hash check of all BLOBs in the store"""
-        blob_root = self.root + self.__blobpath__
+        blob_root = self.get_blob_root()
         fnamelst = only_files(blob_root)
         tuples_to_check = [(fname, hashfile(open(blob_root + fname, 'rb'),
                                             hashlib.sha1())) for fname in fnamelst]
+        retval = True
         for to_check in tuples_to_check:
             if to_check[0] != to_check[1]:
                 print "Digest mis-maatch for file " + blob_root + to_check[0] + \
                 ", calculated: " + to_check[1]
+                retval = False
+        return retval
 
     def get_blob_path(self, sha1):
         """Returns the file path of a the BLOB called blob_name"""
-        return self.root + self.__blobpath__ + sha1
+        return self.get_blob_root() + sha1
 
     def calculate_size(self):
         """ Returns the recalculated total size of the blob store but doesn't
@@ -185,7 +200,7 @@ class BlobStore(object):
         from scratch.
         """
         self.blobs.clear()
-        blob_root = self.root + self.__blobpath__
+        blob_root = self.get_blob_root()
         for blob_name in only_files(blob_root):
             path = blob_root + blob_name
             byte_seq = ByteSequence(Sha1Lookup.get_sha1(blob_name), os.path.getsize(path))
