@@ -25,6 +25,7 @@ def find_version(*file_paths):
 INSTALL_REQUIRES = [
     'setuptools',
     'six == 1.10.0',
+    'requests == 2.13.0',
 ]
 
 SETUP_REQUIRES = [
@@ -62,7 +63,6 @@ setup(name='jiscrdss-fmtsniff',
       entry_points={
           'console_scripts': [
               'analyse = corptest.analyser:main',
-              'corptest = corptest.corptest:main',
               'blob-tools = corptest.blobstore:main',
               'doi-tools = corptest.doi:main',
               's3-tools = corptest.s3_corpora:main',
