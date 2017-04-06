@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # coding=UTF-8
 #
 # JISC Format Sniffing
@@ -12,110 +12,114 @@
 """ Wrappers, serialisers and decoders for format identification tools. """
 import collections
 
-from const import RDSS_ROOT
+from const import RDSS_CACHE
 
-class Sha1Lookup(object):
-    """ Look up class for serialsed sha1sum() results. """
-    sha1_lookup = collections.defaultdict(dict)
-
-    @classmethod
-    def initialise(cls, source_path=RDSS_ROOT + 'blobstore-sha1s.txt'):
-        """ Clear and load the lookup table from the supplied or default source_path. """
-        cls.sha1_lookup.clear()
-        with open(source_path) as src_file:
-            for line in src_file:
-                parts = line.split(' ')
-                name = parts[2][2:-1]
-                sha1 = parts[0]
-                if not name in cls.sha1_lookup:
-                    cls.sha1_lookup.update({name : sha1})
-
-    @classmethod
-    def get_sha1(cls, name):
-        """ Retrieve and return a hex SHA1 value by name. """
-        return cls.sha1_lookup.get(name, None)
+MAGIC_DEFAULT = ''.join([RDSS_CACHE, 'magic-blobs.out'])
+FILE_DEFAULT = ''.join([RDSS_CACHE, 'file-blobs.out'])
+DROID_DEFAULT = ''.join([RDSS_CACHE, 'droid-blobs.out'])
+TIKA_DEFAULT = ''.join([RDSS_CACHE, 'tika-blobs.out'])
 
 class MagicLookup(object):
     """ Look up class for serialised file magic results. """
-    magic_lookup = collections.defaultdict(dict)
+    def __init__(self, source_path=MAGIC_DEFAULT):
+        self.source_path = source_path
+        self.magic_lookup = self.load_from_file(self.source_path)
 
-    @classmethod
-    def initialise(cls, source_path='/home/cfw/arch/data/samp/JISC/test-output/file-magic.txt'):
-        """ Clear and load the lookup table from the supplied or default source_path. """
-        cls.magic_lookup.clear()
-        with open(source_path) as src_file:
-            for line in src_file:
-                parts = line.split(': ')
-                key = Sha1Lookup.get_sha1(parts[0].split('/')[2])
-                magic_string = parts[1][:-1]
-                if not key in cls.magic_lookup:
-                    cls.magic_lookup.update({key : magic_string})
+    def get_entry_count(self):
+        """ Return the number of entries in the lookup dict. """
+        return len(self.magic_lookup)
 
-    @classmethod
-    def get_magic_string(cls, key):
+    def get_magic_string(self, sha1):
         """ Retrieve and return a magic result by key. """
-        return cls.magic_lookup.get(key, None)
+        return self.magic_lookup.get(sha1, None)
+
+    @classmethod
+    def load_from_file(cls, source_path=MAGIC_DEFAULT):
+        """ Clear and load the lookup table from the supplied or default source_path. """
+        magic_lookup = collections.defaultdict(dict)
+        for sha1, magic_string in file_by_line_split_generator(source_path):
+            if not sha1 in magic_lookup:
+                magic_lookup.update({sha1 : magic_string})
+        return magic_lookup
 
 class MimeLookup(object):
     """ Look up class for serialised file mime results. """
-    mime_lookup = collections.defaultdict(dict)
+    def __init__(self, source_path=FILE_DEFAULT):
+        self.source_path = source_path
+        self.mime_lookup = self.load_from_file(self.source_path)
 
-    @classmethod
-    def initialise(cls, source_path='/home/cfw/arch/data/samp/JISC/test-output/file-mime.txt'):
-        """ Clear and load the lookup table from the supplied or default source_path. """
-        cls.mime_lookup.clear()
-        with open(source_path) as src_file:
-            for line in src_file:
-                parts = line.split(': ')
-                key = key = Sha1Lookup.get_sha1(parts[0].split('/')[2])
-                mime_string = parts[1]
-                if not key in cls.mime_lookup:
-                    cls.mime_lookup.update({key : mime_string[:-1]})
+    def get_entry_count(self):
+        """ Return the number of entries in the lookup dict. """
+        return len(self.mime_lookup)
 
-    @classmethod
-    def get_mime_string(cls, key):
+    def get_mime_string(self, sha1):
         """ Retrieve and return MIME string by key. """
-        return cls.mime_lookup.get(key, None)
+        return self.mime_lookup.get(sha1, None)
+
+    @classmethod
+    def load_from_file(cls, source_path=FILE_DEFAULT):
+        """ Clear and load the lookup table from the supplied or default source_path. """
+        mime_lookup = collections.defaultdict(dict)
+        for sha1, mime_string in file_by_line_split_generator(source_path):
+            if not sha1 in mime_lookup:
+                mime_lookup.update({sha1 : mime_string})
+        return mime_lookup
 
 class DroidLookup(object):
     """ Look up class for serialised droid results. """
-    puid_lookup = collections.defaultdict(dict)
+    def __init__(self, source_path=DROID_DEFAULT):
+        self.source_path = source_path
+        self.puid_lookup = self.load_from_file(self.source_path)
 
-    @classmethod
-    def initialise(cls, source_path='/home/cfw/arch/data/samp/JISC/test-output/droid/droid.txt'):
-        """ Clear and load the lookup table from the supplied or default source_path. """
-        cls.puid_lookup.clear()
-        with open(source_path) as src_file:
-            for line in src_file:
-                parts = line.split(',')
-                if len(parts) < 2:
-                    continue
-                tag = parts[0].split('/')[3].strip()
-                key = Sha1Lookup.get_sha1(tag)
-                puid = parts[1][:-1]
-                if not key in cls.puid_lookup:
-                    cls.puid_lookup.update({key : puid})
+    def get_entry_count(self):
+        """ Return the number of entries in the lookup dict. """
+        return len(self.puid_lookup)
 
-    @classmethod
-    def get_puid(cls, key):
+    def get_puid(self, key):
         """ Retrieve and return PUID string by key. """
-        return cls.puid_lookup.get(key, None)
+        return self.puid_lookup.get(key, None)
+
+    @classmethod
+    def load_from_file(cls, source_path=DROID_DEFAULT):
+        """ Clear and load the lookup table from the supplied or default source_path. """
+        puid_lookup = collections.defaultdict(dict)
+        for sha1, puid in file_by_line_split_generator(source_path, ','):
+            if not sha1 in puid_lookup:
+                puid_lookup.update({sha1 : puid})
+        return puid_lookup
 
 class TikaLookup(object):
     """ Lookup class for Tika tika-ident pairs in serialised output. """
-    mime_lookup = collections.defaultdict(dict)
+    def __init__(self, source_path=TIKA_DEFAULT):
+        self.source_path = source_path
+        self.mime_lookup = self.load_from_file(self.source_path)
+
+    def get_entry_count(self):
+        """ Return the number of entries in the lookup dict. """
+        return len(self.mime_lookup)
+
+    def get_mime_string(self, sha1):
+        """ Retrieve and return MIME string by key. """
+        return self.mime_lookup.get(sha1, None)
 
     @classmethod
-    def initialise(cls, source_path='/home/cfw/arch/data/samp/JISC/test-output/tika-ident.txt'):
+    def load_from_file(cls, source_path=TIKA_DEFAULT):
         """ Clear and load the lookup table from the supplied or default source_path. """
-        cls.mime_lookup.clear()
-        with open(source_path) as src_file:
-            for line in src_file:
-                parts = line.split(':')
-                if len(parts) < 2:
-                    continue
-                tag = parts[0].strip()
-                key = Sha1Lookup.get_sha1(tag)
-                mime_string = parts[1].strip()
-                if not key in cls.mime_lookup:
-                    cls.mime_lookup.update({key : mime_string})
+        mime_lookup = collections.defaultdict(dict)
+        for sha1, mime_string in file_by_line_split_generator(source_path):
+            if not sha1 in mime_lookup:
+                mime_lookup.update({sha1 : mime_string})
+        return mime_lookup
+
+def file_by_line_split_generator(path, splitter=':'):
+    """ Convenience method to grab a file line by line. """
+    with open(path) as src_file:
+        for line in src_file:
+            if splitter not in line:
+                continue
+            parts = line.split(splitter)
+            yield get_sha1_from_path(parts[0].strip()), parts[1][:-1].strip()
+
+def get_sha1_from_path(path_str):
+    """ Parse the SHA1 from any BlobStore path. """
+    return path_str.rpartition('/')[2]

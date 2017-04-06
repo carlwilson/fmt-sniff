@@ -17,7 +17,6 @@ import json
 import os
 
 from const import BLOB_STORE_ROOT
-from format_tools import Sha1Lookup
 from utilities import hashfile, hashstring, hash_copy_file
 from utilities import ObjectJsonEncoder, only_files, create_dirs
 
@@ -124,9 +123,10 @@ class BlobStore(object):
         byte_sequence = ByteSequence.from_file(path)
         if sha1 is not None and sha1 != byte_sequence.get_sha1():
             raise IOError(errno.ENOENT, os.strerror(errno.ENOENT),
-                          'Supplied hash {} does not match {} calculated from {}.'.format(sha1,
-                                                                byte_sequence.get_sha1(),
-                                                                path))
+                          'Supplied hash {} does not match {} calculated from {}.'\
+                          .format(sha1,
+                                  byte_sequence.get_sha1(),
+                                  path))
         sha1 = byte_sequence.get_sha1()
         if sha1 not in self.blobs.keys():
             dest_path = self.get_blob_path(sha1)
@@ -141,6 +141,7 @@ class BlobStore(object):
         return byte_sequence
 
     def get_blob_root(self):
+        """ Return the BlobStore's root directory. """
         return self.root + self.__blobpath__
 
     def clear(self):
@@ -203,8 +204,8 @@ class BlobStore(object):
         blob_root = self.get_blob_root()
         for blob_name in only_files(blob_root):
             path = blob_root + blob_name
-            byte_seq = ByteSequence(Sha1Lookup.get_sha1(blob_name), os.path.getsize(path))
-            self.blobs.update({blob_name : byte_seq})
+            byte_seq = ByteSequence.from_file(path)
+            self.blobs.update({byte_seq.get_sha1() : byte_seq})
 
 class PersistentBlobStore(object):
     """ Persistent BlobStore that saves blob data to a JSON file. """

@@ -21,6 +21,7 @@ THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 class CorpusItemTestCase(unittest.TestCase):
     """ Tests for the CorpusItem class. """
     def test_from_file(self):
+        """ Test creation of CorpusItem from a file. """
         empty_test_path = os.path.join(THIS_DIR, 'empty')
         corpus_item = CorpusItem.from_file(empty_test_path)
         assert corpus_item.get_path() == empty_test_path, \
@@ -34,7 +35,7 @@ class CorpusItemTestCase(unittest.TestCase):
         """ Test case for CorpusItem.from_file() method with nonexistent file. """
         notempty_test_path = os.path.join(THIS_DIR, 'notexist')
         with self.assertRaises(IOError) as context:
-            test_byte_seq = CorpusItem.from_file(notempty_test_path)
+            CorpusItem.from_file(notempty_test_path)
 
     def test_json_empty(self):
         """ Test case for ByteSequence.json_decode() method. """

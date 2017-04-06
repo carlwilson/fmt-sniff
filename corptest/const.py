@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # coding=UTF-8
 #
 # JISC Format Sniffing
@@ -16,6 +16,7 @@ import datetime
 SOURCE_ROOT = 'http://rdss-test-data.s3-eu-west-1.amazonaws.com/'
 JISC_BUCKET = 'testdata.researchdata.alpha.jisc.ac.uk'
 RDSS_ROOT = '/vagrant_data/'
+RDSS_CACHE = ''.join([RDSS_ROOT, 'cache/'])
 BLOB_STORE_ROOT = ''.join([RDSS_ROOT, 'blobstore/'])
 S3_META = ''.join([RDSS_ROOT, 's3/'])
 DOI_STORE = ''.join([RDSS_ROOT, 'doi/lookup.json'])
