@@ -1,0 +1,5 @@
+/vagrant_data/blobstore/blobs/4b11cb448cab68470c546bc52220b01fbc4572f7: image/png; charset=binary
+/vagrant_data/blobstore/blobs/f8fa2aa81a623f9847436c5162d4e775e04cd948: text/plain; charset=us-ascii
+/vagrant_data/blobstore/blobs/9f422292259b59ee6c9ad7a25180b0afc16f47e9: application/vnd.openxmlformats-officedocument.wordprocessingml.document; charset=binary
+/vagrant_data/blobstore/blobs/d1717e616fdae20110acb51b3ba3a37350628131: application/pdf; charset=binary
+/vagrant_data/blobstore/blobs/a7510ac5483396687bf670860f48d21eecede68a: application/zip; charset=binary
