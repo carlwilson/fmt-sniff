@@ -14,65 +14,32 @@ import collections
 import json
 import os.path
 
-from blobstore import BlobStore
-from const import RESULTS_ROOT, BLOB_STORE_ROOT
-from formats import FormatTool, MagicType, MimeType, ToolResult, PronomId
-from utilities import ObjectJsonEncoder, create_dirs
+from corptest.blobstore import BlobStore
+from corptest.const import RESULTS_ROOT, BLOB_STORE_ROOT
+from corptest.formats import FormatTool, MagicType, MimeType, ToolResult, PronomId
+from corptest.utilities import ObjectJsonEncoder, create_dirs
 
 class ToolRegistry(object):
     """ Lookup tools by name and version. """
-    TOOLS = collections.defaultdict(dict)
 
-    @classmethod
-    def tool_by_name(cls, name):
-        """ Lookup an return the first tool by name. """
-        return cls.TOOLS.get(name, None)
-
-    @classmethod
-    def initialise(cls, persist=False, tools=None):
-        """ If persist is True tries to load a serialised lookup table and adds tools.
-        Populates lookup table and saves if persist is True.
-        """
+    def __init__(self, tools=None):
         if tools is None:
             tools = []
+        self.tools = {}
+        self.add_tools(tools)
 
-        if not persist:
-            # No persist requested, populate the dictionary
-            cls.TOOLS = tools
-            return
+    def tool_by_name(self, name):
+        """ Lookup an return the first tool by name. """
+        return self.tools.get(name, None)
 
-        persist_to = cls.get_persist_path()
-        if os.path.isfile(persist_to):
-            # Persistence file exists, load the dictionary
-            with open(persist_to, 'r') as lookup_file:
-                cls.load(lookup_file)
-        else:
-            # Persistence file doesn't exist
-            create_dirs(os.path.dirname(persist_to))
+    def add_tool(self, tool):
+        """Add a tool to the registry."""
+        self.tools.update({tool.name : tool})
 
+    def add_tools(self, tools):
+        """Add a list of tools to the registry. """
         for tool in tools:
-            cls.TOOLS.update({tool.name : tool})
-
-        with open(persist_to, 'w+') as lookup_file:
-            cls.save(lookup_file)
-
-    @classmethod
-    def save(cls, dest):
-        """ Serialise the datacentre lookup dictionary to fp (a write() supporting
-        file-like object). """
-        json.dump(cls.TOOLS, dest, cls=ObjectJsonEncoder)
-
-    @classmethod
-    def load(cls, src):
-        """ Loads the lookup dictionary from fp (a read() supporting
-        file like object)."""
-        cls.TOOLS.clear()
-        cls.TOOLS = json.load(src, object_hook=FormatTool.json_decode)
-
-    @classmethod
-    def get_persist_path(cls):
-        """ Returns the persistent JSON metadata file path. """
-        return RESULTS_ROOT + cls.__name__ + '.json'
+            self.add_tool(tool)
 
 class ResultRegistry(object):
     """ Record and lookup tool results by sha-1. """
@@ -136,9 +103,9 @@ def main():
     """
     PronomId.initialise()
 
-    ToolRegistry.initialise(tools=[FormatTool("file", "5.25"), FormatTool("tika", "1.14"),
-                                   FormatTool("droid", "6.3"), FormatTool("fido", "1.3.5"),
-                                   FormatTool("python-magic", "0.4.12")], persist=True)
+    tool_registry = ToolRegistry([FormatTool("file", "5.25"), FormatTool("tika", "1.14"),
+                                  FormatTool("droid", "6.3"), FormatTool("fido", "1.3.5"),
+                                  FormatTool("python-magic", "0.4.12")])
 
     blobstore = BlobStore(BLOB_STORE_ROOT)
     ResultRegistry.initialise(persist=True)
@@ -177,13 +144,13 @@ def main():
     PronomId.initialise()
     for key in blobstore.blobs.keys():
         ele_count += 1
-        print ('Identifying blob {0:d} of {1:d}\r').format(ele_count, total_eles),
+        print(('Identifying blob {0:d} of {1:d}\r').format(ele_count, total_eles),)
         blob = blobstore.get_blob(key)
         sha_1 = blob.get_sha1()
         path = blobstore.get_blob_path(key)
         mime_type = MimeType.from_file_by_magic(path)
         magic_type = MagicType.from_file_by_magic(path)
-        py_magic_result = ToolResult(FormatTool("python-magic", "0.4.12"),
+        py_magic_result = ToolResult(tool_registry.tool_by_name("python-magic"),
                                      mime_type, magic_type, PronomId.get_default())
         ResultRegistry.add_result(sha_1, "python-magic", py_magic_result)
         fido_types = PronomId.from_file_by_fido(path)
@@ -193,7 +160,7 @@ def main():
             mime_type = MimeType.get_default()
             if not pronom_result is None and not pronom_result.mime is None:
                 mime_type = MimeType.from_mime_string(pronom_result.mime)
-            fido_result = ToolResult(FormatTool("fido", "1.3.5"), mime_type,
+            fido_result = ToolResult(tool_registry.tool_by_name("fido"), mime_type,
                                      MagicType.get_default(), pronom_result)
             ResultRegistry.add_result(sha_1, "fido-nocont", fido_result)
     ResultRegistry.persist()

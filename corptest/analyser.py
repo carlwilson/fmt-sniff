@@ -16,12 +16,12 @@ import sys
 
 import numpy as np
 
-from blobstore import BlobStore
-from const import EPILOG, JISC_BUCKET, BLOB_STORE_ROOT
-from doi import DataciteDoiLookup
-from registries import ResultRegistry, ToolRegistry
-from s3_corpora import AS3Bucket, get_s3_bucket_by_name
-from utilities import sizeof_fmt
+from corptest.blobstore import BlobStore
+from corptest.const import EPILOG, JISC_BUCKET, BLOB_STORE_ROOT
+from corptest.doi import DataciteDoiLookup
+from corptest.registries import ResultRegistry, ToolRegistry
+from corptest.s3_corpora import AS3Bucket
+from corptest.utilities import sizeof_fmt
 
 from . import __version__
 
@@ -47,10 +47,10 @@ class BucketAnalyser(object):
                 unknown_dois.append(datacentre.doi)
                 continue
             corp_elements, corp_size = cls.total_corpus(corpus, include_json)
-            print 'DOI: {}, Name: {}, '.format(datacentre.doi,
+            print('DOI: {}, Name: {}, '.format(datacentre.doi,
                                                datacentre.name) + \
                   '{} items totalling {}.'.format(corp_elements,
-                                                  sizeof_fmt(corp_size))
+                                                  sizeof_fmt(corp_size)))
             corpus_count += 1
             element_count += corp_elements
             total_size += corp_size
@@ -66,16 +66,17 @@ class BucketAnalyser(object):
             element_count += unk_ele_count
             total_size += unk_size
 
-            print 'Unknown: {} items totalling {}.'.format(unk_ele_count,
-                                                           sizeof_fmt(unk_size))
+            print('Unknown: {} items totalling {}.'.format(unk_ele_count,
+                                                           sizeof_fmt(unk_size)))
 
-        print 'Bucket: {}, holds {} corpora, '.format(bucket_name,
+        print('Bucket: {}, holds {} corpora, '.format(bucket_name,
                                                       corpus_count) + \
               '{} items totalling {}.'.format(element_count,
-                                              sizeof_fmt(total_size))
+                                              sizeof_fmt(total_size)))
 
     @classmethod
     def total_corpus(cls, corpus, include_json=False):
+        """Returns the total size of items in a corpus."""
         elements = size = 0
         for item in corpus.corpus.get_items(include_json=include_json):
             elements += 1
@@ -108,13 +109,13 @@ class FormatAnalyser(object):
                 formats.update({str(mime) : sizes})
         for mime_type in formats.keys():
             sizes = formats.get(mime_type)
-            print '{},{}'.format(mime_type, len(sizes))
-        print '{} items totalling {}'.format(element_count, sizeof_fmt(total_size))
-        print 'Max size {}, min size {}'.format(sizeof_fmt(max(sizes)),
-                                                sizeof_fmt(min(sizes)))
+            print('{},{}'.format(mime_type, len(sizes)))
+        print('{} items totalling {}'.format(element_count, sizeof_fmt(total_size)))
+        print('Max size {}, min size {}'.format(sizeof_fmt(max(sizes)),
+                                                sizeof_fmt(min(sizes))))
         for num in range(0, 11):
             result = sizeof_fmt(percentile(sizes, num * 10))
-            print '{:d} percentile : {}'.format(num * 10, result)
+            print('{:d} percentile : {}'.format(num * 10, result))
 
     @classmethod
     def compare_bucket_mimes(cls, tool_names=None, include_json=False):
@@ -141,28 +142,28 @@ class FormatAnalyser(object):
         tools = ['s3']
         for tool_name in tool_names:
             tools.append(tool_name)
-        print ','.join(tools)
+        print(','.join(tools))
         for mime_type in formats.keys():
             counts = []
             tool_results = formats.get(mime_type)
             for tool_name in tool_names:
                 sizes = tool_results.get(tool_name, [])
                 counts.append(str(len(sizes)))
-            print '{},{}'.format(mime_type, ','.join(counts))
-        print '{} items totalling {}'.format(element_count, sizeof_fmt(total_size))
-        print '"MIME", "Max Size", "Min Size", "Average Size"'
+            print('{},{}'.format(mime_type, ','.join(counts)))
+        print('{} items totalling {}'.format(element_count, sizeof_fmt(total_size)))
+        print('"MIME", "Max Size", "Min Size", "Average Size"')
         for mime_type in formats.keys():
             tool_results = formats.get(mime_type)
             sizes = tool_results.get('file', [])
             if len(sizes) > 0:
-                print '{},{},{},{}'.format(mime_type,
-                                        sizeof_fmt(max(sizes)),
-                                        sizeof_fmt(min(sizes)),
-                                        sizeof_fmt(sum(sizes)/len(sizes)))
+                print('{},{},{},{}'.format(mime_type,
+                                           sizeof_fmt(max(sizes)),
+                                           sizeof_fmt(min(sizes)),
+                                           sizeof_fmt(sum(sizes)/len(sizes))))
         centile_titles = []
         for num in range(0, 11):
             centile_titles.append(str(num * 10))
-        print '"MIME", {}'.format(','.join(centile_titles))
+        print('"MIME", {}'.format(','.join(centile_titles)))
         for mime_type in formats.keys():
             tool_results = formats.get(mime_type)
             sizes = tool_results.get('file', [])
@@ -171,7 +172,7 @@ class FormatAnalyser(object):
                 for num in range(0, 11):
                     result = sizeof_fmt(percentile(sizes, num * 10))
                     centiles.append(str(result))
-                print '{},{}'.format(mime_type, ','.join(centiles))
+                print('{},{}'.format(mime_type, ','.join(centiles)))
 
     @classmethod
     def compare_bucket_puids(cls, tool_names=None, include_json=False):
@@ -197,33 +198,34 @@ class FormatAnalyser(object):
         tools = []
         for tool_name in tool_names:
             tools.append(tool_name)
-        print ','.join(tools)
+        print(','.join(tools))
         for puid in formats.keys():
             counts = []
             tool_results = formats.get(puid)
             for tool_name in tools:
                 sizes = tool_results.get(tool_name, [])
                 counts.append(str(len(sizes)))
-            print '"{}", "{}", {}'.format(puid, names.get(puid), ','.join(counts))
-        print '{} items totalling {}'.format(element_count, sizeof_fmt(total_size))
+            print('"{}", "{}", {}'.format(puid, names.get(puid), ','.join(counts)))
+        print('{} items totalling {}'.format(element_count, sizeof_fmt(total_size)))
         for puid in formats.keys():
             tool_results = formats.get(puid)
             sizes = tool_results.get('droid', [])
             if len(sizes) > 0:
-                print 'PUID {} : Max size {}, min size {}'.format(puid,
+                print('PUID {} : Max size {}, min size {}'.format(puid,
                                                                   sizeof_fmt(max(sizes)),
-                                                                  sizeof_fmt(min(sizes)))
+                                                                  sizeof_fmt(min(sizes))))
                 centile_titles = []
                 centiles = []
                 for num in range(0, 11):
                     result = sizeof_fmt(percentile(sizes, num * 10))
                     centile_titles.append(str(num * 10))
                     centiles.append(str(result))
-                print ','.join(centile_titles)
-                print ','.join(centiles)
+                print(','.join(centile_titles))
+                print(','.join(centiles))
 
     @staticmethod
     def update_mime_sizes(mime_string, tool_name, formats, item_size):
+        """ Updates the size entry for a particular MIME string."""
         tool_results = formats.get(mime_string, None)
         if tool_results is None:
             tool_results = collections.defaultdict(dict)
@@ -251,12 +253,12 @@ class SizeAnalyser(object):
                 element_count += 1
                 total_size += item.size
                 sizes.append(item.size)
-        print '{} items totalling {}'.format(element_count, sizeof_fmt(total_size))
-        print 'Max size {}, min size {}'.format(sizeof_fmt(max(sizes)),
-                                                sizeof_fmt(min(sizes)))
+        print('{} items totalling {}'.format(element_count, sizeof_fmt(total_size)))
+        print('Max size {}, min size {}'.format(sizeof_fmt(max(sizes)),
+                                                sizeof_fmt(min(sizes))))
         for num in range(0, 11):
             result = sizeof_fmt(percentile(sizes, num * 10))
-            print '{:d} percentile : {}'.format(num * 10, result)
+            print('{:d} percentile : {}'.format(num * 10, result))
 
     @classmethod
     def analyse_blobstore(cls):
@@ -264,16 +266,16 @@ class SizeAnalyser(object):
         - Number of items
         - distribution of 10 percentiles of file sizes
         """
-        print BlobStore.get_blob_count()
-        print sizeof_fmt(BlobStore.get_total_blob_size())
+        print(BlobStore.get_blob_count())
+        print(sizeof_fmt(BlobStore.get_total_blob_size()))
         sizes = []
         for path in BlobStore.BLOBS.keys():
             size = BlobStore.get_blob(path).byte_sequence.size
             sizes.append(size)
-        print 'Max size {}, min size {}'.format(max(sizes), min(sizes))
+        print('Max size {}, min size {}'.format(max(sizes), min(sizes)))
         for num in range(0, 11):
             result = sizeof_fmt(percentile(sizes, num * 10))
-            print '{:d} percentile : {}'.format(num * 10, result)
+            print('{:d} percentile : {}'.format(num * 10, result))
 
 def percentile(data, centile):
     """ Calc the percentiles centile from a Python list using numpy. """
@@ -331,11 +333,12 @@ def main(args=None):
 
     if args.list or args.listcorpora:
         for corpus in AS3Bucket.get_corpora():
-            print '{} : {}'.format(corpus.datacentre.doi, corpus.datacentre.name)
+            print('{} : {}'.format(corpus.datacentre.doi, corpus.datacentre.name))
 
     if args.analyse:
         BlobStore.initialise(args.blobstore, persist=True)
-        BucketAnalyser.summarise_bucket(bucket_name, include_json=args.json, group_unknown=args.group)
+        BucketAnalyser.summarise_bucket(bucket_name, include_json=args.json,
+                                        group_unknown=args.group)
         SizeAnalyser.analyse_bucket(include_json=args.json)
         ResultRegistry.initialise(persist=True)
         ToolRegistry.initialise(persist=True)

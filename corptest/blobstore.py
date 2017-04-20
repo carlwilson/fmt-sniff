@@ -16,9 +16,9 @@ import hashlib
 import json
 import os
 
-from const import BLOB_STORE_ROOT
-from utilities import hashfile, hashstring, hash_copy_file
-from utilities import ObjectJsonEncoder, only_files, create_dirs
+from corptest.const import BLOB_STORE_ROOT
+from corptest.utilities import hashfile, hashstring, hash_copy_file
+from corptest.utilities import ObjectJsonEncoder, only_files, create_dirs
 
 class ByteSequence(object):
     """Key attributes for all byte sequences, i.e. arbitary blobs of data."""
@@ -131,7 +131,7 @@ class BlobStore(object):
         if sha1 not in self.blobs.keys():
             dest_path = self.get_blob_path(sha1)
             with open(path, 'rb') as src:
-                with open(dest_path, 'w+') as dest:
+                with open(dest_path, 'wb') as dest:
                     calc_sha1 = hash_copy_file(src, dest, hashlib.sha1())
             if calc_sha1 != sha1:
                 raise IOError(errno.ENOENT, os.strerror(errno.ENOENT),
@@ -162,8 +162,8 @@ class BlobStore(object):
         retval = True
         for to_check in tuples_to_check:
             if to_check[0] != to_check[1]:
-                print "Digest mis-maatch for file " + blob_root + to_check[0] + \
-                ", calculated: " + to_check[1]
+                print("Digest mis-maatch for file " + blob_root + to_check[0] + \
+                ", calculated: " + to_check[1])
                 retval = False
         return retval
 
@@ -276,8 +276,8 @@ def main():
     STDOUT.
     """
     blob_store = BlobStore(BLOB_STORE_ROOT)
-    print 'Blobstore contains {} blobs, {} bytes'.format(blob_store.get_blob_count(),
-                                                         blob_store.get_size())
+    print('Blobstore contains {} blobs, {} bytes'.format(blob_store.get_blob_count(),
+                                                         blob_store.get_size()))
 
 if __name__ == "__main__":
     main()

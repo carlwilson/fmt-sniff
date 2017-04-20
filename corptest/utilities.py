@@ -56,7 +56,7 @@ def hashstring(astring, hasher):
     """Calculates the digest of astring using the supplied hasher which should
     implement update(buffer) and hexdigest() methods.
     """
-    hasher.update(astring)
+    hasher.update(astring.encode('utf-8'))
     return hasher.hexdigest()
 
 def hash_copy_file(src, dest, hasher, blocksize=65536):
@@ -94,7 +94,7 @@ def strip_namespace(name):
     """ Strips the namespace from a tag and returns the stripped tag. """
     if name[0] == "{":
         # If we have a namespace strip it and return the tag
-        uri, tag = name[1:].split("}")
+        _, tag = name[1:].split("}")
         return tag
     else:
         return name
@@ -139,5 +139,5 @@ class Extension(object):
     @classmethod
     def from_file_name(cls, file_name):
         """ Creates a new extension instance by parsing file_name. """
-        name, ext = os.path.splitext(file_name)
+        _, ext = os.path.splitext(file_name)
         return cls(ext[1:])

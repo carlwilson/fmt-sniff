@@ -12,7 +12,7 @@
 """ Wrappers, serialisers and decoders for format identification tools. """
 import collections
 
-from const import RDSS_CACHE
+from corptest.const import RDSS_CACHE
 
 MAGIC_DEFAULT = ''.join([RDSS_CACHE, 'magic-blobs.out'])
 FILE_DEFAULT = ''.join([RDSS_CACHE, 'file-blobs.out'])
