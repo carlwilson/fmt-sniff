@@ -17,13 +17,9 @@ from datetime import datetime
 import errno
 import hashlib
 import os
-import sys
 import time
 
-from utilities import Extension, hashfile
-
-reload(sys)
-sys.setdefaultencoding('utf-8')
+from corptest.utilities import Extension, hashfile
 
 class CorpusItem(object):
     """ Basic attributes for a corpus item. """
@@ -31,7 +27,7 @@ class CorpusItem(object):
         self.sha1 = sha1
         self.size = size
         self.last_modified = last_modified
-        self.path = path.encode('utf-8')
+        self.path = path
 
     def get_sha1(self):
         """Returns the item's key, a unique id"""

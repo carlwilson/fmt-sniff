@@ -12,8 +12,8 @@
 """Classes for modelling format information"""
 import collections
 import os
-from fido import fido
 import magic
+from fido import fido
 
 class FormatTool(object):
     """Class to hold the details of a format identification tool."""
@@ -214,6 +214,7 @@ class MimeType(object):
         return self.params
 
     def get_short_string(self):
+        """ Returns the MIME short string (without params and the like). """
         ret_val = []
         ret_val.append(self.type)
         ret_val.append(self.TYPE_DELIM)

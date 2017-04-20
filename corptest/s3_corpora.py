@@ -30,12 +30,10 @@ import tempfile
 from botocore import exceptions
 from boto3 import resource
 
-from blobstore import BlobStore, ByteSequence
-from corpora import CorpusItem, Corpus
-from format_tools import Sha1Lookup
-from utilities import ObjectJsonEncoder, create_dirs, Extension
-
-from const import S3_META, EPILOG, JISC_BUCKET, BLOB_STORE_ROOT
+from corptest.blobstore import BlobStore, ByteSequence
+from corptest.corpora import CorpusItem, Corpus
+from corptest.utilities import ObjectJsonEncoder, create_dirs, Extension
+from corptest.const import S3_META, EPILOG, JISC_BUCKET, BLOB_STORE_ROOT
 
 from . import __version__
 
@@ -95,8 +93,6 @@ class AS3Element(object):
         """Create a new CorpusItem and AS3Element from a boto3 S3 key.
         """
         etag = s3_obj.e_tag[1:-1].encode('utf-8')
-        if sha1 == ByteSequence.EMPTY_SHA1:
-            sha1 = Sha1Lookup.get_sha1(etag)
         corpus_item = CorpusItem(sha1, s3_obj.content_length, s3_obj.last_modified,
                                  s3_obj.key.encode('utf-8'))
         s3_ele = AS3Element(s3_obj.key.encode('utf-8'), etag,
@@ -326,10 +322,10 @@ class AS3Bucket(object):
                 etag = element.etag
                 downloaded_bytes += item.size
                 ele_count += 1
-                print ('Downloading item number {0:d}/{1:d}, {2:d} of ' + \
+                print(('Downloading item number {0:d}/{1:d}, {2:d} of ' + \
                 '{3:d} bytes\r').format(ele_count, total_eles,
                                         downloaded_bytes,
-                                        corpus.get_total_size()),
+                                        corpus.get_total_size()),)
                 sys.stdout.flush()
                 if item.sha1 != ByteSequence.EMPTY_SHA1:
                     if blobstore.get_blob(item.sha1) is not None:
@@ -403,13 +399,12 @@ def main(args=None):
     bucket_name = args.bucket
     sys.stdout.write('Initialising bucket: {}\n'.format(bucket_name))
     sys.stdout.flush()
-    Sha1Lookup.initialise()
     as3_bucket = AS3Bucket(bucket_name, persist=True)
 
     if args.download:
         sys.stdout.write('Initialising blobstore: {}\n'.format(BLOB_STORE_ROOT))
         sys.stdout.flush()
-        blobstore = BlobStore(BLOB_STORE_ROOT, persist=True)
+        blobstore = BlobStore(BLOB_STORE_ROOT)
         sys.stdout.write('Downloading bucket: {}\n'.format(bucket_name))
         sys.stdout.flush()
         as3_bucket.download_bucket(blobstore)

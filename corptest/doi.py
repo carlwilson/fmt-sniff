@@ -13,16 +13,11 @@
 import collections
 import json
 import os.path
-import sys
 from lxml import html
 import requests
-#import simplejson as json
 
-from const import DOI_STORE, DATACITE_HTML_ROOT, DATACITE_PAGES, DATACITE_BL_QUERY
-from utilities import ObjectJsonEncoder, create_dirs
-# Temp hack to set up UTF-8 encoding
-reload(sys)
-sys.setdefaultencoding('utf-8')
+from corptest.const import DOI_STORE, DATACITE_HTML_ROOT, DATACITE_PAGES, DATACITE_BL_QUERY
+from corptest.utilities import ObjectJsonEncoder, create_dirs
 
 class DataciteDoiLookup(object):
     """ Class that provides lookup of Datacite datacentre details by DOI. """
@@ -72,6 +67,7 @@ class DataciteDoiLookup(object):
 
     @classmethod
     def persist(cls, name=DOI_STORE):
+        """Persist the DOI lookup class to file with path name."""
         with open(name, 'w+') as persit_file:
             cls.save(persit_file)
 
@@ -168,7 +164,7 @@ def main():
     DataciteDoiLookup.initialise()
     for doi in DataciteDoiLookup.DATACENTRES:
         datacentre = DataciteDoiLookup.lookup_by_doi(doi)
-        print str(datacentre)
+        print(str(datacentre))
 
 if __name__ == "__main__":
     main()
