@@ -373,7 +373,7 @@ def main(args=None):
     parser.add_argument('-d', '--download', default=False, action='store_true',
                         help='download the corpus data and content')
     parser.add_argument('--defaults', default=False, action='store_true',
-                        help='show the default values abd exits')
+                        help='show the default values and exits')
     parser.add_argument('-l', '--list', default=False, action='store_true',
                         help='list all of the corpora')
     parser.add_argument('-b', '--bucket', default=DEFAULTS['bucket'],

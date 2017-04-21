@@ -16,10 +16,9 @@ import sys
 
 import numpy as np
 
-from corptest.blobstore import BlobStore
 from corptest.const import EPILOG, JISC_BUCKET, BLOB_STORE_ROOT
 from corptest.doi import DataciteDoiLookup
-from corptest.registries import ResultRegistry, ToolRegistry
+from corptest.registries import ResultRegistry
 from corptest.s3_corpora import AS3Bucket
 from corptest.utilities import sizeof_fmt
 
@@ -41,7 +40,8 @@ class BucketAnalyser(object):
         """Create bucket summary, number of corpora, number and size of contents."""
         corpus_count = element_count = total_size = 0
         unknown_dois = []
-        for corpus in AS3Bucket.get_corpora():
+        bucket = AS3Bucket(bucket_name)
+        for corpus in bucket.get_corpora():
             datacentre = DataciteDoiLookup.lookup_by_doi(corpus.datacentre.doi)
             if group_unknown and datacentre.name == 'Unknown':
                 unknown_dois.append(datacentre.doi)
@@ -55,11 +55,11 @@ class BucketAnalyser(object):
             element_count += corp_elements
             total_size += corp_size
 
-        if len(unknown_dois) > 0:
+        if unknown_dois:
             corpus_count += 1
             unk_ele_count = unk_size = 0
             for key in unknown_dois:
-                corpus = AS3Bucket.get_corpus(key)
+                corpus = bucket.get_corpus(key)
                 corp_elements, corp_size = cls.total_corpus(corpus, include_json)
                 unk_ele_count += corp_elements
                 unk_size += corp_size
@@ -87,14 +87,15 @@ class FormatAnalyser(object):
     """ Analyses file formats and creates JSON report data. """
 
     @classmethod
-    def analyse_bucket_mimes(cls, tool_name, include_json=False):
+    def analyse_bucket_mimes(cls, tool_name, include_json=False, bucket_name=JISC_BUCKET):
         """Create JSON report for a Corpus, reports:
         - Number of items
         - distribution of 10 percentiles of file sizes
         """
         element_count = total_size = 0
         formats = collections.defaultdict(dict)
-        for corpus in AS3Bucket.get_corpora():
+        bucket = AS3Bucket(bucket_name)
+        for corpus in bucket.get_corpora():
             for item in corpus.corpus.get_items(include_json=include_json):
                 element_count += 1
                 total_size += item.size
@@ -118,16 +119,17 @@ class FormatAnalyser(object):
             print('{:d} percentile : {}'.format(num * 10, result))
 
     @classmethod
-    def compare_bucket_mimes(cls, tool_names=None, include_json=False):
+    def compare_bucket_mimes(cls, tool_names=None, include_json=False, bucket_name=JISC_BUCKET):
         """Create JSON report for a Corpus, reports:
         - Number of items
         - distribution of 10 percentiles of file sizes
         """
         if tool_names is None:
-            tool_names = ToolRegistry.TOOLS.keys()
+            tool_names = []
         element_count = total_size = 0
         formats = collections.defaultdict(dict)
-        for corpus in AS3Bucket.get_corpora():
+        bucket = AS3Bucket(bucket_name)
+        for corpus in bucket.get_corpora():
             for item, element in corpus.get_pairs(include_json=include_json):
                 element_count += 1
                 total_size += item.size
@@ -155,7 +157,7 @@ class FormatAnalyser(object):
         for mime_type in formats.keys():
             tool_results = formats.get(mime_type)
             sizes = tool_results.get('file', [])
-            if len(sizes) > 0:
+            if sizes:
                 print('{},{},{},{}'.format(mime_type,
                                            sizeof_fmt(max(sizes)),
                                            sizeof_fmt(min(sizes)),
@@ -167,7 +169,7 @@ class FormatAnalyser(object):
         for mime_type in formats.keys():
             tool_results = formats.get(mime_type)
             sizes = tool_results.get('file', [])
-            if len(sizes) > 0:
+            if sizes:
                 centiles = []
                 for num in range(0, 11):
                     result = sizeof_fmt(percentile(sizes, num * 10))
@@ -175,7 +177,7 @@ class FormatAnalyser(object):
                 print('{},{}'.format(mime_type, ','.join(centiles)))
 
     @classmethod
-    def compare_bucket_puids(cls, tool_names=None, include_json=False):
+    def compare_bucket_puids(cls, tool_names=None, include_json=False, bucket_name=JISC_BUCKET):
         """Create JSON report for a Corpus, reports:
         - Number of items
         - distribution of 10 percentiles of file sizes
@@ -185,7 +187,8 @@ class FormatAnalyser(object):
         element_count = total_size = 0
         formats = collections.defaultdict(dict)
         names = collections.defaultdict(dict)
-        for corpus in AS3Bucket.get_corpora():
+        bucket = AS3Bucket(bucket_name)
+        for corpus in bucket.get_corpora():
             for item in corpus.corpus.get_items(include_json=include_json):
                 element_count += 1
                 total_size += item.size
@@ -210,7 +213,7 @@ class FormatAnalyser(object):
         for puid in formats.keys():
             tool_results = formats.get(puid)
             sizes = tool_results.get('droid', [])
-            if len(sizes) > 0:
+            if sizes:
                 print('PUID {} : Max size {}, min size {}'.format(puid,
                                                                   sizeof_fmt(max(sizes)),
                                                                   sizeof_fmt(min(sizes))))
@@ -241,14 +244,15 @@ class SizeAnalyser(object):
     """ Analyses file sizes and creates JSON report data. """
 
     @classmethod
-    def analyse_bucket(cls, include_json=False):
+    def analyse_bucket(cls, include_json=False, bucket_name=JISC_BUCKET):
         """Create JSON report for a Corpus, reports:
         - Number of items
         - distribution of 10 percentiles of file sizes
         """
         element_count = total_size = 0
         sizes = []
-        for corpus in AS3Bucket.get_corpora():
+        bucket = AS3Bucket(bucket_name)
+        for corpus in bucket.get_corpora():
             for item in corpus.corpus.get_items(include_json=include_json):
                 element_count += 1
                 total_size += item.size
@@ -261,16 +265,16 @@ class SizeAnalyser(object):
             print('{:d} percentile : {}'.format(num * 10, result))
 
     @classmethod
-    def analyse_blobstore(cls):
+    def analyse_blobstore(cls, blobstore):
         """Create JSON report for a Corpus, reports:
         - Number of items
         - distribution of 10 percentiles of file sizes
         """
-        print(BlobStore.get_blob_count())
-        print(sizeof_fmt(BlobStore.get_total_blob_size()))
+        print(blobstore.get_blob_count())
+        print(sizeof_fmt(blobstore.get_total_blob_size()))
         sizes = []
-        for path in BlobStore.BLOBS.keys():
-            size = BlobStore.get_blob(path).byte_sequence.size
+        for path in blobstore.blobs.keys():
+            size = blobstore.get_blob(path).byte_sequence.size
             sizes.append(size)
         print('Max size {}, min size {}'.format(max(sizes), min(sizes)))
         for num in range(0, 11):
@@ -325,23 +329,18 @@ def main(args=None):
         sys.exit(0)
 
     bucket_name = args.bucket
-    bucket_exists, bucket = get_s3_bucket_by_name(bucket_name)
-    if not bucket_exists:
-        sys.exit('No AS3 bucket called {} found.'.format(bucket_name))
-    AS3Bucket.initialise(bucket, persist=True)
+    bucket = AS3Bucket(bucket_name)
     DataciteDoiLookup.initialise()
 
     if args.list or args.listcorpora:
-        for corpus in AS3Bucket.get_corpora():
+        for corpus in bucket.get_corpora():
             print('{} : {}'.format(corpus.datacentre.doi, corpus.datacentre.name))
 
     if args.analyse:
-        BlobStore.initialise(args.blobstore, persist=True)
         BucketAnalyser.summarise_bucket(bucket_name, include_json=args.json,
                                         group_unknown=args.group)
         SizeAnalyser.analyse_bucket(include_json=args.json)
         ResultRegistry.initialise(persist=True)
-        ToolRegistry.initialise(persist=True)
         FormatAnalyser.compare_bucket_mimes(include_json=args.json)
         FormatAnalyser.compare_bucket_puids(include_json=args.json)
 

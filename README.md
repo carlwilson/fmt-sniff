@@ -26,19 +26,19 @@ and [Container Sigs 27/09/2016](http://www.nationalarchives.gov.uk/documents/con
 Quick Start
 -----------
 ### Pre-requisites
-- Python
+- Python3
 - Any linux distro although the provided [install script](./scripts/setup.sh) is debian flavour specific as it uses `apt`.
 
 ### Dependencies
 The setup script uses `apt` to install the following packages:
-  - `unzip` to unpack the DROID download;
   - `openjdk-7-jre` for running DROID and Tika;
-  - `python-dev` for compiling / installing Python dependencies;
   - `libxml2-dev` for Python XML support;
   - `libxslt1-dev` for Python XSLT support;
-  - `zlib1g-dev` C libraries and headers for Python C libraries;
   - `python3-dev` development headers for Python 3; and
+  - `python-dev` for compiling / installing Python dependencies;
+  - `unzip` to unpack the DROID download;
   - `virtualenv` for isolated Python development environment.
+  - `zlib1g-dev` C libraries and headers for Python C libraries;
 
 After installing the dependencies above provided [setup script](./scripts/setup.sh) then downloads and installs DROID and Tika. It also creates convenient shell scripts and symlinks to make running the tool easier.
 
@@ -79,3 +79,21 @@ files supported by the [official S3 CLI](http://docs.aws.amazon.com/cli/latest/u
 
 #### Amazon Bucket and data cache
 The bucket endpoint is currently set in an [application constants file](https://github.com/carlwilson/fmt-sniff/blob/feat-configurable-tool-setup/corptest/const.py#L18). The location of the data cache is set in the [same file](https://github.com/carlwilson/fmt-sniff/blob/feat-configurable-tool-setup/corptest/const.py#L17).
+
+Development
+-----------
+
+### Python development utilities
+These are useful for ensuring your code follows best practise and establishing whether it's tested.
+
+ - pylint for static source code checking
+ - pep8 for complimentary similar
+ - pytest for running unit tests
+ - pytest-cov for generating test coverage reports
+
+### Tips
+
+#### setup.py doesn't install....
+These are all issues I encountered when developing this as a Python noob. All commands are Linux and if not stated they are run from the project root.
+ - This is can be caused by caching of old compiled files. You can use this `find ./corptest -name '*.pyc' -delete` to remove all the compiled files below the current directory.
+ - The build directory is out of synch, delete it: `rm -rf ./build`.

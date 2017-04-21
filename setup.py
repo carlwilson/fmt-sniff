@@ -26,6 +26,11 @@ INSTALL_REQUIRES = [
     'setuptools',
     'six == 1.10.0',
     'requests == 2.13.0',
+    'numpy == 1.12.1',
+    'opf-fido==1.3.5',
+    'python-magic==0.4.13',
+    'lxml==3.7.3',
+    'boto3==1.4.4',
 ]
 
 SETUP_REQUIRES = [
@@ -48,8 +53,8 @@ setup(name='jiscrdss-fmtsniff',
       classifiers=[
           'Intended Audience :: Archivists',
           'License :: OSI Approved :: GPL License',
-          'Programming Language :: Python :: 2',
-          'Programming Language :: Python :: 2.7',
+          'Programming Language :: Python :: 3',
+          'Programming Language :: Python :: 3.5',
       ],
       install_requires=INSTALL_REQUIRES,
       setup_requires=SETUP_REQUIRES,
