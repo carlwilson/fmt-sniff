@@ -54,8 +54,8 @@ class ByteSequenceTestCase(unittest.TestCase):
     def test_from_file_no_file(self):
         """ Test case for ByteSequence.from_file() method with nonexistent file. """
         notempty_test_path = os.path.join(THIS_DIR, 'notexist')
-        with self.assertRaises(IOError) as context:
-            test_byte_seq = ByteSequence.from_file(notempty_test_path)
+        with self.assertRaises(IOError) as _:
+            ByteSequence.from_file(notempty_test_path)
 
     def test_from_empty_string(self):
         """ Test case for ByteSequence.from_string() method. """
@@ -136,7 +136,7 @@ class BlobStoreTestCase(unittest.TestCase):
         assert self.blobstore.get_blob_count() == 0, \
         'Reset BlobStore should have blob count 0'
         notempty_test_path = os.path.join(THIS_DIR, 'notempty')
-        with self.assertRaises(IOError) as context:
+        with self.assertRaises(IOError) as _:
             self.blobstore.add_file(notempty_test_path, ByteSequence.EMPTY_SHA1)
 
     def test_get_item(self):
@@ -166,7 +166,7 @@ class BlobStoreTestCase(unittest.TestCase):
         src = os.path.join(THIS_DIR, 'notempty')
         shutil.copyfile(src, self.blobstore.get_blob_path(ByteSequence.EMPTY_SHA1))
         self.assertFalse(self.blobstore.hash_check(),
-                        'Inconsistent BlobStore should hash_check False')
+                         'Inconsistent BlobStore should hash_check False')
 
     def test_reload_blobs(self):
         """ Test reload blobs functions as expected. """
@@ -178,6 +178,7 @@ class BlobStoreTestCase(unittest.TestCase):
         assert self.blobstore.get_size() == prev_size
 
     def store_file(self, filename):
+        """Convenience method for storing files."""
         path = os.path.join(THIS_DIR, filename)
         self.blobstore.add_file(path)
 

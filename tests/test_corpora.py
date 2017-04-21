@@ -34,7 +34,7 @@ class CorpusItemTestCase(unittest.TestCase):
     def test_from_file_no_file(self):
         """ Test case for CorpusItem.from_file() method with nonexistent file. """
         notempty_test_path = os.path.join(THIS_DIR, 'notexist')
-        with self.assertRaises(IOError) as context:
+        with self.assertRaises(IOError) as _:
             CorpusItem.from_file(notempty_test_path)
 
     def test_json_empty(self):

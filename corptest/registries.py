@@ -154,7 +154,7 @@ def main():
                                      mime_type, magic_type, PronomId.get_default())
         ResultRegistry.add_result(sha_1, "python-magic", py_magic_result)
         fido_types = PronomId.from_file_by_fido(path)
-        if len(fido_types) > 0:
+        if fido_types:
             pronom_result = fido_types[0]
             pronom_result = PronomId.get_pronom_type(pronom_result.puid)
             mime_type = MimeType.get_default()

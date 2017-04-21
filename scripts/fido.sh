@@ -24,17 +24,17 @@
 PRG="$0"
 
 while [ -h "$PRG" ]; do
-  ls=`ls -ld "$PRG"`
-  link=`expr "$ls" : '.*-> \(.*\)$'`
+  ls=$(ls -ld "$PRG")
+  link=$(expr "$ls" : '.*-> \(.*\)$')
   if expr "$link" : '/.*' > /dev/null; then
     PRG="$link"
   else
-    PRG=`dirname "$PRG"`/"$link"
+    PRG=$(dirname "$PRG")/"$link"
   fi
 done
 
-PRGDIR=`dirname "$PRG"`
-BASEDIR=`cd "$PRGDIR/" >/dev/null; pwd`
+PRGDIR=$(dirname "$PRG")
+BASEDIR=$(cd "$PRGDIR/" >/dev/null; pwd)
 PYTHONCMD='python'
 
 exec "$PYTHONCMD"  \

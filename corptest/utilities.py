@@ -47,7 +47,7 @@ def hashfile(afile, hasher, blocksize=65536):
     implement update(buffer) and hexdigest() methods.
     """
     buf = afile.read(blocksize)
-    while len(buf) > 0:
+    while buf:
         hasher.update(buf)
         buf = afile.read(blocksize)
     return hasher.hexdigest()
@@ -64,7 +64,7 @@ def hash_copy_file(src, dest, hasher, blocksize=65536):
     implement update(buffer) and hexdigest() methods.
     """
     buf = src.read(blocksize)
-    while len(buf) > 0:
+    while buf:
         dest.write(buf)
         hasher.update(buf)
         buf = src.read(blocksize)
@@ -96,8 +96,7 @@ def strip_namespace(name):
         # If we have a namespace strip it and return the tag
         _, tag = name[1:].split("}")
         return tag
-    else:
-        return name
+    return name
 
 def sizeof_fmt(num, suffix='B'):
     """Format byte size in human readable form.
