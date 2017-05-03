@@ -97,43 +97,43 @@ class BlobStoreTestCase(unittest.TestCase):
     def test_empty_store(self):
         """ Test for empty store properties. """
         self.blobstore.clear()
-        assert self.blobstore.get_blob_count() == 0, \
+        assert self.blobstore.blob_count == 0, \
         'Empty BlobStore should have blob count 0'
-        assert self.blobstore.get_size() == 0, \
+        assert self.blobstore.size == 0, \
         'Empty BlobStore should have size 0'
-        assert self.blobstore.get_root() == self.tmp_store, \
+        assert self.blobstore.root == self.tmp_store, \
         'Empty BlobStore should have root same as tmp_store'
 
     def test_add_item(self):
         """ Test for empty store properties adding item works properly. """
         self.blobstore.clear()
-        assert self.blobstore.get_blob_count() == 0, \
+        assert self.blobstore.blob_count == 0, \
         'Reset BlobStore should have blob count 0'
         self.store_file('empty')
         byte_seq = ByteSequence.default_instance()
-        assert self.blobstore.get_blob_count() == 1, \
+        assert self.blobstore.blob_count == 1, \
         'BlobStore should contain a single item'
-        assert byte_seq.get_size() == 0, \
+        assert byte_seq.size == 0, \
         'Returned ByteSequence should have size 0'
-        assert byte_seq.get_sha1() == ByteSequence.EMPTY_SHA1, \
+        assert byte_seq.sha1 == ByteSequence.EMPTY_SHA1, \
         'Returned ByteSequence should have null stream SHA1 value'
 
     def test_add_item_with_hash(self):
         """ Test for empty store properties adding item works properly. """
         self.blobstore.clear()
-        assert self.blobstore.get_blob_count() == 0, \
+        assert self.blobstore.blob_count == 0, \
         'Reset BlobStore should have blob count 0'
         empty_test_path = os.path.join(THIS_DIR, 'empty')
         byte_seq = self.blobstore.add_file(empty_test_path, ByteSequence.EMPTY_SHA1)
-        assert byte_seq.get_size() == 0, \
+        assert byte_seq.size == 0, \
         'Returned ByteSequence should have size 0'
-        assert byte_seq.get_sha1() == ByteSequence.EMPTY_SHA1, \
+        assert byte_seq.sha1 == ByteSequence.EMPTY_SHA1, \
         'Returned ByteSequence should have null stream SHA1 value'
 
     def test_add_item_bad_hash(self):
         """ Test to ensure adding item with an inconsistent SHA1 raises an IOError """
         self.blobstore.clear()
-        assert self.blobstore.get_blob_count() == 0, \
+        assert self.blobstore.blob_count == 0, \
         'Reset BlobStore should have blob count 0'
         notempty_test_path = os.path.join(THIS_DIR, 'notempty')
         with self.assertRaises(IOError) as _:
@@ -146,16 +146,16 @@ class BlobStoreTestCase(unittest.TestCase):
         assert byte_sequence == ByteSequence.default_instance(), \
         'Retrieved ByteSequence should equal default empty sequence'
         byte_sequence = self.blobstore.get_blob(NOT_EMPTY_SHA1)
-        assert byte_sequence.get_sha1() == NOT_EMPTY_SHA1, \
+        assert byte_sequence.sha1 == NOT_EMPTY_SHA1, \
         'Retrieved ByteSequence should equal notempty sequence'
 
     def test_clear(self):
         """ Test than clear emptys the blobstore. """
         self.populate_and_assert_blobstore()
         self.blobstore.clear()
-        assert self.blobstore.get_blob_count() == 0, \
+        assert self.blobstore.blob_count == 0, \
         'Empty BlobStore should have blob count 0'
-        assert self.blobstore.get_size() == 0, \
+        assert self.blobstore.size == 0, \
         'Empty BlobStore should have size 0'
 
     def test_hash_check(self):
@@ -171,11 +171,11 @@ class BlobStoreTestCase(unittest.TestCase):
     def test_reload_blobs(self):
         """ Test reload blobs functions as expected. """
         self.populate_and_assert_blobstore()
-        prev_count = self.blobstore.get_blob_count()
-        prev_size = self.blobstore.get_size()
+        prev_count = self.blobstore.blob_count
+        prev_size = self.blobstore.size
         self.blobstore.reload_blobs()
-        assert self.blobstore.get_blob_count() == prev_count
-        assert self.blobstore.get_size() == prev_size
+        assert self.blobstore.blob_count == prev_count
+        assert self.blobstore.size == prev_size
 
     def store_file(self, filename):
         """Convenience method for storing files."""
@@ -190,9 +190,9 @@ class BlobStoreTestCase(unittest.TestCase):
         """ Test reload blobs functions as expected. """
         self.store_file('empty')
         self.store_file('notempty')
-        assert self.blobstore.get_blob_count() > 0, \
+        assert self.blobstore.blob_count > 0, \
         'BlobStore should have blob count > 0'
-        assert self.blobstore.get_size() > 0, \
+        assert self.blobstore.size > 0, \
         'BlobStore should have size > 0'
 
 if __name__ == "__main__":

@@ -24,6 +24,7 @@ def find_version(*file_paths):
 
 INSTALL_REQUIRES = [
     'setuptools',
+    'flask',
     'six == 1.10.0',
     'requests == 2.13.0',
     'numpy == 1.12.1',

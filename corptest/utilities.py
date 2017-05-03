@@ -12,6 +12,7 @@
 """ Package utilities: I/O, JSON and XML based mostly. """
 from datetime import datetime
 import errno
+import hashlib
 import json
 import os.path
 import requests
@@ -42,7 +43,22 @@ def create_dirs(dir_name):
         if excep.errno != errno.EEXIST:
             raise
 
-def hashfile(afile, hasher, blocksize=65536):
+def sha1_path(apath):
+    """Return the SHA1 of the file at apath."""
+    return _hashpath(apath, hashlib.sha1())
+
+def _hashpath(apath, hasher):
+    """Calculates the digest of the file at apath using the supplied hasher which
+    should implement update(buffer) and hexdigest() methods.
+    """
+    with open(apath, 'rb') as afile:
+        return _hashfile(afile, hasher)
+
+def sha1_file(afile, blocksize=65536):
+    """Calculates the SHA1 of afile."""
+    return _hashfile(afile, hashlib.sha1(), blocksize)
+
+def _hashfile(afile, hasher, blocksize=65536):
     """Calculates the digest of afile using the supplied hasher which should
     implement update(buffer) and hexdigest() methods.
     """
@@ -50,18 +66,39 @@ def hashfile(afile, hasher, blocksize=65536):
     while buf:
         hasher.update(buf)
         buf = afile.read(blocksize)
+    afile.seek(0)
     return hasher.hexdigest()
 
-def hashstring(astring, hasher):
+def sha1_string(astring):
+    """Calculates the SHA1 of astring."""
+    return _hashstring(astring, hashlib.sha1())
+
+def _hashstring(astring, hasher):
     """Calculates the digest of astring using the supplied hasher which should
     implement update(buffer) and hexdigest() methods.
     """
     hasher.update(astring.encode('utf-8'))
     return hasher.hexdigest()
 
-def hash_copy_file(src, dest, hasher, blocksize=65536):
-    """Calculates the digest of afile using the supplied hasher which should
-    implement update(buffer) and hexdigest() methods.
+def sha1_copy_by_path(src_path, dest_path, blocksize=65536):
+    """Copies a file from src_path to dest_path and calculates the SHA1 digest."""
+    return _hash_copy_by_path(src_path, dest_path, hashlib.sha1(), blocksize=blocksize)
+
+def _hash_copy_by_path(src_path, dest_path, hasher, blocksize=65536):
+    """Copies a file from src_path to dest_path and calculates the digest using
+    the supplied hasher which should implement update(buffer) and hexdigest() methods.
+    """
+    with open(src_path, 'rb') as src:
+        with open(dest_path, 'wb') as dest:
+            return _hash_copy_file(src, dest, hasher, blocksize=blocksize)
+
+def sha1_copy_file(src, dest, blocksize=65536):
+    """Copies a file from src to dest and calculates the SHA1 digest."""
+    return _hash_copy_file(src, dest, hashlib.sha1(), blocksize=blocksize)
+
+def _hash_copy_file(src, dest, hasher, blocksize=65536):
+    """Copies a file from src to dest and calculates the digest using the supplied
+    hasher which should implement update(buffer) and hexdigest() methods.
     """
     buf = src.read(blocksize)
     while buf:
@@ -79,7 +116,7 @@ def mapped_dict_from_element(root, parent_tags, tag_dict):
     """
     mapped_dict = dict()
     for child in root:
-        child_tag = strip_namespace(child.tag)
+        child_tag = _strip_namespace(child.tag)
         # Parent element so recurse and merge the returned map
         if child_tag in parent_tags:
             child_dict = mapped_dict_from_element(child, parent_tags, tag_dict)
@@ -90,7 +127,7 @@ def mapped_dict_from_element(root, parent_tags, tag_dict):
             mapped_dict[field] = child.text
     return mapped_dict
 
-def strip_namespace(name):
+def _strip_namespace(name):
     """ Strips the namespace from a tag and returns the stripped tag. """
     if name[0] == "{":
         # If we have a namespace strip it and return the tag
@@ -125,15 +162,16 @@ class Extension(object):
     final period, "." in the file name.
     """
     def __init__(self, extension):
-        self.ext = extension
+        self.__ext = extension
 
-    def get_ext(self):
+    @property
+    def ext(self):
         """Return the extensions String value"""
-        return self.ext
+        return self.__ext
 
     def is_json(self):
         """ Returns true if extension is JSON. """
-        return self.ext.lower() == 'json'
+        return self.__ext.lower() == 'json'
 
     @classmethod
     def from_file_name(cls, file_name):

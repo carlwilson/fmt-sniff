@@ -91,6 +91,19 @@ These are useful for ensuring your code follows best practise and establishing w
  - pytest for running unit tests
  - pytest-cov for generating test coverage reports
 
+#### Running tests
+
+You can run unit tests by:
+
+    pytest ./tests/
+and generate test coverage figures by:
+
+    pytest --cov=corptest ./tests/
+If you want to see which parts of your code aren't tested then:
+
+     pytest --cov=corptest --cov-report=html ./tests/
+After this you can open the file [`<projectRoot>/htmlcov/index.html`](./htmlcov/index.html) in your browser and survey the gory details.
+
 ### Tips
 
 #### setup.py doesn't install....

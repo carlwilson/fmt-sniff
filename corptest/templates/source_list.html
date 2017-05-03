@@ -1,0 +1,30 @@
+{% extends "page.html" %}
+{% block title %}Home{% endblock %}
+{% block page_content %}
+  <h2>Source Keys</h2>
+  <table class="table table-striped">
+    <tr>
+      <th>Type</th>
+      <th>Key</th>
+      <th>Last Modified</th>
+      <th>Size</th>
+    </tr>
+    {{ key_rows(source_type, source_item.id, folders) }}
+    {{ key_rows(source_type, source_item.id, files) }}
+  </table>
+{% endblock page_content %}
+
+{% macro key_rows(item_type, item_id, keys) %}
+  {% for key in keys %}
+    {{ key_row(item_type, item_id, key) }}
+  {% endfor %}
+{% endmacro %}
+
+{% macro key_row(item_type, item_id, key) %}
+    <tr>
+      <td><span class="glyphicon glyphicon-{{ 'folder-open' if key.is_folder else 'file' }}" aria-hidden="true"></span></td>
+      <td><a href="{{ '' if key.is_folder else '/download' }}/{{ item_type }}/{{ item_id }}/{{ key.value }}" >{{ key.value }}</a></td>
+      <td>{{ 'N/A' if key.is_folder else 'mod' }}</td>
+      <td>{{ 'N/A' if key.is_folder else 'mod' }}</td>
+    </tr>
+{% endmacro %}
