@@ -77,4 +77,4 @@ def _download_item(source_type, source_item, encoded_filepath):
                      attachment_filename=ntpath.basename(key.value))
 
 if __name__ == "__main__":
-    APP.run(host='0.0.0.0', port="80")
+    APP.run()
