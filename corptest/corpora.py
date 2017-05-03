@@ -15,11 +15,10 @@
 import collections
 from datetime import datetime
 import errno
-import hashlib
 import os
 import time
 
-from corptest.utilities import Extension, hashfile
+from corptest.utilities import Extension, sha1_path
 
 class CorpusItem(object):
     """ Basic attributes for a corpus item. """
@@ -70,11 +69,10 @@ class CorpusItem(object):
 
     @classmethod
     def from_file(cls, src_path):
-        """ Creates a new ByteStream instance from the supplied file path. """
+        """ Creates a new CorpusItem instance from the supplied file path. """
         if not os.path.isfile(src_path):
             raise IOError(errno.ENOENT, os.strerror(errno.ENOENT), src_path)
-        with open(src_path, 'rb') as src:
-            sha1 = hashfile(src, hashlib.sha1())
+        sha1 = sha1_path(src_path)
         statinfo = os.stat(src_path)
         mtime = time.ctime(statinfo.st_mtime)
         return cls(sha1, statinfo.st_size, mtime, src_path)

@@ -15,45 +15,57 @@ Classes that encapsulate different sources of data to be identified.
 import abc
 from os import access, path, R_OK, scandir
 import re
+import tempfile
 
 from botocore import exceptions
 from boto3 import client, resource
+
+from corptest.utilities import sha1_path
 
 class SourceDetails(object):
     """Simple class to hold details common to all sources, e.g. name, description."""
     def __init__(self, name, description):
         if not name:
             raise ValueError("Argument name can not be None or an empty string.")
-        self._name = name
-        self._description = description
+        self.__name = name
+        self.__description = description
 
     @property
     def name(self):
         """Return the source's name, a unique string identifier."""
-        return self._name
+        return self.__name
 
     @property
     def description(self):
         """Return a human readable, text description of the source."""
-        return self._description
+        return self.__description
+
+    def __str__(self): # pragma: no cover
+        ret_val = []
+        ret_val.append("SourceDetails : [name=")
+        ret_val.append(self.name)
+        ret_val.append(", description=")
+        ret_val.append(str(self.description))
+        ret_val.append("]")
+        return "".join(ret_val)
 
 class SourceKey(object):
     """Simple class encapsulating 2 parts of a key, the value and whether it's a folder."""
     def __init__(self, value, is_folder=True):
         if not value:
             raise ValueError("Argument value can not be None or an empty string.")
-        self._value = value
-        self._is_folder = is_folder
+        self.__value = value
+        self.__is_folder = is_folder
 
     @property
     def value(self):
         """ Return the key value, it's unique path. """
-        return self._value
+        return self.__value
 
     @property
     def is_folder(self):
         """ Return true if key is that of a file item. """
-        return self._is_folder
+        return self.__is_folder
 
     def __key(self):
         return (self.value, self.is_folder)
@@ -80,19 +92,18 @@ class SourceKey(object):
         ret_val.append("]")
         return "".join(ret_val)
 
-
 class SourceBase(object):
     """Abstract base class for Source classes."""
     __metaclass__ = abc.ABCMeta
     def __init__(self, details):
         if not details:
             raise ValueError("Argument details can not be None.")
-        self._details = details
+        self.__details = details
 
     @property
     def details(self):
         """Return the source details."""
-        return self._details
+        return self.__details
 
     @abc.abstractmethod
     def all_file_keys(self): # pragma: no cover
@@ -136,13 +147,12 @@ class AS3BucketSource(SourceBase):
         bucket_exists = self.validate_bucket(bucket_name)
         if not bucket_exists:
             raise ValueError('No AS3 bucket called {} found.'.format(bucket_name))
-        self._details = details
-        self._bucket_name = bucket_name
+        self.__bucket_name = bucket_name
 
     @property
     def bucket_name(self):
         """Return the unique Amazon S3 bucket name."""
-        return self._bucket_name
+        return self.__bucket_name
 
     def all_file_keys(self):
         bucket = self.S3_RESOURCE.Bucket(self.bucket_name)
@@ -152,6 +162,8 @@ class AS3BucketSource(SourceBase):
 
     def list_folders(self, filter_key=None, recurse=False):
         prefix = super().validate_key_and_return_prefix(filter_key)
+        if prefix and not prefix.endswith('/'):
+            prefix += '/'
         s3_client = client('s3')
         result = s3_client.list_objects_v2(Bucket=self.bucket_name, Prefix=prefix, Delimiter='/')
         if result.get('CommonPrefixes'):
@@ -164,6 +176,8 @@ class AS3BucketSource(SourceBase):
 
     def list_files(self, filter_key=None, recurse=False):
         prefix = super().validate_key_and_return_prefix(filter_key)
+        if prefix and not prefix.endswith('/'):
+            prefix += '/'
         s3_client = client('s3')
         result = s3_client.list_objects_v2(Bucket=self.bucket_name, Prefix=prefix, Delimiter='/')
         if result.get('Contents'):
@@ -175,6 +189,17 @@ class AS3BucketSource(SourceBase):
                     key = SourceKey(common_prefix.get('Prefix'))
                     for res in self.list_files(filter_key=key, recurse=True):
                         yield res
+
+    def get_temp_file(self, key):
+        """Creates a temp file copy of a file from the specified image."""
+        if not key or key.is_folder:
+            raise ValueError("Argument key must be a file key.")
+        s3_client = client('s3')
+        # Open with a named temp file
+        with tempfile.NamedTemporaryFile(delete=False) as temp:
+            s3_client.download_fileobj(self.bucket_name, key.value, temp)
+            sha1 = sha1_path(temp.name)
+            return temp.name, sha1
 
     @classmethod
     def validate_bucket(cls, bucket_name):
@@ -194,6 +219,15 @@ class AS3BucketSource(SourceBase):
                 exists = False
         return exists
 
+    def __str__(self): # pragma: no cover
+        ret_val = []
+        ret_val.append("AS3BucketSource : [details=")
+        ret_val.append(str(self.details))
+        ret_val.append(", bucket_name=")
+        ret_val.append(self.bucket_name)
+        ret_val.append("]")
+        return "".join(ret_val)
+
 class FileSystemSource(SourceBase):
     """A source based on a file system"""
     def __init__(self, details, root):
@@ -202,13 +236,12 @@ class FileSystemSource(SourceBase):
             raise ValueError("Argument root can not be None or an empty string.")
         if not path.isdir(root) or not access(root, R_OK):
             raise ValueError("Argument root must be an existing dir")
-        self._details = details
-        self._root = root
+        self.__root = root
 
     @property
     def root(self):
         """Return the root path to the file system corpus."""
-        return self._root
+        return self.__root
 
     def all_file_keys(self):
         return self.list_files(recurse=True)
@@ -236,3 +269,20 @@ class FileSystemSource(SourceBase):
                                                  list_folders=list_folders,
                                                  recurse=True):
                         yield child
+
+    def get_temp_file(self, key):
+        """Creates a temp file copy of a file from the specified image."""
+        if not key or key.is_folder:
+            raise ValueError("Argument key must be a file key.")
+        file_path = path.join(self.root, key.value)
+        sha1 = sha1_path(file_path)
+        return file_path, sha1
+
+    def __str__(self): # pragma: no cover
+        ret_val = []
+        ret_val.append("FileSystemSource : [details=")
+        ret_val.append(str(self.details))
+        ret_val.append(", root=")
+        ret_val.append(self.root)
+        ret_val.append("]")
+        return "".join(ret_val)

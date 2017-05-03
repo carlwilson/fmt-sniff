@@ -1,0 +1,37 @@
+{% extends "page.html" %}
+{% block title %}Home{% endblock %}
+{% block page_content %}
+    <div class="jumbotron media">
+      <div class="media-left">
+        <img alt="Portal logo." title="portal logo" src="{{ url_for('static', filename='img/logo.png') }}" />
+      </div>
+      <div class="media-body">
+        <h1 class="media-heading">RDSS Format Analysis</h1>
+        <p>
+          Choose Bucket or Local Folder
+        </p>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-md-1"></div>
+      {{ source_list(buckets, 'bucket') }}
+      <div class="col-md-2"></div>
+      {{ source_list(folders, 'folder') }}
+      <div class="col-md-1"></div>
+    </div>
+{% endblock page_content %}
+
+{% macro source_list(sources, type='bucket') %}
+        <div class="col-md-4">
+          <h2>{{ type|capitalize }}s</h2>
+          <div class="list-group">
+          {% for source in sources %}
+            <a href="{{type}}/{{ source.id }}" class="list-group-item">
+              <h3 class="list-group-item-heading">{{ source.name }}</h3>
+              <p class="list-group-item-text"><em>{{ source.location }}</em></p>
+              <p class="list-group-item-text">{{ source.description }}</p>
+            </a>
+          {% endfor %}
+          </div>
+        </div>
+{% endmacro %}
