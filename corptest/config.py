@@ -15,7 +15,7 @@ import os
 from corptest.const import ENV_CONF_PROFILE, ENV_CONF_FILE
 
 # TODO: template these values for flexible install
-HOST = 'localhost'
+HOST = '0.0.0.0'
 LOG_ROOT = '/tmp/'
 
 class BaseConfig(object):

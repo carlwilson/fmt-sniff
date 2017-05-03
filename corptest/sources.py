@@ -13,10 +13,11 @@
 Classes that encapsulate different sources of data to be identified.
 """
 import abc
-from os import access, path, R_OK, scandir
+from os import access, path, R_OK
 import re
 import tempfile
 
+import scandir
 from botocore import exceptions
 from boto3 import client, resource
 
@@ -257,7 +258,7 @@ class FileSystemSource(SourceBase):
     def yield_keys(self, prefix='', list_files=True, list_folders=True, recurse=False):
         """Generator that yields a list of file and or folder keys from a root
         directory."""
-        for entry in scandir(path.join(self.root, prefix)):
+        for entry in scandir.scandir(path.join(self.root, prefix)):
             if list_files and entry.is_file(follow_symlinks=False):
                 yield SourceKey(path.join(prefix, entry.name), False)
             if entry.is_dir(follow_symlinks=False):

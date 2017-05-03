@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+mkdir -p ~/.venvs
+virtualenv -p python3 ~/.venvs/fmt-sniff
+source ~/.venvs/fmt-sniff/bin/activate
+pip install -e /vagrant
+deactivate

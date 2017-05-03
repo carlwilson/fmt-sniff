@@ -26,6 +26,7 @@ INSTALL_REQUIRES = [
     'setuptools',
     'flask',
     'six == 1.10.0',
+    'scandir',
     'requests == 2.13.0',
     'numpy == 1.12.1',
     'opf-fido==1.3.5',
