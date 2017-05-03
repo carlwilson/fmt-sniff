@@ -54,6 +54,25 @@ and runs the required setup script. In order to get the machine up and running d
     git clone https://github.com/carlwilson/fmt-sniff.git
     cd fmt-sniff
     vagrant up
+    vagrant ssh -c /vagrant/scripts/run.sh
+The open your browser and navigate to http://localhost:8080
+
+#### Local virtual env setup
+First set up a local virtual environment, this example assumes you'll do this in the project root directory on a linux box or Mac:
+
+    virtualenv -p python3 venv
+    source venv/bin/activate
+Next set the environment variable for the Flask web app:
+
+    export FLASK_APP='corptest'
+    export JISC_FFA_CONF_FILE='<pathtoproject>/conf/example.conf'
+**NOTE** *these will need to be set for every new session for now*.
+
+Finally install and run the  Flask application:
+
+    pip install -e .
+    flask run --port=8080
+    The open your browser and navigate to http://localhost:8080
 
 #### Debian flavoured distro
 For now best to examine the [setup file](./scripts/setup.sh) and decide how you
@@ -63,7 +82,10 @@ virtualenv differently.
 ### Configuration
 #### Amazon S3 credentials
 If you want to use an S3 Bucket you'll need to set up the region and credentials
-for the bucket you want to use. Credentials are accessed using the credentials
+for the bucket you want to use.
+
+##### S3 credentials file
+Credentials are accessed using the credentials
 files supported by the [official S3 CLI](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html). This can be set up manually by adding the following directories and files below your home directory:
 
 **~/.aws/credentials**
@@ -77,12 +99,18 @@ files supported by the [official S3 CLI](http://docs.aws.amazon.com/cli/latest/u
     [default]
     region=eu-west-2
 
+##### S3 credentials environment variables
+Alternatively you can export them as environment variables, on a linux box:
+
+  export AWS_ACCESS_KEY_ID='AKIAIOSFODNN7EXAMPLE'
+  export AWS_SECRET_ACCESS_KEY='wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
+  export AWS_DEFAULT_REGION='region=eu-west-2'
+
 #### Amazon Bucket and data cache
-The bucket endpoint is currently set in an [application constants file](https://github.com/carlwilson/fmt-sniff/blob/feat-configurable-tool-setup/corptest/const.py#L18). The location of the data cache is set in the [same file](https://github.com/carlwilson/fmt-sniff/blob/feat-configurable-tool-setup/corptest/const.py#L17).
+The bucket endpoint is currently set in an [application constants file](https://github.com/carlwilson/fmt-sniff/blob/feat-configurable-tool-setup/corptest/const.py). The location of the data cache is set in the [same file](https://github.com/carlwilson/fmt-sniff/blob/feat-configurable-tool-setup/corptest/const.py).
 
 Development
 -----------
-
 ### Python development utilities
 These are useful for ensuring your code follows best practise and establishing whether it's tested.
 
@@ -105,7 +133,6 @@ If you want to see which parts of your code aren't tested then:
 After this you can open the file [`<projectRoot>/htmlcov/index.html`](./htmlcov/index.html) in your browser and survey the gory details.
 
 ### Tips
-
 #### setup.py doesn't install....
 These are all issues I encountered when developing this as a Python noob. All commands are Linux and if not stated they are run from the project root.
  - This is can be caused by caching of old compiled files. You can use this `find ./corptest -name '*.pyc' -delete` to remove all the compiled files below the current directory.
