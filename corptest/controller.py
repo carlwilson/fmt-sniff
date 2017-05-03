@@ -17,8 +17,11 @@ from flask import render_template, send_file
 from corptest import APP
 from corptest.sources import SourceDetails, SourceKey, FileSystemSource, AS3BucketSource
 
-BUCKETS = {b['id'] : b for b in APP.config['BUCKETS']}
-FOLDERS = {f['id'] : f for f in APP.config['FOLDERS']}
+BUCKET_LIST = APP.config.get('BUCKETS', {})
+BUCKETS = {b['id'] : b for b in BUCKET_LIST}
+
+FOLDER_LIST = APP.config.get('FOLDERS', {})
+FOLDERS = {f['id'] : f for f in FOLDER_LIST}
 
 @APP.route("/")
 def home():
@@ -28,44 +31,48 @@ def home():
 @APP.route("/folder/<folder_id>/", defaults={'encoded_filepath': ''})
 @APP.route('/folder/<folder_id>/<path:encoded_filepath>/')
 def list_folder(folder_id, encoded_filepath):
-    return list_source('folder', FOLDERS[folder_id], encoded_filepath)
+    """Display the contents of a File System source folder."""
+    return _list_source('folder', FOLDERS[folder_id], encoded_filepath)
 
 @APP.route("/bucket/<bucket_id>/", defaults={'encoded_filepath': ''})
 @APP.route('/bucket/<bucket_id>/<path:encoded_filepath>/')
 def list_bucket(bucket_id, encoded_filepath):
-    return list_source('bucket', BUCKETS[bucket_id], encoded_filepath)
+    """Display the contents of an AS3 source folder."""
+    return _list_source('bucket', BUCKETS[bucket_id], encoded_filepath)
 
 @APP.route("/download/folder/<folder_id>/<path:encoded_filepath>/")
 def download_fs(folder_id, encoded_filepath):
-    return download_item('folder', FOLDERS[folder_id], encoded_filepath)
+    """Download a file from a File System source."""
+    return _download_item('folder', FOLDERS[folder_id], encoded_filepath)
 
 @APP.route("/download/bucket/<bucket_id>/<path:encoded_filepath>/")
 def download_bucket(bucket_id, encoded_filepath):
-    return download_item('bucket', BUCKETS[bucket_id], encoded_filepath)
+    """Download a file from an AS3 source."""
+    return _download_item('bucket', BUCKETS[bucket_id], encoded_filepath)
 
-def list_source(source_type, source_item, encoded_filepath):
-    source, filter_key = get_source_and_key(source_type, source_item, encoded_filepath)
+def _list_source(source_type, source_item, encoded_filepath):
+    source, filter_key = _get_source_and_key(source_type, source_item, encoded_filepath)
     folders = source.list_folders(filter_key=filter_key)
     files = source.list_files(filter_key=filter_key)
     return render_template('source_list.html', source_type=source_type,
                            source_item=source_item, folders=folders, files=files)
 
-def get_source_and_key(source_type, source_item, encoded_filepath, is_folder=True):
-    details = details_from_config_item(source_item)
+def _get_source_and_key(source_type, source_item, encoded_filepath, is_folder=True):
+    details = _details_from_config_item(source_item)
     source = AS3BucketSource(details, source_item['location'])\
         if source_type == 'bucket' else FileSystemSource(details, source_item['location'])
     path = urllib.parse.unquote(encoded_filepath)
     key = SourceKey(path, is_folder) if path else None
     return source, key
 
-def details_from_config_item(item):
+def _details_from_config_item(item):
     details = SourceDetails(item['name'], item['description'])
     return details
 
-def download_item(source_type, source_item, encoded_filepath):
-    source, key = get_source_and_key(source_type, source_item, encoded_filepath, is_folder=False)
+def _download_item(source_type, source_item, encoded_filepath):
+    source, key = _get_source_and_key(source_type, source_item, encoded_filepath, is_folder=False)
     temp_file, _ = source.get_temp_file(key)
-    mime_type =  MimeTypes().guess_type(key.value)[0]
+    mime_type = MimeTypes().guess_type(key.value)[0]
     return send_file(temp_file, mimetype=mime_type, as_attachment=True,
                      attachment_filename=ntpath.basename(key.value))
 
