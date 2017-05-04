@@ -14,11 +14,10 @@ import os
 
 from corptest.const import ENV_CONF_PROFILE, ENV_CONF_FILE
 
-# TODO: template these values for flexible install
 HOST = 'localhost'
 LOG_ROOT = '/tmp/'
 
-class BaseConfig(object):
+class BaseConfig(object):# pylint: disable-msg=R0903
     """Base / default config, no debug logging and short log format."""
     HOST = HOST
     DEBUG = False
@@ -26,8 +25,16 @@ class BaseConfig(object):
     LOG_FORMAT = '[%(filename)-15s:%(lineno)-5d] %(message)s'
     LOG_FILE = LOG_ROOT + 'jisc-rdss-format.log'
     SECRET_KEY = 'a5c020ced05af9ad3aacc6bba41beb5c7b6f750b846dadad'
-
-class DevConfig(BaseConfig):
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    BUCKETS = [
+        {
+            'id' : '1',
+            'name' : 'JISC Test Bucket',
+            'description' : 'JISC Research Data Shared Service test Amazon S3 bucket.',
+            'location' : 'testdata.researchdata.alpha.jisc.ac.uk'
+        }
+    ]
+class DevConfig(BaseConfig):# pylint: disable-msg=R0903
     """Developer level config, with debug logging and long log format."""
     DEBUG = True
     TESTING = True

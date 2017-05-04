@@ -21,90 +21,12 @@ import scandir
 from botocore import exceptions
 from boto3 import client, resource
 
+from corptest.model import SourceKey
 from corptest.utilities import sha1_path
-
-class SourceDetails(object):
-    """Simple class to hold details common to all sources, e.g. name, description."""
-    def __init__(self, name, description):
-        if not name:
-            raise ValueError("Argument name can not be None or an empty string.")
-        self.__name = name
-        self.__description = description
-
-    @property
-    def name(self):
-        """Return the source's name, a unique string identifier."""
-        return self.__name
-
-    @property
-    def description(self):
-        """Return a human readable, text description of the source."""
-        return self.__description
-
-    def __str__(self): # pragma: no cover
-        ret_val = []
-        ret_val.append("SourceDetails : [name=")
-        ret_val.append(self.name)
-        ret_val.append(", description=")
-        ret_val.append(str(self.description))
-        ret_val.append("]")
-        return "".join(ret_val)
-
-class SourceKey(object):
-    """Simple class encapsulating 2 parts of a key, the value and whether it's a folder."""
-    def __init__(self, value, is_folder=True):
-        if not value:
-            raise ValueError("Argument value can not be None or an empty string.")
-        self.__value = value
-        self.__is_folder = is_folder
-
-    @property
-    def value(self):
-        """ Return the key value, it's unique path. """
-        return self.__value
-
-    @property
-    def is_folder(self):
-        """ Return true if key is that of a file item. """
-        return self.__is_folder
-
-    def __key(self):
-        return (self.value, self.is_folder)
-
-    def __eq__(self, other):
-        """ Define an equality test for ByteSequence """
-        if isinstance(other, self.__class__):
-            return self.__key() == other.__key()
-        return False
-
-    def __ne__(self, other):
-        """ Define an inequality test for ByteSequence """
-        return not self.__eq__(other)
-
-    def __hash__(self):
-        return hash(self.__key())
-
-    def __str__(self): # pragma: no cover
-        ret_val = []
-        ret_val.append("SourceKey : [value=")
-        ret_val.append(self.value)
-        ret_val.append(", is_folder=")
-        ret_val.append(str(self.is_folder))
-        ret_val.append("]")
-        return "".join(ret_val)
 
 class SourceBase(object):
     """Abstract base class for Source classes."""
     __metaclass__ = abc.ABCMeta
-    def __init__(self, details):
-        if not details:
-            raise ValueError("Argument details can not be None.")
-        self.__details = details
-
-    @property
-    def details(self):
-        """Return the source details."""
-        return self.__details
 
     @abc.abstractmethod
     def all_file_keys(self): # pragma: no cover
@@ -141,22 +63,21 @@ class AS3BucketSource(SourceBase):
     """A Source based on an Amazon S3 bucket."""
     FOLDER_REGEX = re.compile('.*/$')
     S3_RESOURCE = None
-    def __init__(self, details, bucket_name):
-        super().__init__(details)
-        if not bucket_name:
-            raise ValueError("Argument bucket_name can not be None or an empty string.")
-        bucket_exists = self.validate_bucket(bucket_name)
+    def __init__(self, bucket):
+        if not bucket:
+            raise ValueError("Argument bucket can not be None.")
+        bucket_exists = self.validate_bucket(bucket.bucket_name)
         if not bucket_exists:
-            raise ValueError('No AS3 bucket called {} found.'.format(bucket_name))
-        self.__bucket_name = bucket_name
+            raise ValueError('No AS3 bucket called {} found.'.format(bucket.bucket_name))
+        self.__bucket = bucket
 
     @property
-    def bucket_name(self):
-        """Return the unique Amazon S3 bucket name."""
-        return self.__bucket_name
+    def bucket(self):
+        """Return the Amazon S3 bucket."""
+        return self.__bucket
 
     def all_file_keys(self):
-        bucket = self.S3_RESOURCE.Bucket(self.bucket_name)
+        bucket = self.S3_RESOURCE.Bucket(self.bucket.bucket_name)
         for obj_summary in bucket.objects.all():
             if self.FOLDER_REGEX.match(obj_summary.key) is None:
                 yield SourceKey(obj_summary.key, False)
@@ -166,7 +87,8 @@ class AS3BucketSource(SourceBase):
         if prefix and not prefix.endswith('/'):
             prefix += '/'
         s3_client = client('s3')
-        result = s3_client.list_objects_v2(Bucket=self.bucket_name, Prefix=prefix, Delimiter='/')
+        result = s3_client.list_objects_v2(Bucket=self.bucket.bucket_name,
+                                           Prefix=prefix, Delimiter='/')
         if result.get('CommonPrefixes'):
             for common_prefix in result.get('CommonPrefixes'):
                 yield SourceKey(common_prefix.get('Prefix'))
@@ -180,7 +102,8 @@ class AS3BucketSource(SourceBase):
         if prefix and not prefix.endswith('/'):
             prefix += '/'
         s3_client = client('s3')
-        result = s3_client.list_objects_v2(Bucket=self.bucket_name, Prefix=prefix, Delimiter='/')
+        result = s3_client.list_objects_v2(Bucket=self.bucket.bucket_name,
+                                           Prefix=prefix, Delimiter='/')
         if result.get('Contents'):
             for obj_summary in result.get('Contents'):
                 yield SourceKey(obj_summary.get('Key'), False)
@@ -198,7 +121,7 @@ class AS3BucketSource(SourceBase):
         s3_client = client('s3')
         # Open with a named temp file
         with tempfile.NamedTemporaryFile(delete=False) as temp:
-            s3_client.download_fileobj(self.bucket_name, key.value, temp)
+            s3_client.download_fileobj(self.bucket.bucket_name, key.value, temp)
             sha1 = sha1_path(temp.name)
             return temp.name, sha1
 
@@ -220,29 +143,26 @@ class AS3BucketSource(SourceBase):
                 exists = False
         return exists
 
-    def __str__(self): # pragma: no cover
+    def __rep__(self): # pragma: no cover
         ret_val = []
-        ret_val.append("AS3BucketSource : [details=")
-        ret_val.append(str(self.details))
-        ret_val.append(", bucket_name=")
-        ret_val.append(self.bucket_name)
+        ret_val.append("corptest.source.AS3BucketSource : [AS3Bucket=")
+        ret_val.append(str(self.bucket))
         ret_val.append("]")
         return "".join(ret_val)
 
 class FileSystemSource(SourceBase):
     """A source based on a file system"""
-    def __init__(self, details, root):
-        super().__init__(details)
-        if not root:
-            raise ValueError("Argument root can not be None or an empty string.")
-        if not path.isdir(root) or not access(root, R_OK):
-            raise ValueError("Argument root must be an existing dir")
-        self.__root = root
+    def __init__(self, file_system):
+        if not file_system:
+            raise ValueError("Argument file_system can not be None.")
+        if not path.isdir(file_system.root) or not access(file_system.root, R_OK):
+            raise ValueError("Argument file_system.root must be an existing dir")
+        self.__file_system = file_system
 
     @property
-    def root(self):
+    def file_system(self):
         """Return the root path to the file system corpus."""
-        return self.__root
+        return self.__file_system
 
     def all_file_keys(self):
         return self.list_files(recurse=True)
@@ -258,7 +178,7 @@ class FileSystemSource(SourceBase):
     def yield_keys(self, prefix='', list_files=True, list_folders=True, recurse=False):
         """Generator that yields a list of file and or folder keys from a root
         directory."""
-        for entry in scandir.scandir(path.join(self.root, prefix)):
+        for entry in scandir.scandir(path.join(self.file_system.root, prefix)):
             if list_files and entry.is_file(follow_symlinks=False):
                 yield SourceKey(path.join(prefix, entry.name), False)
             if entry.is_dir(follow_symlinks=False):
@@ -275,15 +195,13 @@ class FileSystemSource(SourceBase):
         """Creates a temp file copy of a file from the specified image."""
         if not key or key.is_folder:
             raise ValueError("Argument key must be a file key.")
-        file_path = path.join(self.root, key.value)
+        file_path = path.join(self.file_system.root, key.value)
         sha1 = sha1_path(file_path)
         return file_path, sha1
 
-    def __str__(self): # pragma: no cover
+    def __rep__(self): # pragma: no cover
         ret_val = []
-        ret_val.append("FileSystemSource : [details=")
-        ret_val.append(str(self.details))
-        ret_val.append(", root=")
-        ret_val.append(self.root)
+        ret_val.append("corptest.sources.FileSystemSource : [FileSystem=")
+        ret_val.append(str(self.file_system))
         ret_val.append("]")
         return "".join(ret_val)

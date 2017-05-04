@@ -16,79 +16,9 @@ import json
 import os
 
 from corptest.const import BLOB_STORE_ROOT
-from corptest.utilities import sha1_path, sha1_string, sha1_copy_by_path
+from corptest.model import ByteSequence
+from corptest.utilities import sha1_path, sha1_copy_by_path
 from corptest.utilities import ObjectJsonEncoder, only_files, create_dirs
-
-class ByteSequence(object):
-    """Key attributes for all byte sequences, i.e. arbitary blobs of data."""
-    EMPTY_SHA1 = 'da39a3ee5e6b4b0d3255bfef95601890afd80709'
-    def __init__(self, sha1=EMPTY_SHA1, size=0):
-        self.__sha1 = sha1
-        self.__size = size
-
-    @property
-    def sha1(self):
-        """Returns the SHA-1 hash of the ByteSequence, use as an id."""
-        return self.__sha1
-
-    @property
-    def size(self):
-        """Return the size of the ByteSequence in bytes."""
-        return self.__size
-
-    def __key(self):
-        return (self.sha1, self.size)
-
-    def __eq__(self, other):
-        """ Define an equality test for ByteSequence """
-        if isinstance(other, self.__class__):
-            return self.__key() == other.__key()
-        return False
-
-    def __ne__(self, other):
-        """ Define an inequality test for ByteSequence """
-        return not self.__eq__(other)
-
-    def __hash__(self):
-        return hash(self.__key())
-
-    def __str__(self):
-        ret_val = []
-        ret_val.append("ByteSequence : [sha1=")
-        ret_val.append(self.sha1)
-        ret_val.append(", size=")
-        ret_val.append(str(self.size))
-        ret_val.append("]")
-        return "".join(ret_val)
-
-    @classmethod
-    def default_instance(cls):
-        """ Returns the default instance, an empty byte sequence. """
-        return ByteSequence()
-
-    @classmethod
-    def from_file(cls, source_path):
-        """ Creates a new ByteStream instance from the supplied file path. """
-        if not os.path.isfile(source_path):
-            raise IOError(errno.ENOENT, os.strerror(errno.ENOENT), source_path)
-        sha1 = sha1_path(source_path)
-        size = os.path.getsize(source_path)
-        return cls(sha1, size)
-
-    @classmethod
-    def from_string(cls, source):
-        """ Creates a new ByteStream instance from the supplied string. """
-        sha1 = sha1_string(source)
-        return cls(sha1, len(source))
-
-    @classmethod
-    def json_decode(cls, obj):
-        """ Custom JSON decoder for ByteSequence. """
-        cls_name = '__{}__'.format(cls.__name__)
-        if cls_name in obj:
-            byte_seq = obj[cls_name]
-            return cls(byte_seq['_ByteSequence__sha1'], byte_seq['_ByteSequence__size'])
-        return obj
 
 class BlobStore(object):
     """ Hash identified store for binary objects. """

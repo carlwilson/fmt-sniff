@@ -140,7 +140,7 @@ def main():
     #
     # ResultRegistry.persist()
     ele_count = 0
-    total_eles = blobstore.get_blob_count()
+    total_eles = blobstore.blob_count
     PronomId.initialise()
     for key in blobstore.blobs.keys():
         ele_count += 1
