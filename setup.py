@@ -24,16 +24,17 @@ def find_version(*file_paths):
 
 INSTALL_REQUIRES = [
     'setuptools',
-    'flask',
-    'flask_sqlalchemy',
+    'flask == 0.12.1',
+    'flask_sqlalchemy == 2.2',
+    'sqlalchemy == 1.1.9',
     'six == 1.10.0',
-    'scandir',
+    'scandir == 1.5',
     'requests == 2.13.0',
     'numpy == 1.12.1',
-    'opf-fido==1.3.5',
-    'python-magic==0.4.13',
-    'lxml==3.7.3',
-    'boto3==1.4.4',
+    'opf-fido == 1.3.5',
+    'python-magic == 0.4.13',
+    'lxml == 3.7.3',
+    'boto3 == 1.4.4',
 ]
 
 SETUP_REQUIRES = [
