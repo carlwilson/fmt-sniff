@@ -15,8 +15,7 @@ import unittest
 from corptest.blobstore import ByteSequence
 from corptest.corpora import CorpusItem
 from corptest.utilities import ObjectJsonEncoder
-
-THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+from tests.const import THIS_DIR
 
 class CorpusItemTestCase(unittest.TestCase):
     """ Tests for the CorpusItem class. """
@@ -24,12 +23,12 @@ class CorpusItemTestCase(unittest.TestCase):
         """ Test creation of CorpusItem from a file. """
         empty_test_path = os.path.join(THIS_DIR, 'empty')
         corpus_item = CorpusItem.from_file(empty_test_path)
-        assert corpus_item.get_path() == empty_test_path, \
-        'item path should equal empty test path'
-        assert corpus_item.get_size() == 0, \
-        'item size should be zero'
-        assert corpus_item.get_sha1() == ByteSequence.EMPTY_SHA1, \
-        'item sha1 should be null string sha1'
+        self.assertEqual(corpus_item.get_path(), empty_test_path,
+                         'item path should equal empty test path')
+        self.assertEqual(corpus_item.get_size(), 0,
+                         'item size should be zero')
+        self.assertEqual(corpus_item.get_sha1(), ByteSequence.EMPTY_SHA1,
+                         'item sha1 should be null string sha1')
 
     def test_from_file_no_file(self):
         """ Test case for CorpusItem.from_file() method with nonexistent file. """
@@ -44,8 +43,8 @@ class CorpusItemTestCase(unittest.TestCase):
         empty_item = CorpusItem.from_file(empty_test_path)
         json_string = encoder.default(empty_item)
         test_item = CorpusItem.json_decode(json_string)
-        assert test_item == empty_item, \
-        'Test from JSON should be equal to default instance'
+        self.assertEqual(test_item, empty_item,
+                         'Test from JSON should be equal to default instance')
 
     def test_json_not_empty(self):
         """ Test case for ByteSequence.json_decode() method. """
@@ -54,5 +53,5 @@ class CorpusItemTestCase(unittest.TestCase):
         not_empty_item = CorpusItem.from_file(notempty_test_path)
         json_string = encoder.default(not_empty_item)
         test_item = CorpusItem.json_decode(json_string)
-        assert test_item == not_empty_item, \
-        'Test from JSON should be equal to not_empty_item'
+        self.assertEqual(test_item, not_empty_item,
+                         'Test from JSON should be equal to not_empty_item')

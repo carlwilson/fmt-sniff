@@ -25,6 +25,7 @@ def find_version(*file_paths):
 INSTALL_REQUIRES = [
     'setuptools',
     'flask',
+    'flask_sqlalchemy',
     'six == 1.10.0',
     'scandir',
     'requests == 2.13.0',

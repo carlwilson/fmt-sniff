@@ -14,16 +14,17 @@ JISC Research Data Shared Service : Format Indentification and analysis.
 
 Initialisation module for package, kicks of the flask app.
 """
+import logging
 from os.path import abspath, dirname, join
 __version__ = '0.2.0'
-import logging
-from corptest.config import configure_app
-
+from flask_sqlalchemy import SQLAlchemy
 from flask import Flask
-APP = Flask(__name__)
+
+from corptest.config import configure_app
+from corptest.database import init_db
 
 # Load the application
-
+APP = Flask(__name__)
 CONFIG_DIR = join(abspath(dirname(__file__)), 'conf')
 
 # Get the appropriate config
@@ -34,6 +35,8 @@ logging.basicConfig(filename=APP.config['LOG_FILE'], level=logging.DEBUG,
 logging.info("Started JISC RDSS Format Identification app.")
 logging.debug("Configured logging.")
 
+init_db()
+
 # Import the application routes
-import corptest.controller
+import corptest.controller# pylint: disable-msg=C0413
 logging.info("Setting up application routes")
