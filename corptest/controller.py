@@ -25,8 +25,8 @@ if len(AS3Bucket.all()) < 1:
     logging.debug("Loading the bucket table")
     for _bucket in BUCKET_LIST:
         source_details = SourceDetails(_bucket['name'], _bucket['description'])
-        _item = AS3Bucket(source_details, _bucket['location'])
-        AS3Bucket.add(_item)
+        _bucket_item = AS3Bucket(source_details, _bucket['location'])
+        AS3Bucket.add(_bucket_item)
 else:
     logging.debug("AS3Bucket has %i rows", len(AS3Bucket.all()))
 
@@ -35,8 +35,8 @@ if len(FileSystem.all()) < 1:
     logging.debug("Loading the file_system table")
     for _folder in FOLDER_LIST:
         source_details = SourceDetails(_folder['name'], _folder['description'])
-        _item = FileSystem(source_details, _folder['location'])
-        FileSystem.add(_item)
+        _fs_item = FileSystem(source_details, _folder['location'])
+        FileSystem.add(_fs_item)
 else:
     logging.debug("FileSystem has %i rows", len(FileSystem.all()))
 
