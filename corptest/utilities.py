@@ -146,6 +146,10 @@ def sizeof_fmt(num, suffix='B'):
         num /= 1024.0
     return "%.1f%s%s" % (num, 'Y', suffix)
 
+def timestamp_fmt(timestamp):
+    """ISO format for timestamps."""
+    return timestamp.strftime("%Y-%m-%d %H:%M:%S")
+
 def fill_file_from_response(source_url, temp_file):
     """HTTP get from source_url and writes the resoponse to temp_file"""
     # Grab the contents of the Amazon S3 bucket
@@ -156,6 +160,13 @@ def fill_file_from_response(source_url, temp_file):
     temp_file.flush()
     # Reset temp for reading the XML
     temp_file.seek(0)
+
+def check_param_not_none(param, name):
+    """Check that the passed param is not None or an empty string.
+    Raise a ValueError with the param's name if it is None or an empty string"""
+    if not param:
+        message_terminator = ' or an empty string.' if isinstance(param, str) else '.'
+        raise ValueError("Argument {} can not be None{}".format(name, message_terminator))
 
 class Extension(object):
     """Class for a file extenstion, the portion of a file name that follows the

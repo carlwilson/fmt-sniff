@@ -177,8 +177,8 @@ class PronomId(object):
     def from_file_by_fido(cls, file_to_id):
         """Uses FIDO to identify file_to_id and returns the PronomId"""
         ret_val = []
-        fp_to_id = open(file_to_id, 'rb')
-        size = os.stat(file_to_id)[6]
+        size = os.stat(file_to_id).st_size
+        fp_to_id = open(file_to_id, 'r')
         bofbuffer, eofbuffer, _ = cls.FIDO.get_buffers(fp_to_id, size, seekable=True)
         matches = cls.FIDO.match_formats(bofbuffer, eofbuffer)
         for (sig, sig_name) in matches:

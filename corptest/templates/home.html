@@ -27,9 +27,9 @@
           <div class="list-group">
           {% for source in sources %}
             <a href="{{type}}/{{ source.id }}" class="list-group-item">
-              <h3 class="list-group-item-heading">{{ source.details.name }}</h3>
+              <h3 class="list-group-item-heading">{{ source.name }}</h3>
               <p class="list-group-item-text"><em>{{ source.bucket_name if type == 'bucket' else source.root }}</em></p>
-              <p class="list-group-item-text">{{ source.details.description }}</p>
+              <p class="list-group-item-text">{{ source.description }}</p>
             </a>
           {% endfor %}
           </div>

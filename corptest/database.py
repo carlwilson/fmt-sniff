@@ -14,7 +14,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
-ENGINE = create_engine('sqlite:////tmp/test.db', convert_unicode=True)
+from corptest import APP
+
+ENGINE = create_engine(APP.config['SQL_URL'], convert_unicode=True)
 DB_SESSION = scoped_session(sessionmaker(autocommit=False,
                                          autoflush=False,
                                          bind=ENGINE))

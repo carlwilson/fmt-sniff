@@ -17,55 +17,61 @@ import urllib.parse
 from flask import render_template, send_file
 from corptest import APP
 from corptest.database import DB_SESSION
-from corptest.model import SourceDetails, SourceKey, AS3Bucket, FileSystem
-from corptest.sources import FileSystemSource, AS3BucketSource
+from corptest.model import AS3BucketSource, FileSystemSource
+from corptest.sources import SourceKey, FileSystem, AS3Bucket
 
 BUCKET_LIST = APP.config.get('BUCKETS', {})
-if len(AS3Bucket.all()) < 1:
+if len(AS3BucketSource.all()) < 1:
     logging.debug("Loading the bucket table")
     for _bucket in BUCKET_LIST:
-        source_details = SourceDetails(_bucket['name'], _bucket['description'])
-        _bucket_item = AS3Bucket(source_details, _bucket['location'])
-        AS3Bucket.add(_bucket_item)
-else:
-    logging.debug("AS3Bucket has %i rows", len(AS3Bucket.all()))
+        _bucket_item = AS3BucketSource(_bucket['name'], _bucket['description'],
+                                       _bucket['location'])
+        AS3BucketSource.add(_bucket_item)
 
 FOLDER_LIST = APP.config.get('FOLDERS', {})
-if len(FileSystem.all()) < 1:
+if len(FileSystemSource.all()) < 1:
     logging.debug("Loading the file_system table")
     for _folder in FOLDER_LIST:
-        source_details = SourceDetails(_folder['name'], _folder['description'])
-        _fs_item = FileSystem(source_details, _folder['location'])
-        FileSystem.add(_fs_item)
-else:
-    logging.debug("FileSystem has %i rows", len(FileSystem.all()))
+        _fs_item = FileSystemSource(_folder['name'], _folder['description'], _folder['location'])
+        FileSystemSource.add(_fs_item)
 
 @APP.route("/")
 def home():
     """Application home page."""
-    return render_template('home.html', buckets=AS3Bucket.all(), folders=FileSystem.all())
+    return render_template('home.html', buckets=AS3BucketSource.all(),
+                           folders=FileSystemSource.all())
 
 @APP.route("/folder/<folder_id>/", defaults={'encoded_filepath': ''})
 @APP.route('/folder/<folder_id>/<path:encoded_filepath>/')
 def list_folder(folder_id, encoded_filepath):
     """Display the contents of a File System source folder."""
-    return _list_source('folder', FileSystem.by_id(folder_id), encoded_filepath)
+    return _list_source('folder', FileSystemSource.by_id(folder_id), encoded_filepath)
 
 @APP.route("/bucket/<bucket_id>/", defaults={'encoded_filepath': ''})
 @APP.route('/bucket/<bucket_id>/<path:encoded_filepath>/')
 def list_bucket(bucket_id, encoded_filepath):
     """Display the contents of an AS3 source folder."""
-    return _list_source('bucket', AS3Bucket.by_id(bucket_id), encoded_filepath)
+    return _list_source('bucket', AS3BucketSource.by_id(bucket_id), encoded_filepath)
+
+@APP.route("/details/folder/<folder_id>/<path:encoded_filepath>/")
+def details_fs(folder_id, encoded_filepath):
+    """Display details of a file from a File System source."""
+    return _file_details('folder', FileSystemSource.by_id(folder_id), encoded_filepath)
+
+@APP.route("/details/bucket/<bucket_id>/<path:encoded_filepath>/")
+def details_bucket(bucket_id, encoded_filepath):
+    """Display details of a file from an AS3 source."""
+    return _file_details('bucket', AS3BucketSource.by_id(bucket_id), encoded_filepath)
 
 @APP.route("/download/folder/<folder_id>/<path:encoded_filepath>/")
 def download_fs(folder_id, encoded_filepath):
     """Download a file from a File System source."""
-    return _download_item('folder', FileSystem.by_id(folder_id), encoded_filepath)
+    return _download_item('folder', FileSystemSource.by_id(folder_id), encoded_filepath)
 
 @APP.route("/download/bucket/<bucket_id>/<path:encoded_filepath>/")
 def download_bucket(bucket_id, encoded_filepath):
     """Download a file from an AS3 source."""
-    return _download_item('bucket', AS3Bucket.by_id(bucket_id), encoded_filepath)
+    return _download_item('bucket', AS3BucketSource.by_id(bucket_id), encoded_filepath)
 
 @APP.teardown_appcontext
 def shutdown_session(exception=None):
@@ -78,12 +84,21 @@ def _list_source(source_type, source_item, encoded_filepath):
     source, filter_key = _get_source_and_key(source_type, source_item, encoded_filepath)
     folders = source.list_folders(filter_key=filter_key)
     files = source.list_files(filter_key=filter_key)
+    metadata_keys = source.metadata_keys()
     return render_template('source_list.html', source_type=source_type,
-                           source_item=source_item, folders=folders, files=files)
+                           source_item=source_item, filter_key=filter_key,
+                           metadata_keys=metadata_keys, folders=folders, files=files)
+
+def _file_details(source_type, source_item, encoded_filepath):
+    source, key = _get_source_and_key(source_type, source_item,
+                                      encoded_filepath, is_folder=False)
+    enhanced_key = source.get_file_metadata(key)
+    return render_template('file_details.html', source_type=source_type,
+                           source_item=source_item, enhanced_key=enhanced_key)
 
 def _get_source_and_key(source_type, source_item, encoded_filepath, is_folder=True):
-    source = AS3BucketSource(source_item) \
-        if source_type == 'bucket' else FileSystemSource(source_item)
+    source = AS3Bucket(source_item) \
+        if source_type == 'bucket' else FileSystem(source_item)
     path = urllib.parse.unquote(encoded_filepath)
     key = SourceKey(path, is_folder) if path else None
     return source, key

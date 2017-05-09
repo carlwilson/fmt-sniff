@@ -1,13 +1,20 @@
 {% extends "page.html" %}
 {% block title %}Home{% endblock %}
 {% block page_content %}
-  <h2>Source Keys</h2>
+  <h2>{{ source_item.name }}</h2>
+  <p><a href="/{{ source_type }}/{{ source_item.id }}/">{{ source_item.name }}/</a>
+     {%- for part, part_path in filter_key.parts -%}
+     <a href="/{{ source_type }}/{{ source_item.id }}/{{ part_path }}/">{{ part }}/</a>
+     {%- endfor %}</p>
   <table class="table table-striped">
     <tr>
       <th>Type</th>
       <th>Key</th>
       <th>Last Modified</th>
       <th>Size</th>
+      {%- for key in metadata_keys %}
+      <th>{{ key }}</th>
+      {% endfor -%}
     </tr>
     {{ key_rows(source_type, source_item.id, folders) }}
     {{ key_rows(source_type, source_item.id, files) }}
@@ -20,11 +27,14 @@
   {% endfor %}
 {% endmacro %}
 
-{% macro key_row(item_type, item_id, key) %}
+{% macro key_row(item_type, item_id, item) %}
     <tr>
-      <td><span class="glyphicon glyphicon-{{ 'folder-open' if key.is_folder else 'file' }}" aria-hidden="true"></span></td>
-      <td><a href="{{ '' if key.is_folder else '/download' }}/{{ item_type }}/{{ item_id }}/{{ key.value }}" >{{ key.value }}</a></td>
-      <td>{{ 'N/A' if key.is_folder else 'mod' }}</td>
-      <td>{{ 'N/A' if key.is_folder else 'mod' }}</td>
+      <td><span class="glyphicon glyphicon-{{ 'folder-open' if item.is_folder else 'file' }}" aria-hidden="true"></span></td>
+      <td><a href="{{ '/' if item.is_folder else '/details/' }}{{ item_type }}/{{ item_id }}/{{ item.value }}" >{{ item.name }}</a></td>
+      <td>{{ item.last_modified }}</td>
+      <td>{{ item.size }}</td>
+      {%- for key in metadata_keys %}
+      <td>{{ item.metadata.get(key, '') }}</td>
+      {% endfor %}
     </tr>
-{% endmacro %}
+{% endmacro -%}

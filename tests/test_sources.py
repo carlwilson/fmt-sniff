@@ -13,78 +13,48 @@ import os.path
 import unittest
 
 from corptest.const import JISC_BUCKET
-from corptest.model import SourceDetails, SourceKey, AS3Bucket, FileSystem
-from corptest.sources import AS3BucketSource, FileSystemSource
-from tests.const import THIS_DIR
+from corptest.model import AS3BucketSource, FileSystemSource
+from corptest.sources import SourceKey, AS3Bucket, FileSystem
+from tests.const import THIS_DIR, TEST_DESCRIPTION, TEST_NAME
 
-TEST_DETAILS = SourceDetails("Name", "Description")
-TEST_BUCKET_NAME = "bucket"
 TEST_ROOT = "__root__"
 TEST_READABLE_ROOT = os.path.join(THIS_DIR, "disk-corpus")
 
+class SourceKeyTestCase(unittest.TestCase):
+    """ Test cases for the SourceDetails class and methods. """
+    def test_empty_value(self):
+        """ Test case for empty value. """
+        with self.assertRaises(ValueError) as _:
+            SourceKey('')
+
+    def test_null_value(self):
+        """ Test case for null value."""
+        with self.assertRaises(ValueError) as _:
+            SourceKey(None, 'Description')
+
+    def test_ne_other_type(self):
+        """Test that not equal to other type."""
+        self.assertTrue(SourceKey('key') != "key")
+
 class AS3BucketTestCase(unittest.TestCase):
-    """ Test cases for the AS3Bucket class and methods. """
-    def test_null_details(self):
-        """ Test case for empty name cases. """
-        with self.assertRaises(ValueError) as _:
-            AS3Bucket(None, TEST_BUCKET_NAME)
-
-    def test_get_details(self):
-        """ Test case for ensuring details threadthrough works. """
-        bucket = AS3Bucket(TEST_DETAILS, TEST_BUCKET_NAME)
-        self.assertEqual(bucket.details.name, TEST_DETAILS.name, \
-        'bucket_source.details.name should equal test instance TEST_DETAILS.name')
-        self.assertEqual(bucket.details.description, TEST_DETAILS.description, \
-        'bucket_source.details.description should equal test instance TEST_DETAILS.description')
-
-    def test_empty_bucket_name(self):
-        """ Test case for empty name. """
-        with self.assertRaises(ValueError) as _:
-            AS3Bucket(TEST_DETAILS, '')
-
-    def test_null_bucket_name(self):
-        """ Test case for empty name cases. """
-        with self.assertRaises(ValueError) as _:
-            AS3Bucket(TEST_DETAILS, None)
-
-    def test_bucket_name(self):
-        """ Test case for bucket name. """
-        bucket = AS3Bucket(TEST_DETAILS, TEST_BUCKET_NAME)
-        self.assertEqual(bucket.bucket_name, TEST_BUCKET_NAME, \
-        'bucket_source.bucket_name should equal test instance TEST_BUCKET_NAME')
-        bucket = AS3Bucket(TEST_DETAILS, JISC_BUCKET)
-        self.assertEqual(bucket.bucket_name, JISC_BUCKET, \
-        'bucket_source.bucket_name should equal test instance JISC_BUCKET')
-
-class AS3BucketSourceTestCase(unittest.TestCase):
-    """ Test cases for the AS3BucketSourceTestCase class and methods. """
+    """ Test cases for the AS3BucketTestCase class and methods. """
     def test_bucket_name_not_exist(self):
         """ Test case for bucket name. """
-        bucket = AS3Bucket(TEST_DETAILS, 'nosuchbucket')
+        bucket_source = AS3BucketSource(TEST_NAME, TEST_DESCRIPTION, 'nosuchbucket')
         with self.assertRaises(ValueError) as _:
-            AS3BucketSource(bucket)
-
-    # @unittest.skip("Full get takes too long and is untestable")
-    def test_list_all_keys(self):
-        """ Test case for listing file system keys. """
-        bucket = AS3Bucket(TEST_DETAILS, JISC_BUCKET)
-        bucket_source = AS3BucketSource(bucket)
-        count_keys = 0
-        for _ in bucket_source.all_file_keys():
-            count_keys += 1
-        self.assertTrue(count_keys > 100000, '{} should be > 100000'.format(count_keys))
+            AS3Bucket(bucket_source)
 
     def test_filter_folders(self):
         """ Test case for listing file system keys. """
-        bucket = AS3Bucket(TEST_DETAILS, JISC_BUCKET)
-        bucket_source = AS3BucketSource(bucket)
+        bucket_source = AS3BucketSource(TEST_NAME, TEST_DESCRIPTION, JISC_BUCKET)
+        bucket = AS3Bucket(bucket_source)
         count_root = 0
-        for _ in bucket_source.list_folders():
+        for _ in bucket.list_folders():
             count_root += 1
         prefix = 'unsorted/'
         count_unsorted = 0
         listed_folders = set()
-        for key in bucket_source.list_folders(filter_key=SourceKey(prefix)):
+        for key in bucket.list_folders(filter_key=SourceKey(prefix)):
             count_unsorted += 1
             listed_folders.add(key)
         self.assertTrue(count_root < count_unsorted,
@@ -99,15 +69,15 @@ class AS3BucketSourceTestCase(unittest.TestCase):
 
     def test_recurse_folders(self):
         """ Test case for listing file system keys. """
-        bucket = AS3Bucket(TEST_DETAILS, JISC_BUCKET)
-        bucket_source = AS3BucketSource(bucket)
+        bucket_source = AS3BucketSource(TEST_NAME, TEST_DESCRIPTION, JISC_BUCKET)
+        bucket = AS3Bucket(bucket_source)
         count_flat = 0
         filter_key = SourceKey("unsorted/10.9774/")
-        for _ in bucket_source.list_folders(filter_key=filter_key):
+        for _ in bucket.list_folders(filter_key=filter_key):
             count_flat += 1
         count_recurse = 0
         listed_folders = set()
-        for key in bucket_source.list_folders(filter_key=filter_key, recurse=True):
+        for key in bucket.list_folders(filter_key=filter_key, recurse=True):
             count_recurse += 1
             listed_folders.add(key)
         self.assertTrue(count_recurse == count_flat,
@@ -122,15 +92,15 @@ class AS3BucketSourceTestCase(unittest.TestCase):
 
     def test_filter_files(self):
         """Test filtering of files."""
-        bucket = AS3Bucket(TEST_DETAILS, JISC_BUCKET)
-        bucket_source = AS3BucketSource(bucket)
+        bucket_source = AS3BucketSource(TEST_NAME, TEST_DESCRIPTION, JISC_BUCKET)
+        bucket = AS3Bucket(bucket_source)
         count_flat = 0
         filter_key = SourceKey("unsorted/10.9774/")
-        for _ in bucket_source.list_files(filter_key=filter_key):
+        for _ in bucket.list_files(filter_key=filter_key):
             count_flat += 1
         count_recurse = 0
         listed_folders = set()
-        for key in bucket_source.list_files(filter_key=filter_key, recurse=True):
+        for key in bucket.list_files(filter_key=filter_key, recurse=True):
             count_recurse += 1
             listed_folders.add(key)
         self.assertTrue(count_recurse > count_flat,
@@ -145,8 +115,8 @@ class AS3BucketSourceTestCase(unittest.TestCase):
 
     def test_recurse_files(self):
         """Test filtering of files."""
-        bucket = AS3Bucket(TEST_DETAILS, JISC_BUCKET)
-        bucket_source = AS3BucketSource(bucket)
+        bucket = AS3BucketSource(TEST_NAME, TEST_DESCRIPTION, JISC_BUCKET)
+        bucket_source = AS3Bucket(bucket)
         count_flat = 0
         filter_key = SourceKey("unsorted/10.17863/")
         for _ in bucket_source.list_files(filter_key=filter_key):
@@ -166,51 +136,61 @@ class AS3BucketSourceTestCase(unittest.TestCase):
                                                'ff-t5k-jses.tar.gz'),
                                   False) in listed_folders)
 
-class FileSystemTestCase(unittest.TestCase):
+class FileSystemSourceTestCase(unittest.TestCase):
     """ Test cases for the FileSystem class and methods. """
-    def test_null_details(self):
-        """ Test case for empty name cases. """
+    def test_null_name(self):
+        """ Test case for None name case. """
         with self.assertRaises(ValueError) as _:
-            FileSystem(None, TEST_ROOT)
+            FileSystemSource(None, TEST_DESCRIPTION, TEST_ROOT)
+
+    def test_empty_name(self):
+        """ Test case for empty name case. """
+        with self.assertRaises(ValueError) as _:
+            FileSystemSource('', TEST_DESCRIPTION, TEST_ROOT)
+
+    def test_null_description(self):
+        """ Test case for None description case. """
+        with self.assertRaises(ValueError) as _:
+            FileSystemSource(TEST_NAME, None, TEST_ROOT)
 
     def test_get_details(self):
         """ Test case for ensuring details threadthrough works. """
-        file_system = FileSystem(TEST_DETAILS, TEST_READABLE_ROOT)
-        self.assertEqual(file_system.details.name, TEST_DETAILS.name, \
-        'file_source.details.name should equal test instance TEST_DETAILS.name')
-        self.assertEqual(file_system.details.description, TEST_DETAILS.description, \
-        'file_source.details.description should equal test instance TEST_DETAILS.description')
+        file_system_source = FileSystemSource(TEST_NAME, TEST_DESCRIPTION, TEST_READABLE_ROOT)
+        self.assertEqual(file_system_source.name, TEST_NAME, \
+        'file_source.details.name should equal TEST_NAME')
+        self.assertEqual(file_system_source.description, TEST_DESCRIPTION, \
+        'file_source.details.description should equal TEST_DESCRIPTION')
 
     def test_empty_root(self):
         """ Test case for empty root. """
         with self.assertRaises(ValueError) as _:
-            FileSystem(TEST_DETAILS, '')
+            FileSystemSource(TEST_NAME, TEST_DESCRIPTION, '')
 
     def test_null_root(self):
         """ Test case for null root case. """
         with self.assertRaises(ValueError) as _:
-            FileSystem(TEST_DETAILS, None)
+            FileSystemSource(TEST_NAME, TEST_DESCRIPTION, None)
 
     def test_root(self):
         """ Test case for source root. """
-        file_system = FileSystem(TEST_DETAILS, TEST_READABLE_ROOT)
-        self.assertEqual(file_system.root, TEST_READABLE_ROOT, \
-        'bucket_source.details.name should equal test instance TEST_DETAILS.name')
+        file_system_source = FileSystemSource(TEST_NAME, TEST_DESCRIPTION, TEST_READABLE_ROOT)
+        self.assertEqual(file_system_source.root, TEST_READABLE_ROOT, \
+        'file_system_source.root should equal test instance TEST_READABLE_ROOT')
 
-class FileSystemSourceTestCase(unittest.TestCase):
+class FileSystemTestCase(unittest.TestCase):
     """Tests for FileSystemSource class."""
     def test_not_dir_root(self):
         """ Test case for not directory root case. """
-        file_system = FileSystem(TEST_DETAILS, TEST_ROOT)
+        file_system_source = FileSystemSource(TEST_NAME, TEST_DESCRIPTION, TEST_ROOT)
         with self.assertRaises(ValueError) as _:
-            FileSystemSource(file_system)
+            FileSystem(file_system_source)
 
     def test_list_file_keys(self):
         """ Test case for listing file system keys. """
-        file_system = FileSystem(TEST_DETAILS, TEST_READABLE_ROOT)
-        file_source = FileSystemSource(file_system)
+        file_system_source = FileSystemSource(TEST_NAME, TEST_DESCRIPTION, TEST_READABLE_ROOT)
+        file_system = FileSystem(file_system_source)
         listed_keys = set()
-        for key in file_source.all_file_keys():
+        for key in file_system.all_file_keys():
             listed_keys.add(key)
         self.assertTrue(len(listed_keys) == 8, '{} should be 8'.format(len(listed_keys)))
         self.assertFalse(SourceKey('folder-key-1') in listed_keys)
@@ -219,17 +199,17 @@ class FileSystemSourceTestCase(unittest.TestCase):
 
     def test_list_folders_file_key(self):
         """Test that passing a file filter throws a value error."""
-        file_system = FileSystem(TEST_DETAILS, TEST_READABLE_ROOT)
-        file_source = FileSystemSource(file_system)
+        file_system_source = FileSystemSource(TEST_NAME, TEST_DESCRIPTION, TEST_READABLE_ROOT)
+        file_system = FileSystem(file_system_source)
         with self.assertRaises(ValueError) as _:
-            file_source.list_folders(filter_key=SourceKey("somekey", False))
+            file_system.list_folders(filter_key=SourceKey("somekey", False))
 
     def test_list_folders(self):
         """ Test case for listing file system keys. """
-        file_system = FileSystem(TEST_DETAILS, TEST_READABLE_ROOT)
-        file_source = FileSystemSource(file_system)
+        file_system_source = FileSystemSource(TEST_NAME, TEST_DESCRIPTION, TEST_READABLE_ROOT)
+        file_system = FileSystem(file_system_source)
         listed_folders = []
-        for key in file_source.list_folders(recurse=True):
+        for key in file_system.list_folders(recurse=True):
             listed_folders.append(key)
         self.assertTrue(len(listed_folders) == 6, '{} should be 6'.format(len(listed_folders)))
         self.assertTrue(SourceKey(os.path.join('folder-key-2')) in listed_folders)
@@ -240,10 +220,10 @@ class FileSystemSourceTestCase(unittest.TestCase):
 
     def test_filter_folders(self):
         """ Test case for listing file system keys. """
-        file_system = FileSystem(TEST_DETAILS, TEST_READABLE_ROOT)
-        file_source = FileSystemSource(file_system)
+        file_system_source = FileSystemSource(TEST_NAME, TEST_DESCRIPTION, TEST_READABLE_ROOT)
+        file_system = FileSystem(file_system_source)
         listed_folders = []
-        for key in file_source.list_folders(filter_key=SourceKey("folder-key-2"), recurse=True):
+        for key in file_system.list_folders(filter_key=SourceKey("folder-key-2"), recurse=True):
             listed_folders.append(key)
         self.assertTrue(len(listed_folders) == 2, '{} should be 2'.format(len(listed_folders)))
         self.assertFalse(SourceKey(os.path.join('folder-key-2')) in listed_folders)
@@ -256,10 +236,10 @@ class FileSystemSourceTestCase(unittest.TestCase):
 
     def test_list_files(self):
         """ Test case for listing file system keys. """
-        file_system = FileSystem(TEST_DETAILS, TEST_READABLE_ROOT)
-        file_source = FileSystemSource(file_system)
+        file_system_source = FileSystemSource(TEST_NAME, TEST_DESCRIPTION, TEST_READABLE_ROOT)
+        file_system = FileSystem(file_system_source)
         listed_files = set()
-        for key in file_source.list_files(recurse=True):
+        for key in file_system.list_files(recurse=True):
             listed_files.add(key)
         self.assertTrue(len(listed_files) == 8, '{} should be 8'.format(len(listed_files)))
         self.assertFalse(SourceKey(os.path.join('folder-key-2')) in listed_files)
@@ -284,10 +264,10 @@ class FileSystemSourceTestCase(unittest.TestCase):
 
     def test_filter_files(self):
         """ Test case for listing file system keys. """
-        file_system = FileSystem(TEST_DETAILS, TEST_READABLE_ROOT)
-        file_source = FileSystemSource(file_system)
+        file_system_source = FileSystemSource(TEST_NAME, TEST_DESCRIPTION, TEST_READABLE_ROOT)
+        file_system = FileSystem(file_system_source)
         listed_files = set()
-        for key in file_source.list_files(filter_key=SourceKey("folder-key-1"),
+        for key in file_system.list_files(filter_key=SourceKey("folder-key-1"),
                                           recurse=True):
             listed_files.add(key)
         self.assertTrue(len(listed_files) == 4, '{} should be 4'.format(len(listed_files)))

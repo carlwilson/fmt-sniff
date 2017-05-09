@@ -17,6 +17,8 @@ from corptest.format_tools import get_sha1_from_path, MimeLookup, DroidLookup, T
 from tests.const import THIS_DIR
 
 TEST_SHA1 = 'da39a3ee5e6b4b0d3255bfef95601890afd80709'
+LONG_MIME =\
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document; charset=binary'
 class MimeLookupTestCase(unittest.TestCase):
     """ Tests for the MagicLookup class. """
     def test_sha1_from_path(self):
@@ -35,7 +37,7 @@ class MimeLookupTestCase(unittest.TestCase):
         self.assertEqual(mime_lookup.get_mime_string('f8fa2aa81a623f9847436c5162d4e775e04cd948'),
                          'text/plain; charset=us-ascii')
         self.assertEqual(mime_lookup.get_mime_string('9f422292259b59ee6c9ad7a25180b0afc16f47e9'),
-                         'application/vnd.openxmlformats-officedocument.wordprocessingml.document; charset=binary')
+                         LONG_MIME)
         self.assertEqual(mime_lookup.get_mime_string('d1717e616fdae20110acb51b3ba3a37350628131'),
                          'application/pdf; charset=binary')
         self.assertEqual(mime_lookup.get_mime_string('a7510ac5483396687bf670860f48d21eecede68a'),

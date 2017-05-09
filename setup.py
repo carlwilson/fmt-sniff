@@ -35,6 +35,7 @@ INSTALL_REQUIRES = [
     'python-magic == 0.4.13',
     'lxml == 3.7.3',
     'boto3 == 1.4.4',
+    'tzlocal',
 ]
 
 SETUP_REQUIRES = [

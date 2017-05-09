@@ -25,6 +25,7 @@ class BaseConfig(object):# pylint: disable-msg=R0903
     LOG_FORMAT = '[%(filename)-15s:%(lineno)-5d] %(message)s'
     LOG_FILE = LOG_ROOT + 'jisc-rdss-format.log'
     SECRET_KEY = 'a5c020ced05af9ad3aacc6bba41beb5c7b6f750b846dadad'
+    SQL_URL = 'sqlite:////tmp/test.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     BUCKETS = [
         {
