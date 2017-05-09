@@ -14,6 +14,7 @@ import collections
 import errno
 import logging
 import os
+from os import path
 
 from corptest.const import BLOB_STORE_ROOT, RDSS_ROOT
 from corptest.model import ByteSequence
@@ -28,18 +29,22 @@ class Sha1Lookup(object):
     def initialise(cls, source_path=RDSS_ROOT + 'blobstore-sha1s.txt'):
         """ Clear and load the lookup table from the supplied or default source_path. """
         cls.sha1_lookup.clear()
-        with open(source_path) as src_file:
-            for line in src_file:
-                parts = line.split(' ')
-                etag = parts[2][2:-1]
-                sha1 = parts[0]
-                if not etag in cls.sha1_lookup:
-                    cls.sha1_lookup.update({etag : sha1})
+        if path.isfile(source_path):
+            cls._update_lookup_from_path(source_path)
 
     @classmethod
     def get_sha1(cls, etag):
         """ Retrieve and return a hex SHA1 value by etag. """
         return cls.sha1_lookup.get(etag, None)
+
+    @classmethod
+    def _update_lookup_from_path(cls, source_path):
+        with open(source_path) as src_file:
+            for line in src_file:
+                parts = line.split(' ')
+                etag = parts[2][2:-1]
+                sha1 = parts[0]
+                cls.sha1_lookup.update({etag : sha1})
 
 class BlobStore(object):
     """ Hash identified store for binary objects. """
@@ -86,23 +91,23 @@ class BlobStore(object):
         self.__size = 0
         self.__blobs = blobs
 
-    def add_file(self, path, sha1=None):
+    def add_file(self, file_path, sha1=None):
         """ Adds file at path to corpus and returns the sha1. """
-        check_param_not_none(path, "path")
-        byte_sequence = ByteSequence.from_file(path)
+        check_param_not_none(file_path, "file_path")
+        byte_sequence = ByteSequence.from_file(file_path)
         if sha1 is not None and sha1 != byte_sequence.sha1:
             raise IOError(errno.ENOENT, os.strerror(errno.ENOENT),
                           'Supplied hash {} does not match {} calculated from {}.'\
                           .format(sha1,
                                   byte_sequence.sha1,
-                                  path))
+                                  file_path))
         sha1 = byte_sequence.sha1
         if sha1 not in self.blobs.keys():
             dest_path = self.get_blob_path(sha1)
-            calc_sha1 = sha1_copy_by_path(path, dest_path)
+            calc_sha1 = sha1_copy_by_path(file_path, dest_path)
             if calc_sha1 != sha1:
                 raise IOError(errno.ENOENT, os.strerror(errno.ENOENT),
-                              'SHA1 failure copying {}.'.format(path))
+                              'SHA1 failure copying {}.'.format(file_path))
             self.blobs.update({byte_sequence.sha1 : byte_sequence})
 
         return byte_sequence
@@ -115,8 +120,8 @@ class BlobStore(object):
     def clear(self):
         """ Clears all blobs from a store. """
         for blob_name in only_files(self.blob_root):
-            path = self.blob_root + blob_name
-            os.remove(path)
+            file_path = self.blob_root + blob_name
+            os.remove(file_path)
         self.blobs.clear()
         self.__size = 0
 
@@ -170,8 +175,8 @@ class BlobStore(object):
         """
         self.blobs.clear()
         for blob_name in only_files(self.blob_root):
-            path = self.blob_root + blob_name
-            size = os.stat(path).st_size
+            file_path = self.blob_root + blob_name
+            size = os.stat(file_path).st_size
             byte_seq = ByteSequence(blob_name, size)
             self.blobs.update({byte_seq.sha1 : byte_seq})
 
