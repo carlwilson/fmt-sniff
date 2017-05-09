@@ -12,13 +12,34 @@
 """Classes for binary object store"""
 import collections
 import errno
-import json
+import logging
 import os
 
-from corptest.const import BLOB_STORE_ROOT
+from corptest.const import BLOB_STORE_ROOT, RDSS_ROOT
 from corptest.model import ByteSequence
-from corptest.utilities import sha1_path, sha1_copy_by_path
-from corptest.utilities import ObjectJsonEncoder, only_files, create_dirs
+from corptest.utilities import check_param_not_none, sha1_path, sha1_copy_by_path
+from corptest.utilities import only_files, create_dirs
+
+class Sha1Lookup(object):
+    """ Look up class for serialsed sha1sum() results. """
+    sha1_lookup = collections.defaultdict(dict)
+
+    @classmethod
+    def initialise(cls, source_path=RDSS_ROOT + 'blobstore-sha1s.txt'):
+        """ Clear and load the lookup table from the supplied or default source_path. """
+        cls.sha1_lookup.clear()
+        with open(source_path) as src_file:
+            for line in src_file:
+                parts = line.split(' ')
+                etag = parts[2][2:-1]
+                sha1 = parts[0]
+                if not etag in cls.sha1_lookup:
+                    cls.sha1_lookup.update({etag : sha1})
+
+    @classmethod
+    def get_sha1(cls, etag):
+        """ Retrieve and return a hex SHA1 value by etag. """
+        return cls.sha1_lookup.get(etag, None)
 
 class BlobStore(object):
     """ Hash identified store for binary objects. """
@@ -27,10 +48,12 @@ class BlobStore(object):
         self.__root = root
         self.__size = 0
         self.__blobs = collections.defaultdict(dict)
+        logging.warning("Initialising BlobStore")
         self.__initialise()
 
     def get_blob(self, sha1):
         """ Get a blob by it's key. """
+        check_param_not_none(sha1, "sha1")
         return self.blobs.get(sha1, None)
 
     @property
@@ -58,12 +81,14 @@ class BlobStore(object):
     def replace_blobs(self, blobs):
         """ Loads the datacentre lookup dictionary from fp (a read() supporting
         file like object)."""
+        check_param_not_none(blobs, "blobs")
         self.blobs.clear()
         self.__size = 0
         self.__blobs = blobs
 
     def add_file(self, path, sha1=None):
         """ Adds file at path to corpus and returns the sha1. """
+        check_param_not_none(path, "path")
         byte_sequence = ByteSequence.from_file(path)
         if sha1 is not None and sha1 != byte_sequence.sha1:
             raise IOError(errno.ENOENT, os.strerror(errno.ENOENT),
@@ -109,6 +134,7 @@ class BlobStore(object):
 
     def get_blob_path(self, sha1):
         """Returns the file path of a the BLOB called blob_name"""
+        check_param_not_none(sha1, "sha1")
         return self.blob_root + sha1
 
     def __calculate_size(self):
@@ -124,7 +150,9 @@ class BlobStore(object):
         """ If persist_to exists, tries to load a serialised lookup table from it.
         Populates lookup table and saves to persist_to if persist_to doesn't exist.
         """
+        logging.warning("Checking BlobStore root")
         self.__check_and_create_root()
+        logging.warning("Reloading BlobStore")
         self.reload_blobs()
         return
 
@@ -143,73 +171,9 @@ class BlobStore(object):
         self.blobs.clear()
         for blob_name in only_files(self.blob_root):
             path = self.blob_root + blob_name
-            byte_seq = ByteSequence.from_file(path)
+            size = os.stat(path).st_size
+            byte_seq = ByteSequence(blob_name, size)
             self.blobs.update({byte_seq.sha1 : byte_seq})
-
-class PersistentBlobStore(object):
-    """ Persistent BlobStore that saves blob data to a JSON file. """
-    __metapath = 'meta/'
-    __blobmeta = __metapath + 'blob.json'
-
-    def __init__(self, root):
-        self.__blobstore = BlobStore(root)
-        self.__initialise()
-
-    def get_blob(self, sha1):
-        """ Get a blob by it's key. """
-        return self.__blobstore.get_blob(sha1)
-
-    @property
-    def blob_count(self):
-        """ Returns the number of blobs in the store. """
-        return self.__blobstore.blob_count
-
-    @property
-    def get_size(self):
-        """ Returns the number of bytes in the store. """
-        return self.__blobstore.size
-
-    def add_file(self, path, sha1=None):
-        """ Add a file to the blobstore with optional SHA1 check. """
-        return self.__blobstore.add_file(path, sha1)
-
-    def __initialise(self):
-        """ If persist_to exists, tries to load a serialised lookup table from it.
-        Populates lookup table and saves to persist_to if persist_to doesn't exist.
-        """
-
-        persist_to = self.__get_blob_meta_path()
-        if os.path.isfile(persist_to):
-            # Persistence file exists, load the dictionary
-            with open(persist_to, 'r') as lookup_file:
-                self.load(lookup_file)
-        else:
-            with open(persist_to, 'w+') as lookup_file:
-                self.save(lookup_file)
-
-    def __get_blob_meta_path(self):
-        """ Returns the full path of the Blob metadata file. """
-        return self.__blobstore.root + self.__blobmeta
-
-    def persist(self):
-        """ Persists the current state of the internal blobstore dictionary
-        to the default location, overwriting the existing state.
-        """
-        persist_to = self.__get_blob_meta_path()
-        with open(persist_to, 'w+') as lookup_file:
-            self.save(lookup_file)
-
-    def save(self, dest):
-        """ Serialise the datacentre lookup dictionary to fp (a write() supporting
-        file-like object). """
-        json.dump(self.__blobstore.blobs, dest, cls=ObjectJsonEncoder)
-
-    def load(self, src):
-        """ Loads the datacentre lookup dictionary from fp (a read() supporting
-        file like object)."""
-        blobs = json.load(src, object_hook=ByteSequence.json_decode)
-        self.__blobstore.replace_blobs(blobs)
-
 
 def main():
     """

@@ -1,0 +1,26 @@
+{% extends "page.html" %}
+{% block title %}Home{% endblock %}
+{% block page_content %}
+  <h2>{{ source_item.name }}</h2>
+  <p><a href="/{{ source_type }}/{{ source_item.id }}/">{{ source_item.name }}/</a>
+     {%- for part, part_path in enhanced_key.parts -%}
+     <a href="/{{ source_type }}/{{ source_item.id }}/{{ part_path }}/">{{ part }}/</a>
+     {%- endfor %}</p>
+  <table class="table table-striped">
+    <tr>
+      <th>Size</th>
+      <td>{{ enhanced_key.size }}</td>
+    </tr>
+    <tr>
+      <th>Last Modified</th>
+      <td>{{ enhanced_key.last_modified }}</td>
+    </tr>
+    {%- for key, value in enhanced_key.metadata.items() %}
+    <tr>
+      <th>{{ key }}</th>
+      <td>{{ value }}</td>
+      {% endfor -%}
+    </tr>
+  </table>
+  <p><a class="btn btn-primary btn-lg" href="/download/{{ source_type }}/{{ source_item.id }}/{{ enhanced_key.value }}" >Download</a></p>
+{% endblock page_content %}

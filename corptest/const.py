@@ -14,6 +14,7 @@
 SOURCE_ROOT = 'http://rdss-test-data.s3-eu-west-1.amazonaws.com/'
 JISC_BUCKET = 'testdata.researchdata.alpha.jisc.ac.uk'
 RDSS_ROOT = '/vagrant_data/'
+#RDSS_ROOT = '/home/cfw/arch/data/samp/JISC/'
 RDSS_CACHE = ''.join([RDSS_ROOT, 'cache/'])
 BLOB_STORE_ROOT = ''.join([RDSS_ROOT, 'blobstore/'])
 S3_META = ''.join([RDSS_ROOT, 's3/'])

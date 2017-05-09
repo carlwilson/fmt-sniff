@@ -12,40 +12,55 @@
 import os.path
 import unittest
 
-from corptest.model import SourceDetails, SourceKey, ByteSequence
+from corptest.const import JISC_BUCKET
+from corptest.model import ByteSequence, AS3BucketSource
 from corptest.utilities import ObjectJsonEncoder
 
-from tests.const import THIS_DIR
+from tests.const import THIS_DIR, TEST_DESCRIPTION, TEST_NAME, TEST_BUCKET_NAME
 
-TEST_DETAILS = SourceDetails("Name", "Description")
+class AS3BucketSourceTestCase(unittest.TestCase):
+    """ Test cases for the AS3BucketSource class and methods. """
+    def test_null_name(self):
+        """ Test case for None name case. """
+        with self.assertRaises(ValueError) as _:
+            AS3BucketSource(None, TEST_DESCRIPTION, TEST_BUCKET_NAME)
 
-class SourceDetailsTestCase(unittest.TestCase):
-    """ Test cases for the SourceDetails class and methods. """
     def test_empty_name(self):
+        """ Test case for empty name case. """
+        with self.assertRaises(ValueError) as _:
+            AS3BucketSource('', TEST_DESCRIPTION, TEST_BUCKET_NAME)
+
+    def test_null_description(self):
+        """ Test case for None description case. """
+        with self.assertRaises(ValueError) as _:
+            AS3BucketSource(TEST_NAME, None, TEST_BUCKET_NAME)
+
+    def test_get_details(self):
+        """ Test case for ensuring details threadthrough works. """
+        bucket_source = AS3BucketSource(TEST_NAME, TEST_DESCRIPTION, TEST_BUCKET_NAME)
+        self.assertEqual(bucket_source.name, TEST_NAME, \
+        'bucket_source.name should equal test instance TEST_NAME')
+        self.assertEqual(bucket_source.description, TEST_DESCRIPTION, \
+        'bucket_source.details.description should equal test instance TEST__DESCT')
+
+    def test_empty_bucket_name(self):
         """ Test case for empty name. """
         with self.assertRaises(ValueError) as _:
-            SourceDetails('', 'Description')
+            AS3BucketSource(TEST_NAME, TEST_DESCRIPTION, '')
 
-    def test_null_name(self):
-        """ Test case for empty name cases. """
+    def test_null_bucket_name(self):
+        """ Test case for None name cases. """
         with self.assertRaises(ValueError) as _:
-            SourceDetails(None, 'Description')
+            AS3BucketSource(TEST_NAME, TEST_DESCRIPTION, None)
 
-class SourceKeyTestCase(unittest.TestCase):
-    """ Test cases for the SourceDetails class and methods. """
-    def test_empty_value(self):
-        """ Test case for empty value. """
-        with self.assertRaises(ValueError) as _:
-            SourceKey('')
-
-    def test_null_value(self):
-        """ Test case for null value."""
-        with self.assertRaises(ValueError) as _:
-            SourceKey(None, 'Description')
-
-    def test_ne_other_type(self):
-        """Test that not equal to other type."""
-        self.assertTrue(SourceKey('key') != "key")
+    def test_bucket_name(self):
+        """ Test case for bucket name. """
+        bucket_source = AS3BucketSource(TEST_NAME, TEST_DESCRIPTION, TEST_BUCKET_NAME)
+        self.assertEqual(bucket_source.bucket_name, TEST_BUCKET_NAME, \
+        'bucket_source.bucket_name should equal test instance TEST_BUCKET_NAME')
+        bucket_source = AS3BucketSource(TEST_NAME, TEST_DESCRIPTION, JISC_BUCKET)
+        self.assertEqual(bucket_source.bucket_name, JISC_BUCKET, \
+        'bucket_source.bucket_name should equal test instance JISC_BUCKET')
 
 class ByteSequenceTestCase(unittest.TestCase):
     """ Test cases for the ByteSequence class and methods. """

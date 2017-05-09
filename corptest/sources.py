@@ -13,16 +13,110 @@
 Classes that encapsulate different sources of data to be identified.
 """
 import abc
-from os import access, path, R_OK
+import collections
+from datetime import datetime
+
+from os import access, path, R_OK, stat
+try:
+    from os import scandir
+except ImportError:
+    from scandir import scandir as scandir
+
 import re
 import tempfile
 
-import scandir
 from botocore import exceptions
 from boto3 import client, resource
 
-from corptest.model import SourceKey
-from corptest.utilities import sha1_path
+from tzlocal import get_localzone
+
+from corptest.blobstore import Sha1Lookup, BlobStore
+from corptest.const import BLOB_STORE_ROOT
+from corptest.formats import MimeType
+from corptest.utilities import sha1_path, timestamp_fmt
+
+Sha1Lookup.initialise()
+BLOBSTORE = BlobStore(BLOB_STORE_ROOT)
+
+class SourceKey(object):
+    """Simple class encapsulating 2 parts of a key, the value and whether it's a folder."""
+
+    def __init__(self, value, is_folder=True, size=0, last_modified=datetime.now()):
+        if not value:
+            raise ValueError("Argument value can not be None or an empty string.")
+        self.__value = value
+        self.__is_folder = is_folder
+        self.__size = size
+        self.__last_modified = last_modified
+        self.__metadata = collections.defaultdict(dict)
+
+    @property
+    def value(self):
+        """ Return the key value, it's unique path. """
+        return self.__value
+
+    @property
+    def is_folder(self):
+        """ Return true if key is that of a file item. """
+        return self.__is_folder
+
+    @property
+    def size(self):
+        """ Return the key size in bytes or empty string. """
+        return str(self.__size) if not self.is_folder else 'n/a'
+
+    @property
+    def parts(self):
+        """Split a path into parts and return tuples of part name and full part path."""
+        part_path = ''
+        for part in self.value.split('/'):
+            yield part, '/'.join([part_path, part]) if part_path else part
+            part_path = '/'.join([part_path, part]) if part_path else part
+
+    @property
+    def name(self):
+        """Return the name of the item without the path."""
+        parts = self.value.split('/')
+        return parts[-2 if self.is_folder and len(parts) > 1 else -1]
+
+    @property
+    def last_modified(self):
+        """ Return the key size in bytes or empty string. """
+        return timestamp_fmt(self.__last_modified) if not self.is_folder else 'n/a'
+
+    @property
+    def metadata(self):
+        """ Return the metadata dictionary object. """
+        return self.__metadata
+
+    @metadata.setter
+    def metadata(self, key, value):
+        self.__metadata.update({key: value})
+
+    def __key(self):
+        return (self.value, self.is_folder)
+
+    def __eq__(self, other):
+        """ Define an equality test for ByteSequence """
+        if isinstance(other, self.__class__):
+            return self.__key() == other.__key()
+        return False
+
+    def __ne__(self, other):
+        """ Define an inequality test for ByteSequence """
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash(self.__key())
+
+    def __rep__(self): # pragma: no cover
+        ret_val = []
+        ret_val.append("corptest.sources.SourceKey : [value=")
+        ret_val.append(self.value)
+        ret_val.append(", is_folder=")
+        ret_val.append(str(self.is_folder))
+        ret_val.append("]")
+        return "".join(ret_val)
 
 class SourceBase(object):
     """Abstract base class for Source classes."""
@@ -31,6 +125,11 @@ class SourceBase(object):
     @abc.abstractmethod
     def all_file_keys(self): # pragma: no cover
         """Generator that returns all file keys for a source."""
+        return
+
+    @abc.abstractmethod
+    def metadata_keys(self): # pragma: no cover
+        """Returns a list of metadata keys supported by the source."""
         return
 
     @abc.abstractmethod
@@ -47,6 +146,12 @@ class SourceBase(object):
         method will recurse into children if recurse is True."""
         return
 
+    @abc.abstractmethod
+    def get_file_metadata(self, key):
+        """Takes a key and augments it with detailed metadata about a File
+        element. Throws a ValueError if a folder key is passed."""
+        return
+
     @abc.abstractstaticmethod
     def validate_key_and_return_prefix(filter_key):
         """Checks that filter key is a folder and throws a ValueError if it's a
@@ -59,10 +164,11 @@ class SourceBase(object):
             prefix = filter_key.value
         return prefix
 
-class AS3BucketSource(SourceBase):
+class AS3Bucket(SourceBase):
     """A Source based on an Amazon S3 bucket."""
     FOLDER_REGEX = re.compile('.*/$')
     S3_RESOURCE = None
+    __KEYS = ['ETag']
     def __init__(self, bucket):
         if not bucket:
             raise ValueError("Argument bucket can not be None.")
@@ -75,6 +181,9 @@ class AS3BucketSource(SourceBase):
     def bucket(self):
         """Return the Amazon S3 bucket."""
         return self.__bucket
+
+    def metadata_keys(self): # pragma: no cover
+        return self.__KEYS
 
     def all_file_keys(self):
         bucket = self.S3_RESOURCE.Bucket(self.bucket.bucket_name)
@@ -106,13 +215,38 @@ class AS3BucketSource(SourceBase):
                                            Prefix=prefix, Delimiter='/')
         if result.get('Contents'):
             for obj_summary in result.get('Contents'):
-                yield SourceKey(obj_summary.get('Key'), False)
+                key = SourceKey(obj_summary.get('Key'), False, obj_summary.get('Size'),
+                                obj_summary.get('LastModified'))
+                key.metadata['ETag'] = obj_summary.get('ETag')[1:-1]
+                yield key
         if recurse:
             if result.get('CommonPrefixes'):
                 for common_prefix in result.get('CommonPrefixes'):
                     key = SourceKey(common_prefix.get('Prefix'))
                     for res in self.list_files(filter_key=key, recurse=True):
                         yield res
+
+    def get_file_metadata(self, key):
+        if not key or key.is_folder:
+            raise ValueError("Argument key must be a file key.")
+        s3_client = client('s3')
+        result = s3_client.get_object(Bucket=self.bucket.bucket_name,
+                                      Key=key.value)
+        augmented_key = SourceKey(key.value, False, result.get('ContentLength'),
+                                  result.get('LastModified'))
+        etag = result.get('ETag')[1:-1]
+        augmented_key.metadata['ETag'] = etag
+        augmented_key.metadata['ContentType'] = result.get('ContentType')
+        augmented_key.metadata['ContentEncoding'] = result.get('ContentEncoding')
+        for md_key, md_value in result['Metadata']:
+            augmented_key.metadata[md_key] = md_value
+        sha1 = Sha1Lookup.get_sha1(etag)
+        augmented_key.metadata['SHA1'] = sha1 if sha1 else ''
+        if sha1:
+            full_path = BLOBSTORE.get_blob_path(sha1)
+            magic_mime = MimeType.from_file_by_magic(full_path)
+            augmented_key.metadata['Python lib-magic'] = magic_mime if magic_mime else ''
+        return augmented_key
 
     def get_temp_file(self, key):
         """Creates a temp file copy of a file from the specified image."""
@@ -145,13 +279,16 @@ class AS3BucketSource(SourceBase):
 
     def __rep__(self): # pragma: no cover
         ret_val = []
-        ret_val.append("corptest.source.AS3BucketSource : [AS3Bucket=")
+        ret_val.append("corptest.source.AS3Bucket: [AS3BucketSource=")
         ret_val.append(str(self.bucket))
         ret_val.append("]")
         return "".join(ret_val)
 
-class FileSystemSource(SourceBase):
+class FileSystem(SourceBase):
     """A source based on a file system"""
+    TIME_ZONE = get_localzone()
+    __KEYS = []
+
     def __init__(self, file_system):
         if not file_system:
             raise ValueError("Argument file_system can not be None.")
@@ -163,6 +300,9 @@ class FileSystemSource(SourceBase):
     def file_system(self):
         """Return the root path to the file system corpus."""
         return self.__file_system
+
+    def metadata_keys(self): # pragma: no cover
+        return self.__KEYS
 
     def all_file_keys(self):
         return self.list_files(recurse=True)
@@ -178,9 +318,10 @@ class FileSystemSource(SourceBase):
     def yield_keys(self, prefix='', list_files=True, list_folders=True, recurse=False):
         """Generator that yields a list of file and or folder keys from a root
         directory."""
-        for entry in scandir.scandir(path.join(self.file_system.root, prefix)):
+        for entry in scandir(path.join(self.file_system.root, prefix)):
             if list_files and entry.is_file(follow_symlinks=False):
-                yield SourceKey(path.join(prefix, entry.name), False)
+                yield SourceKey(path.join(prefix, entry.name), False, entry.stat().st_size,
+                                datetime.fromtimestamp(entry.stat().st_mtime, self.TIME_ZONE))
             if entry.is_dir(follow_symlinks=False):
                 if list_folders:
                     yield SourceKey(path.join(prefix, entry.name))
@@ -190,6 +331,24 @@ class FileSystemSource(SourceBase):
                                                  list_folders=list_folders,
                                                  recurse=True):
                         yield child
+
+    def get_file_metadata(self, key):
+        if not key or key.is_folder:
+            raise ValueError("Argument key must be a file key.")
+        full_path = path.join(self.file_system.root, key.value)
+        result = stat(full_path)
+        augmented_key = SourceKey(key.value, False, result.st_size,
+                                  datetime.fromtimestamp(result.st_mtime,
+                                                         self.TIME_ZONE))
+        sha1 = sha1_path(full_path)
+        augmented_key.metadata['SHA1'] = sha1 if sha1 else ''
+        augmented_key.metadata['Created'] = datetime.fromtimestamp(result.st_ctime,
+                                                                   self.TIME_ZONE)
+        augmented_key.metadata['LastAccessed'] = datetime.fromtimestamp(result.st_atime,
+                                                                        self.TIME_ZONE)
+        magic_mime = MimeType.from_file_by_magic(full_path)
+        augmented_key.metadata['Python lib-magic'] = magic_mime if magic_mime else ''
+        return augmented_key
 
     def get_temp_file(self, key):
         """Creates a temp file copy of a file from the specified image."""
@@ -201,7 +360,7 @@ class FileSystemSource(SourceBase):
 
     def __rep__(self): # pragma: no cover
         ret_val = []
-        ret_val.append("corptest.sources.FileSystemSource : [FileSystem=")
+        ret_val.append("corptest.sources.FileSystem : [FileSystemSource=")
         ret_val.append(str(self.file_system))
         ret_val.append("]")
         return "".join(ret_val)

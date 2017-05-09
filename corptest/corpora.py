@@ -18,7 +18,7 @@ import errno
 import os
 import time
 
-from corptest.utilities import Extension, sha1_path
+from corptest.utilities import check_param_not_none, Extension, sha1_path
 
 class CorpusItem(object):
     """ Basic attributes for a corpus item. """
@@ -70,6 +70,7 @@ class CorpusItem(object):
     @classmethod
     def from_file(cls, src_path):
         """ Creates a new CorpusItem instance from the supplied file path. """
+        check_param_not_none(src_path, "src_path")
         if not os.path.isfile(src_path):
             raise IOError(errno.ENOENT, os.strerror(errno.ENOENT), src_path)
         sha1 = sha1_path(src_path)
@@ -97,6 +98,7 @@ class Corpus(object):
     elements : a Python list of elements
     """
     def __init__(self, name, description=None, items=None):
+        check_param_not_none(name, "name")
         self.name = name
         if description is None:
             description = ""
@@ -130,21 +132,26 @@ class Corpus(object):
 
     def get_item_by_path(self, path):
         """ Lookup and retrieve item by path, returns None if no path matches. """
+        check_param_not_none(path, "path")
         return self.items.get(path, None)
 
     def update_sha1(self, path, sha1):
         """ Update the sha1 of an item by path. """
+        check_param_not_none(path, "path")
+        check_param_not_none(sha1, "sha1")
         item = self.get_item_by_path(path)
         item.sha1 = sha1
         self.items.update({path : item})
 
     def add_items(self, items):
         """ Add a list of items to the corpus. """
+        check_param_not_none(items, "items")
         for item in items:
             self.add_item(item)
 
     def add_item(self, item):
         """ Add an item to the corpus. """
+        check_param_not_none(item, "item")
         if item.path in self.items:
             self.total_size -= self.items.get(item.path).size
         self.items.update({item.path.encode('utf-8') : item})
