@@ -11,13 +11,16 @@
 #
 """ Wrappers, serialisers and decoders for format identification tools. """
 import collections
+import os.path
 
-from corptest.const import RDSS_CACHE
+from corptest import APP
 
-MAGIC_DEFAULT = ''.join([RDSS_CACHE, 'magic-blobs.out'])
-FILE_DEFAULT = ''.join([RDSS_CACHE, 'file-blobs.out'])
-DROID_DEFAULT = ''.join([RDSS_CACHE, 'droid-blobs.out'])
-TIKA_DEFAULT = ''.join([RDSS_CACHE, 'tika-blobs.out'])
+RDSS_ROOT = APP.config.get('RDSS_ROOT')
+RDSS_CACHE = os.path.join(RDSS_ROOT, 'cache')
+MAGIC_DEFAULT = os.path.join(RDSS_CACHE, 'magic-blobs.out')
+FILE_DEFAULT = os.path.join(RDSS_CACHE, 'file-blobs.out')
+DROID_DEFAULT = os.path.join(RDSS_CACHE, 'droid-blobs.out')
+TIKA_DEFAULT = os.path.join(RDSS_CACHE, 'tika-blobs.out')
 
 class MagicLookup(object):
     """ Look up class for serialised file magic results. """

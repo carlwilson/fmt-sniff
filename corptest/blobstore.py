@@ -16,17 +16,19 @@ import logging
 import os
 from os import path
 
-from corptest.const import BLOB_STORE_ROOT, RDSS_ROOT
 from corptest.model import ByteSequence
 from corptest.utilities import check_param_not_none, sha1_path, sha1_copy_by_path
 from corptest.utilities import only_files, create_dirs
+
+from corptest import APP
+RDSS_ROOT = APP.config.get('RDSS_ROOT')
 
 class Sha1Lookup(object):
     """ Look up class for serialsed sha1sum() results. """
     sha1_lookup = collections.defaultdict(dict)
 
     @classmethod
-    def initialise(cls, source_path=RDSS_ROOT + 'blobstore-sha1s.txt'):
+    def initialise(cls, source_path=os.path.join(RDSS_ROOT, 'blobstore-sha1s.txt')):
         """ Clear and load the lookup table from the supplied or default source_path. """
         cls.sha1_lookup.clear()
         if path.isfile(source_path):
@@ -185,7 +187,7 @@ def main():
     Main method entry point, parses DOIs from Datacite and outputs to
     STDOUT.
     """
-    blob_store = BlobStore(BLOB_STORE_ROOT)
+    blob_store = BlobStore(os.path.join(RDSS_ROOT, 'blobstore'))
     print('Blobstore contains {} blobs, {} bytes'.format(blob_store.blob_count,
                                                          blob_store.size))
 

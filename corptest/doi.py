@@ -16,8 +16,14 @@ import os.path
 from lxml import html
 import requests
 
-from corptest.const import DOI_STORE, DATACITE_HTML_ROOT, DATACITE_PAGES, DATACITE_BL_QUERY
 from corptest.utilities import ObjectJsonEncoder, create_dirs
+from corptest import APP
+
+RDSS_ROOT = APP.config.get('RDSS_ROOT')
+DOI_STORE = os.path.join(RDSS_ROOT, 'doi', 'lookup.json')
+DATACITE_PAGES = range(1, 4)
+DATACITE_HTML_ROOT = 'https://search.datacite.org'
+DATACITE_BL_QUERY = '/data-centers?member-id=bl&page='
 
 class DataciteDoiLookup(object):
     """ Class that provides lookup of Datacite datacentre details by DOI. """

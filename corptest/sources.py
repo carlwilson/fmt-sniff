@@ -30,10 +30,13 @@ from boto3 import client, resource
 
 from tzlocal import get_localzone
 
+from corptest import APP
 from corptest.blobstore import Sha1Lookup, BlobStore
-from corptest.const import BLOB_STORE_ROOT
 from corptest.formats import MimeType
 from corptest.utilities import sha1_path, timestamp_fmt
+
+RDSS_ROOT = APP.config.get('RDSS_ROOT')
+BLOB_STORE_ROOT = path.join(RDSS_ROOT, 'blobstore')
 
 Sha1Lookup.initialise()
 BLOBSTORE = BlobStore(BLOB_STORE_ROOT)
@@ -229,6 +232,8 @@ class AS3Bucket(SourceBase):
     def get_file_metadata(self, key):
         if not key or key.is_folder:
             raise ValueError("Argument key must be a file key.")
+        import logging
+        logging.warning("getting S£ meta")
         s3_client = client('s3')
         result = s3_client.get_object(Bucket=self.bucket.bucket_name,
                                       Key=key.value)
