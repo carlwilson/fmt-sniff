@@ -233,10 +233,11 @@ class AS3Bucket(SourceBase):
         if not key or key.is_folder:
             raise ValueError("Argument key must be a file key.")
         import logging
-        logging.warning("getting S£ meta")
+        logging.warning("getting S3 meta")
         s3_client = client('s3')
         result = s3_client.get_object(Bucket=self.bucket.bucket_name,
                                       Key=key.value)
+        logging.warning("Augmenting key")
         augmented_key = SourceKey(key.value, False, result.get('ContentLength'),
                                   result.get('LastModified'))
         etag = result.get('ETag')[1:-1]
@@ -245,11 +246,17 @@ class AS3Bucket(SourceBase):
         augmented_key.metadata['ContentEncoding'] = result.get('ContentEncoding')
         for md_key, md_value in result['Metadata']:
             augmented_key.metadata[md_key] = md_value
+        logging.warning("Obtaining SHA1")
         sha1 = Sha1Lookup.get_sha1(etag)
+        logging.warning("Adding SHA1")
         augmented_key.metadata['SHA1'] = sha1 if sha1 else ''
+        logging.warning("Sha1 is %s, identifying", sha1)
         if sha1:
+            logging.warning("Sha1 is %s, identifying", sha1)
             full_path = BLOBSTORE.get_blob_path(sha1)
+            logging.warning("full_path  %s, identifying", full_path)
             magic_mime = MimeType.from_file_by_magic(full_path)
+            logging.warning("MIME is %s, identifying", magic_mime)
             augmented_key.metadata['Python lib-magic'] = magic_mime if magic_mime else ''
         return augmented_key
 

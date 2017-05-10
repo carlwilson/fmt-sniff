@@ -117,12 +117,12 @@ class BlobStore(object):
     @property
     def blob_root(self):
         """ Return the BlobStore's root directory. """
-        return self.__root + self.__blobpath
+        return path.join(self.__root, self.__blobpath)
 
     def clear(self):
         """ Clears all blobs from a store. """
         for blob_name in only_files(self.blob_root):
-            file_path = self.blob_root + blob_name
+            file_path = path.join(self.blob_root, blob_name)
             os.remove(file_path)
         self.blobs.clear()
         self.__size = 0
@@ -130,7 +130,9 @@ class BlobStore(object):
     def hash_check(self):
         """Performs a hash check of all BLOBs in the store"""
         fnamelst = only_files(self.blob_root)
-        tuples_to_check = [(fname, sha1_path(self.blob_root + fname)) for fname in fnamelst]
+        tuples_to_check = [(fname,
+                            sha1_path(path.join(self.blob_root,
+                                                fname))) for fname in fnamelst]
         retval = True
         for to_check in tuples_to_check:
             if to_check[0] != to_check[1]:
@@ -142,7 +144,7 @@ class BlobStore(object):
     def get_blob_path(self, sha1):
         """Returns the file path of a the BLOB called blob_name"""
         check_param_not_none(sha1, "sha1")
-        return self.blob_root + sha1
+        return path.join(self.blob_root, sha1)
 
     def __calculate_size(self):
         """ Returns the recalculated total size of the blob store but doesn't
@@ -177,7 +179,7 @@ class BlobStore(object):
         """
         self.blobs.clear()
         for blob_name in only_files(self.blob_root):
-            file_path = self.blob_root + blob_name
+            file_path = path.join(self.blob_root, blob_name)
             size = os.stat(file_path).st_size
             byte_seq = ByteSequence(blob_name, size)
             self.blobs.update({byte_seq.sha1 : byte_seq})
