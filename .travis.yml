@@ -1,6 +1,6 @@
 language: python
 python:
-  # Disable Python 2 build 10/05/2017- "2.7"
+  - "2.7"
   - "3.4"
   - "3.5"
   - "3.6"

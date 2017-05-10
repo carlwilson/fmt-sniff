@@ -155,7 +155,7 @@ class SourceBase(object):
         element. Throws a ValueError if a folder key is passed."""
         return
 
-    @abc.abstractstaticmethod
+    @staticmethod
     def validate_key_and_return_prefix(filter_key):
         """Checks that filter key is a folder and throws a ValueError if it's a
         file. If filter_key is a folder then a search prefix based on the key is
@@ -195,7 +195,7 @@ class AS3Bucket(SourceBase):
                 yield SourceKey(obj_summary.key, False)
 
     def list_folders(self, filter_key=None, recurse=False):
-        prefix = super().validate_key_and_return_prefix(filter_key)
+        prefix = super(AS3Bucket, self).validate_key_and_return_prefix(filter_key)
         if prefix and not prefix.endswith('/'):
             prefix += '/'
         s3_client = client('s3')
@@ -210,7 +210,7 @@ class AS3Bucket(SourceBase):
                         yield res
 
     def list_files(self, filter_key=None, recurse=False):
-        prefix = super().validate_key_and_return_prefix(filter_key)
+        prefix = super(AS3Bucket, self).validate_key_and_return_prefix(filter_key)
         if prefix and not prefix.endswith('/'):
             prefix += '/'
         s3_client = client('s3')
@@ -320,11 +320,11 @@ class FileSystem(SourceBase):
         return self.list_files(recurse=True)
 
     def list_folders(self, filter_key=None, recurse=False):
-        prefix = super().validate_key_and_return_prefix(filter_key)
+        prefix = super(FileSystem, self).validate_key_and_return_prefix(filter_key)
         return self.yield_keys(prefix, list_files=False, recurse=recurse)
 
     def list_files(self, filter_key=None, recurse=False):
-        prefix = super().validate_key_and_return_prefix(filter_key)
+        prefix = super(FileSystem, self).validate_key_and_return_prefix(filter_key)
         return self.yield_keys(prefix, list_folders=False, recurse=recurse)
 
     def yield_keys(self, prefix='', list_files=True, list_folders=True, recurse=False):

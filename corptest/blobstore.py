@@ -171,7 +171,7 @@ class BlobStore(object):
         """
         dirs = ['', self.__blobpath]
         for directory in dirs:
-            create_dirs(self.root + directory)
+            create_dirs(path.join(self.root, directory))
 
     def reload_blobs(self):
         """ Clears the lookup dictionary and loads the details of blob files
