@@ -102,7 +102,7 @@ class AS3BucketSource(Source):
     __bucket_name = Column("bucket_name", String(255), unique=True)
 
     def __init__(self, name, description, bucket_name):
-        super().__init__(name, description)
+        super(AS3BucketSource, self).__init__(name, description)
         check_param_not_none(bucket_name, "bucket_name")
         self.__bucket_name = bucket_name
 
@@ -116,7 +116,7 @@ class AS3BucketSource(Source):
         return _add(self)
 
     def __key(self):
-        return (super().__key(), self.bucket_name)
+        return (super(AS3BucketSource, self).__key(), self.bucket_name)
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -169,7 +169,7 @@ class FileSystemSource(Source):
     __root = Column("root", String(512), unique=True)
 
     def __init__(self, name, description, root):
-        super().__init__(name, description)
+        super(FileSystemSource, self).__init__(name, description)
         check_param_not_none(root, "root")
         self.__root = root
 
@@ -183,7 +183,7 @@ class FileSystemSource(Source):
         return _add(self)
 
     def __key(self):
-        return (super().__key(), self.root)
+        return (super(FileSystemSource, self).__key(), self.root)
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -374,7 +374,7 @@ class Folder(Node):
     """Class for folder nodes."""
     __children = relationship("Folder", backref=backref('parent', remote_side=[Node.id]))
     def __init__(self, source, path):# pylint: disable-msg=W0235
-        super().__init__(source, path)
+        super(Folder, self).__init__(source, path)
 
     @property
     def children(self):
@@ -413,7 +413,7 @@ class DataNode(Node):
     __last_modified = Column("last_modified", DateTime)
 
     def __init__(self, source, path, size, last_modified=datetime.now()):
-        super().__init__(source, path)
+        super(DataNode, self).__init__(source, path)
         check_param_not_none(size, "size")
         if size < 0:
             raise ValueError("Argument size can not be less than zero.")

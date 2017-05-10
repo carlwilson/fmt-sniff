@@ -13,7 +13,11 @@
 import logging
 from mimetypes import MimeTypes
 import ntpath
-import urllib.parse
+try:
+    from urllib.parse import unquote as unquote
+except ImportError:
+    from urllib import unquote as unquote
+
 from flask import render_template, send_file
 from corptest import APP
 from corptest.database import DB_SESSION
@@ -99,7 +103,7 @@ def _file_details(source_type, source_item, encoded_filepath):
 def _get_source_and_key(source_type, source_item, encoded_filepath, is_folder=True):
     source = AS3Bucket(source_item) \
         if source_type == 'bucket' else FileSystem(source_item)
-    path = urllib.parse.unquote(encoded_filepath)
+    path = unquote(encoded_filepath)
     key = SourceKey(path, is_folder) if path else None
     return source, key
 
