@@ -14,11 +14,14 @@ import collections
 import json
 import os.path
 
+from corptest import APP
 from corptest.blobstore import BlobStore
-from corptest.const import RESULTS_ROOT, BLOB_STORE_ROOT
 from corptest.formats import FormatTool, MagicType, MimeType, ToolResult, PronomId
 from corptest.utilities import ObjectJsonEncoder, create_dirs
 
+RDSS_ROOT = APP.config.get('RDSS_ROOT')
+RESULTS_ROOT = os.path.join(RDSS_ROOT, 'results')
+BLOB_STORE_ROOT = os.path.join(RDSS_ROOT, 'blobstore')
 class ToolRegistry(object):
     """ Lookup tools by name and version. """
 

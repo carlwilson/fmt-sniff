@@ -12,20 +12,24 @@
 """Slicing and dicing of corpus testing results for reporting."""
 from argparse import ArgumentParser, RawTextHelpFormatter
 import collections
+from os import path
 import sys
 
 import numpy as np
 
-from corptest.const import EPILOG, JISC_BUCKET, BLOB_STORE_ROOT
+from corptest import APP, __version__
+
+from corptest.const import EPILOG, JISC_BUCKET
 from corptest.doi import DataciteDoiLookup
 from corptest.registries import ResultRegistry
 from corptest.s3_corpora import AS3Bucket
 from corptest.utilities import sizeof_fmt
 
-from . import __version__
+RDSS_ROOT = APP.config.get('RDSS_ROOT')
+
 
 DEFAULTS = {
-    'blobstore': BLOB_STORE_ROOT,
+    'blobstore': path.join(RDSS_ROOT, 'blobstore'),
     'bucket': JISC_BUCKET,
     'description': """JISC Research Data Shared Service (RDSS) Format Analyser.
 Statistical tools for blobstore, corpus and format result data.""",
@@ -273,8 +277,8 @@ class SizeAnalyser(object):
         print(blobstore.get_blob_count())
         print(sizeof_fmt(blobstore.get_total_blob_size()))
         sizes = []
-        for path in blobstore.blobs.keys():
-            size = blobstore.get_blob(path).byte_sequence.size
+        for blob_path in blobstore.blobs.keys():
+            size = blobstore.get_blob(blob_path).byte_sequence.size
             sizes.append(size)
         print('Max size {}, min size {}'.format(max(sizes), min(sizes)))
         for num in range(0, 11):

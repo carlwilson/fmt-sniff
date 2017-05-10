@@ -30,12 +30,15 @@ import tempfile
 from botocore import exceptions
 from boto3 import resource
 
+from corptest import APP, __version__
 from corptest.blobstore import BlobStore, ByteSequence
 from corptest.corpora import CorpusItem, Corpus
 from corptest.utilities import ObjectJsonEncoder, create_dirs, Extension
-from corptest.const import S3_META, EPILOG, JISC_BUCKET, BLOB_STORE_ROOT
+from corptest.const import EPILOG, JISC_BUCKET
 
-from . import __version__
+RDSS_ROOT = APP.config.get('RDSS_ROOT')
+S3_META = os.path.join(RDSS_ROOT, 's3')
+BLOB_STORE_ROOT = os.path.join(RDSS_ROOT, 'blobstore')
 
 DEFAULTS = {
     'blobstore': BLOB_STORE_ROOT,
