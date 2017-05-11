@@ -291,7 +291,7 @@ class MimeType(object):
     @classmethod
     def from_file_by_file(cls, file_to_id):
         """"Runs the file utility on an individual file and returns the MIME type."""
-        mime_result = subprocess.check_output(['file', '-i', file_to_id], universal_newlines=True)
+        mime_result = subprocess.check_output(['file', '--mime', file_to_id], universal_newlines=True)
         return cls.from_mime_string(mime_result.split(':')[1])
 
 class ToolResult(object):
