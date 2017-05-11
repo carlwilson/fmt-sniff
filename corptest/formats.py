@@ -12,6 +12,8 @@
 """Classes for modelling format information"""
 import collections
 import os
+import subprocess
+
 import magic
 from fido import fido
 
@@ -91,6 +93,12 @@ class MagicType(object):
         """Returns the libmagic format id for file_to_id"""
         magic_string = cls.MAGIC_IDENT.from_file(file_to_id)
         return cls.from_magic_string(magic_string)
+
+    @classmethod
+    def from_file_by_file(cls, file_to_id):
+        """"Runs the file utility on an individual file and returns the MIME type."""
+        mime_result = subprocess.check_output(['file', file_to_id], universal_newlines=True)
+        return cls.from_magic_string(mime_result.split(':')[1])
 
     @classmethod
     def from_magic_string(cls, magic_string):
@@ -190,6 +198,21 @@ class PronomId(object):
             ret_val.append(pronom_id)
         return ret_val
 
+    @classmethod
+    def from_file_by_droid(cls, file_to_id):
+        """Get PUID from file using command line DROID."""
+        command = [
+            'droid',
+            '-Nr',
+            file_to_id,
+            '-Ns',
+            '/usr/local/lib/tna-droid/DROID_SignatureFile_V88.xml',
+            '-Nc',
+            '/usr/local/lib/tna-droid/container-signature-20160927.xml'
+        ]
+        output = subprocess.check_output(command, universal_newlines=True)
+        return output[output.rindex(',')+1:]
+
 class MimeType(object):
     """Models internet MIME identifiers"""
     PARAM_DELIM = ';'
@@ -265,6 +288,11 @@ class MimeType(object):
         parts = mime_string.split(cls.PARAM_DELIM, 1)[0].split(cls.TYPE_DELIM, 1)
         return parts[0], parts[1]
 
+    @classmethod
+    def from_file_by_file(cls, file_to_id):
+        """"Runs the file utility on an individual file and returns the MIME type."""
+        mime_result = subprocess.check_output(['file', '-i', file_to_id], universal_newlines=True)
+        return cls.from_mime_string(mime_result.split(':')[1])
 
 class ToolResult(object):
     """ Class encapsulating tool results. """

@@ -19,7 +19,7 @@ except ImportError:
     from urllib import unquote as unquote
 
 from flask import render_template, send_file
-from corptest import APP
+from corptest import APP, __version__
 from corptest.database import DB_SESSION
 from corptest.model import AS3BucketSource, FileSystemSource
 from corptest.sources import SourceKey, FileSystem, AS3Bucket
@@ -76,6 +76,11 @@ def download_fs(folder_id, encoded_filepath):
 def download_bucket(bucket_id, encoded_filepath):
     """Download a file from an AS3 source."""
     return _download_item('bucket', AS3BucketSource.by_id(bucket_id), encoded_filepath)
+
+@APP.route("/about")
+def about():
+    """Show the application about and config page"""
+    return render_template('about.html', config=APP.config, version=__version__)
 
 @APP.teardown_appcontext
 def shutdown_session(exception=None):

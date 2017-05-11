@@ -15,8 +15,10 @@ Classes that encapsulate different sources of data to be identified.
 import abc
 import collections
 from datetime import datetime
+import logging
+import os.path
+from os import access, R_OK, stat
 
-from os import access, path, R_OK, stat
 try:
     from os import scandir
 except ImportError:
@@ -32,11 +34,11 @@ from tzlocal import get_localzone
 
 from corptest import APP
 from corptest.blobstore import Sha1Lookup, BlobStore
-from corptest.formats import MimeType
+from corptest.formats import MimeType, PronomId, MagicType
 from corptest.utilities import sha1_path, timestamp_fmt
 
 RDSS_ROOT = APP.config.get('RDSS_ROOT')
-BLOB_STORE_ROOT = path.join(RDSS_ROOT, 'blobstore')
+BLOB_STORE_ROOT = os.path.join(RDSS_ROOT, 'blobstore')
 
 Sha1Lookup.initialise()
 BLOBSTORE = BlobStore(BLOB_STORE_ROOT)
@@ -232,12 +234,10 @@ class AS3Bucket(SourceBase):
     def get_file_metadata(self, key):
         if not key or key.is_folder:
             raise ValueError("Argument key must be a file key.")
-        import logging
-        logging.warning("getting S3 meta")
+        logging.info("Obtaining S3 meta for key: %r", key)
         s3_client = client('s3')
         result = s3_client.get_object(Bucket=self.bucket.bucket_name,
                                       Key=key.value)
-        logging.warning("Augmenting key")
         augmented_key = SourceKey(key.value, False, result.get('ContentLength'),
                                   result.get('LastModified'))
         etag = result.get('ETag')[1:-1]
@@ -246,30 +246,46 @@ class AS3Bucket(SourceBase):
         augmented_key.metadata['ContentEncoding'] = result.get('ContentEncoding')
         for md_key, md_value in result['Metadata']:
             augmented_key.metadata[md_key] = md_value
-        logging.warning("Obtaining SHA1")
         sha1 = Sha1Lookup.get_sha1(etag)
-        logging.warning("Adding SHA1")
-        augmented_key.metadata['SHA1'] = sha1 if sha1 else ''
-        logging.warning("Sha1 is %s, identifying", sha1)
-        if sha1:
-            logging.warning("Sha1 is %s, identifying", sha1)
-            full_path = BLOBSTORE.get_blob_path(sha1)
-            logging.warning("full_path  %s, identifying", full_path)
-            magic_mime = MimeType.from_file_by_magic(full_path)
-            logging.warning("MIME is %s, identifying", magic_mime)
-            augmented_key.metadata['Python lib-magic'] = magic_mime if magic_mime else ''
+        full_path, sha1 = self.get_temp_file(augmented_key, sha1)
+        augmented_key.metadata['SHA1'] = sha1
+        magic_mime = MimeType.from_file_by_magic(full_path)
+        augmented_key.metadata['lib-magic MIME'] = magic_mime if magic_mime else ''
+        augmented_key.metadata['lib-magic MAGIC'] = MagicType.from_file_by_magic(full_path)
+        logging.debug("Checking if FIDO enabled")
+        if APP.config['IS_FIDO']:
+            logging.debug("FIDO is enabled")
+            fido_types = PronomId.from_file_by_fido(full_path)
+            if fido_types:
+                pronom_result = fido_types[0]
+                augmented_key.metadata['FIDO PUID'] = pronom_result.puid
+                augmented_key.metadata['FIDO SIG'] = pronom_result.sig
+                augmented_key.metadata['FIDO MIME'] = pronom_result.mime
+        augmented_key.metadata['File MIME'] = \
+            MimeType.from_file_by_file(full_path).get_short_string()
+        augmented_key.metadata['File MAGIC'] = MagicType.from_file_by_file(full_path)
+        droid_puid = PronomId.from_file_by_droid(full_path)
+        augmented_key.metadata['DROID PUID'] = droid_puid
         return augmented_key
 
-    def get_temp_file(self, key):
+    def get_temp_file(self, key, sha1=None):
         """Creates a temp file copy of a file from the specified image."""
         if not key or key.is_folder:
+            # File keys only please
             raise ValueError("Argument key must be a file key.")
-        s3_client = client('s3')
-        # Open with a named temp file
-        with tempfile.NamedTemporaryFile(delete=False) as temp:
-            s3_client.download_fileobj(self.bucket.bucket_name, key.value, temp)
-            sha1 = sha1_path(temp.name)
-            return temp.name, sha1
+
+        # Check if we know the SHA1, if we do and the Blobstore has a copy use that
+        if sha1 and BLOBSTORE.has_copy(sha1):
+            logging.info('SHA1 %s is cached in local BlobStore, using as temp', sha1)
+        else:
+            # No locally cached version so retrieve from S3 to a temp file
+            logging.info("No locally cached copy so downloading from S3.")
+            s3_client = client('s3')
+            with tempfile.NamedTemporaryFile(delete=False) as temp:
+                s3_client.download_fileobj(self.bucket.bucket_name, key.value, temp)
+                sha1 = sha1_path(temp.name)
+                BLOBSTORE.add_file(temp.name, sha1)
+        return BLOBSTORE.get_blob_path(sha1), sha1
 
     @classmethod
     def validate_bucket(cls, bucket_name):
@@ -304,7 +320,7 @@ class FileSystem(SourceBase):
     def __init__(self, file_system):
         if not file_system:
             raise ValueError("Argument file_system can not be None.")
-        if not path.isdir(file_system.root) or not access(file_system.root, R_OK):
+        if not os.path.isdir(file_system.root) or not access(file_system.root, R_OK):
             raise ValueError("Argument file_system.root must be an existing dir")
         self.__file_system = file_system
 
@@ -330,15 +346,15 @@ class FileSystem(SourceBase):
     def yield_keys(self, prefix='', list_files=True, list_folders=True, recurse=False):
         """Generator that yields a list of file and or folder keys from a root
         directory."""
-        for entry in scandir(path.join(self.file_system.root, prefix)):
+        for entry in scandir(os.path.join(self.file_system.root, prefix)):
             if list_files and entry.is_file(follow_symlinks=False):
-                yield SourceKey(path.join(prefix, entry.name), False, entry.stat().st_size,
+                yield SourceKey(os.path.join(prefix, entry.name), False, entry.stat().st_size,
                                 datetime.fromtimestamp(entry.stat().st_mtime, self.TIME_ZONE))
             if entry.is_dir(follow_symlinks=False):
                 if list_folders:
-                    yield SourceKey(path.join(prefix, entry.name))
+                    yield SourceKey(os.path.join(prefix, entry.name))
                 if recurse:
-                    for child in self.yield_keys(prefix=path.join(prefix, entry.name),
+                    for child in self.yield_keys(prefix=os.path.join(prefix, entry.name),
                                                  list_files=list_files,
                                                  list_folders=list_folders,
                                                  recurse=True):
@@ -347,7 +363,7 @@ class FileSystem(SourceBase):
     def get_file_metadata(self, key):
         if not key or key.is_folder:
             raise ValueError("Argument key must be a file key.")
-        full_path = path.join(self.file_system.root, key.value)
+        full_path = os.path.join(self.file_system.root, key.value)
         result = stat(full_path)
         augmented_key = SourceKey(key.value, False, result.st_size,
                                   datetime.fromtimestamp(result.st_mtime,
@@ -359,14 +375,27 @@ class FileSystem(SourceBase):
         augmented_key.metadata['LastAccessed'] = datetime.fromtimestamp(result.st_atime,
                                                                         self.TIME_ZONE)
         magic_mime = MimeType.from_file_by_magic(full_path)
-        augmented_key.metadata['Python lib-magic'] = magic_mime if magic_mime else ''
+        augmented_key.metadata['lib-magic MIME'] = magic_mime if magic_mime else ''
+        augmented_key.metadata['lib-magic MAGIC'] = MagicType.from_file_by_magic(full_path)
+        if APP.config['IS_FIDO']:
+            fido_types = PronomId.from_file_by_fido(full_path)
+            if fido_types:
+                pronom_result = fido_types[0]
+                augmented_key.metadata['FIDO PUID'] = pronom_result.puid
+                augmented_key.metadata['FIDO SIG'] = pronom_result.sig
+                augmented_key.metadata['FIDO MIME'] = pronom_result.mime
+        augmented_key.metadata['File MIME'] = \
+            MimeType.from_file_by_file(full_path).get_short_string()
+        augmented_key.metadata['File MAGIC'] = MagicType.from_file_by_file(full_path)
+        droid_puid = PronomId.from_file_by_droid(full_path)
+        augmented_key.metadata['DROID PUID'] = droid_puid
         return augmented_key
 
     def get_temp_file(self, key):
         """Creates a temp file copy of a file from the specified image."""
         if not key or key.is_folder:
             raise ValueError("Argument key must be a file key.")
-        file_path = path.join(self.file_system.root, key.value)
+        file_path = os.path.join(self.file_system.root, key.value)
         sha1 = sha1_path(file_path)
         return file_path, sha1
 

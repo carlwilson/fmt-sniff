@@ -23,7 +23,6 @@ class ObjectJsonEncoder(json.JSONEncoder):
         """ Custom Object JSON serialisation. """
         if isinstance(o, datetime):
             return {'__datetime__': o.replace(microsecond=0).isoformat()}
-
         return {'__{}__'.format(o.__class__.__name__): o.__dict__}
 
 def only_files(directory):
