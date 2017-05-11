@@ -15,7 +15,7 @@
 import collections
 from datetime import datetime
 import errno
-import os
+import os.path
 import time
 
 from corptest.utilities import check_param_not_none, Extension, sha1_path

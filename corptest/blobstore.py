@@ -13,9 +13,7 @@
 import collections
 import errno
 import logging
-import os
-from os import path
-
+import os.path
 from corptest.model import ByteSequence
 from corptest.utilities import check_param_not_none, sha1_path, sha1_copy_by_path
 from corptest.utilities import only_files, create_dirs
@@ -31,7 +29,7 @@ class Sha1Lookup(object):
     def initialise(cls, source_path=os.path.join(RDSS_ROOT, 'blobstore-sha1s.txt')):
         """ Clear and load the lookup table from the supplied or default source_path. """
         cls.sha1_lookup.clear()
-        if path.isfile(source_path):
+        if os.path.isfile(source_path):
             cls._update_lookup_from_path(source_path)
 
     @classmethod
@@ -60,7 +58,7 @@ class BlobStore(object):
 
     def get_blob(self, sha1):
         """ Get a blob by it's key. """
-        check_param_not_none(sha1, "sha1")
+        self.__check_sha1_arg(sha1)
         return self.blobs.get(sha1, None)
 
     @property
@@ -85,6 +83,11 @@ class BlobStore(object):
         """Get the root directory for the BLOB store"""
         return self.__root
 
+    def has_copy(self, sha1):
+        """Returns true if the BlobStore has a copy of the file for tha passed sha1."""
+        self.__check_sha1_arg(sha1)
+        return os.path.isfile(self.get_blob_path(sha1))
+
     def replace_blobs(self, blobs):
         """ Loads the datacentre lookup dictionary from fp (a read() supporting
         file like object)."""
@@ -95,6 +98,8 @@ class BlobStore(object):
 
     def add_file(self, file_path, sha1=None):
         """ Adds file at path to corpus and returns the sha1. """
+        if sha1:
+            self.__check_sha1_arg(sha1)
         check_param_not_none(file_path, "file_path")
         byte_sequence = ByteSequence.from_file(file_path)
         if sha1 is not None and sha1 != byte_sequence.sha1:
@@ -117,12 +122,12 @@ class BlobStore(object):
     @property
     def blob_root(self):
         """ Return the BlobStore's root directory. """
-        return path.join(self.__root, self.__blobpath)
+        return os.path.join(self.__root, self.__blobpath)
 
     def clear(self):
         """ Clears all blobs from a store. """
         for blob_name in only_files(self.blob_root):
-            file_path = path.join(self.blob_root, blob_name)
+            file_path = os.path.join(self.blob_root, blob_name)
             os.remove(file_path)
         self.blobs.clear()
         self.__size = 0
@@ -131,20 +136,20 @@ class BlobStore(object):
         """Performs a hash check of all BLOBs in the store"""
         fnamelst = only_files(self.blob_root)
         tuples_to_check = [(fname,
-                            sha1_path(path.join(self.blob_root,
-                                                fname))) for fname in fnamelst]
+                            sha1_path(os.path.join(self.blob_root,
+                                                   fname))) for fname in fnamelst]
         retval = True
         for to_check in tuples_to_check:
             if to_check[0] != to_check[1]:
-                print("Digest mis-maatch for file " + self.blob_root + to_check[0] + \
-                ", calculated: " + to_check[1])
+                logging.warning('Digest mis-maatch for file %s%s, calculated: %s',
+                                self.blob_root, to_check[0], to_check[1])
                 retval = False
         return retval
 
     def get_blob_path(self, sha1):
         """Returns the file path of a the BLOB called blob_name"""
-        check_param_not_none(sha1, "sha1")
-        return path.join(self.blob_root, sha1)
+        self.__check_sha1_arg(sha1)
+        return os.path.join(self.blob_root, sha1)
 
     def __calculate_size(self):
         """ Returns the recalculated total size of the blob store but doesn't
@@ -171,7 +176,13 @@ class BlobStore(object):
         """
         dirs = ['', self.__blobpath]
         for directory in dirs:
-            create_dirs(path.join(self.root, directory))
+            create_dirs(os.path.join(self.root, directory))
+
+    @staticmethod
+    def __check_sha1_arg(sha1):
+        check_param_not_none(sha1, "sha1")
+        if not ByteSequence.is_sha1(sha1):
+            raise ValueError("Argument sha1 must be a 40 character HEX string.")
 
     def reload_blobs(self):
         """ Clears the lookup dictionary and loads the details of blob files
@@ -179,7 +190,7 @@ class BlobStore(object):
         """
         self.blobs.clear()
         for blob_name in only_files(self.blob_root):
-            file_path = path.join(self.blob_root, blob_name)
+            file_path = os.path.join(self.blob_root, blob_name)
             size = os.stat(file_path).st_size
             byte_seq = ByteSequence(blob_name, size)
             self.blobs.update({byte_seq.sha1 : byte_seq})

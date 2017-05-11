@@ -12,7 +12,7 @@
 """SQL Alchemy database model classes."""
 from datetime import datetime
 import errno
-import os
+import os.path
 from sqlalchemy import Column, DateTime, Integer, String, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import backref, relationship
 
@@ -597,6 +597,19 @@ class ByteSequence(BASE):
         """Add a ByteSequence instance to the table."""
         check_param_not_none(byte_sequence, "byte_sequence")
         _add(byte_sequence)
+
+    @staticmethod
+    def is_sha1(maybe_sha):
+        """Method that checks whether a passed string is a valid sha1 hash string, that
+        is a 40 character hex string. Thanks to mVChr from this Stack Overflow thread:
+        http://stackoverflow.com/questions/32234169/sha1-string-regex-for-python."""
+        if len(maybe_sha) != 40:
+            return False
+        try:
+            int(maybe_sha, 16)
+        except ValueError:
+            return False
+        return True
 
 def _add(obj):
     """Add an object instance to the database."""

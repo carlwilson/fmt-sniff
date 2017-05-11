@@ -16,6 +16,7 @@ Initialisation module for package, kicks of the flask app.
 """
 import logging
 from os.path import abspath, dirname, join
+import sys
 __version__ = '0.2.0'
 from flask_sqlalchemy import SQLAlchemy
 from flask import Flask
@@ -32,6 +33,10 @@ logging.basicConfig(filename=APP.config['LOG_FILE'], level=logging.DEBUG,
 logging.info("Started JISC RDSS Format Identification app.")
 logging.debug("Configured logging.")
 logging.info("Initialising database.")
+if not APP.config['IS_FIDO']:
+    logging.warning("Python %r doesn't allow for inline FIDO support.", sys.version_info)
+else:
+    logging.info("Python %r enables inline FIDO support.", sys.version_info)
 
 from corptest.database import init_db
 init_db()

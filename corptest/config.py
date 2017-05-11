@@ -10,7 +10,8 @@
 # about the terms of this license.
 #
 """Configuration for JISC RDSS format id Flask app."""
-import os
+import os.path
+import sys
 import tempfile
 
 from corptest.const import ENV_CONF_PROFILE, ENV_CONF_FILE, JISC_BUCKET
@@ -21,9 +22,11 @@ TEMP = tempfile.gettempdir()
 LOG_ROOT = TEMP
 class BaseConfig(object):# pylint: disable-msg=R0903
     """Base / default config, no debug logging and short log format."""
+    NAME = 'Default'
     HOST = HOST
     DEBUG = False
     TESTING = False
+    IS_FIDO = sys.version_info < (3, 0)
     LOG_FORMAT = '[%(filename)-15s:%(lineno)-5d] %(message)s'
     LOG_FILE = os.path.join(LOG_ROOT, 'jisc-rdss-format.log')
     SECRET_KEY = 'a5c020ced05af9ad3aacc6bba41beb5c7b6f750b846dadad'
@@ -40,10 +43,10 @@ class BaseConfig(object):# pylint: disable-msg=R0903
 
 class DevConfig(BaseConfig):# pylint: disable-msg=R0903
     """Developer level config, with debug logging and long log format."""
+    NAME = 'Development'
     DEBUG = True
     TESTING = True
     LOG_FORMAT = '[%(levelname)-8s %(filename)-15s:%(lineno)-5d %(funcName)-30s] %(message)s'
-    RDSS_ROOT = '/vagrant_data/'
     BUCKETS = [
         {
             'name' : 'JISC Test Bucket',
@@ -52,9 +55,15 @@ class DevConfig(BaseConfig):# pylint: disable-msg=R0903
         }
     ]
 
+class VagrantConfig(DevConfig):# pylint: disable-msg=R0903
+    """Vagrant config, with debug logging and long log format."""
+    NAME = 'Vagrant'
+    RDSS_ROOT = '/vagrant_data/'
+
 CONFIGS = {
     "dev": 'corptest.config.DevConfig',
-    "default": 'corptest.config.BaseConfig'
+    "default": 'corptest.config.BaseConfig',
+    "vagrant": 'corptest.config.VagrantConfig'
 }
 
 def configure_app(app):

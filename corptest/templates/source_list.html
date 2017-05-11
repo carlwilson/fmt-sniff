@@ -2,7 +2,7 @@
 {% block title %}Home{% endblock %}
 {% block page_content %}
   <h2>{{ source_item.name }}</h2>
-  <p><a href="/{{ source_type }}/{{ source_item.id }}/">{{ source_item.name }}/</a>
+  <p class="lead"><a href="/{{ source_type }}/{{ source_item.id }}/">{{ source_item.name }}/</a>
      {%- for part, part_path in filter_key.parts -%}
      <a href="/{{ source_type }}/{{ source_item.id }}/{{ part_path }}/">{{ part }}/</a>
      {%- endfor %}</p>

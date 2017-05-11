@@ -161,16 +161,3 @@ def scrape_datacite_doi(datacentre_page_rel_url):
             if len(href_parts) > 2:
                 return href_parts[2], href_parts[3]
     return None, None
-
-def main():
-    """
-    Main method entry point, parses DOIs from Datacite and outputs to
-    STDOUT.
-    """
-    DataciteDoiLookup.initialise()
-    for doi in DataciteDoiLookup.DATACENTRES:
-        datacentre = DataciteDoiLookup.lookup_by_doi(doi)
-        print(str(datacentre))
-
-if __name__ == "__main__":
-    main()
