@@ -12,8 +12,261 @@
 """ Wrappers, serialisers and decoders for format identification tools. """
 import collections
 import os.path
+import subprocess
 
-from corptest import APP
+import magic
+from fido import fido
+
+
+from .corptest import APP, __opf_fido_version__, __python_magic_version__
+from .formats import MagicType, MimeType, PronomId
+
+MIME_IDENT = magic.Magic(mime=True)
+MAGIC_IDENT = magic.Magic()
+
+class FineFreeFile(object):
+    """The Fine Free File Command encapsulated"""
+    __executions__ = {
+        "version" : ['file', '--version'],
+        "magic" : ['file'],
+        "mime" : ['file', '--mime']
+    }
+    __version = None
+
+    def __init__(self, format_tool):
+        self.__version = self.__version if self.__version else self._get_version()
+        self.__format_tool = format_tool
+
+    @property
+    def format_tool(self):
+        """Return the associated FormatToolRelease."""
+        return self.__format_tool
+
+    @property
+    def version(self):
+        """Return the version number of the file utility."""
+        return self.__version
+
+    def identify(self, path):
+        """"Runs the file utility on an individual file and returns the metadata."""
+        if not path or not os.path.isfile(path):
+            raise ValueError("Arg path must be an exisiting file.")
+        if not self.version:
+            return None
+        metadata = {}
+        cmd = list(self.__executions__['magic'])
+        cmd.append(path)
+        magic_res = subprocess.check_output(cmd, universal_newlines=True)
+        magic_type = MagicType.from_magic_string(magic_res.split(':')[1])
+        metadata['File MAGIC'] = magic_type
+        cmd = list(self.__executions__['mime'])
+        cmd.append(path)
+        mime_res = subprocess.check_output(cmd, universal_newlines=True)
+        mime_type = MimeType.from_mime_string(mime_res.split(':')[1])
+        metadata['File MIME'] = \
+            mime_type.get_short_string()
+        return metadata
+
+    @classmethod
+    def _get_version(cls):
+        try:
+            proc_result = subprocess.check_output(cls.__executions__['version'],
+                                                  universal_newlines=True)
+        except OSError:
+            # We're not supporting file here then
+            return None
+        return proc_result.splitlines()[0].split('-')[-1]
+
+class DROID(object):
+    """DROID encapsulated"""
+    __executions__ = {
+        "version" : ['droid', '-v'],
+        "puid_1" : ['droid', '-Nr'],
+        "puid_2" : ['-Ns',
+                    '/usr/local/lib/tna-droid/DROID_SignatureFile_V88.xml',
+                    '-Nc',
+                    '/usr/local/lib/tna-droid/container-signature-20160927.xml'
+                   ]
+    }
+    __version = None
+
+    def __init__(self, format_tool):
+        self.__version = self.__version if self.__version else self._get_version()
+        self.__format_tool = format_tool
+
+    @property
+    def format_tool(self):
+        """Return the associated FormatToolRelease."""
+        return self.__format_tool
+
+    @property
+    def version(self):
+        """Return the version number of the DROID tool."""
+        return self.__version
+
+    def identify(self, path):
+        """Perform DROID identification."""
+        if not path or not os.path.isfile(path):
+            raise ValueError("Arg path must be an exisiting file.")
+        if not self.version:
+            return None
+        metadata = {}
+        cmd = list(self.__executions__['puid_1'])
+        cmd.append(path)
+        cmd.extend(self.__executions__['puid_2'])
+        output = subprocess.check_output(cmd, universal_newlines=True)
+        metadata['DROID PUID'] = output[output.rindex(',')+1:]
+        return metadata
+
+    @classmethod
+    def _get_version(cls):
+        try:
+            proc_result = subprocess.check_output(cls.__executions__['version'],
+                                                  universal_newlines=True)
+        except OSError:
+            # We're not supporting file here then
+            return None
+        return proc_result
+
+class FIDO(object):
+    """FIDO encapsulated"""
+    FIDO = fido.Fido(quiet=True, nocontainer=True)
+    __executions__ = {
+    }
+    __version = __opf_fido_version__ if APP.config['IS_FIDO'] else None
+
+    def __init__(self, format_tool):
+        self.__format_tool = format_tool
+
+    @property
+    def format_tool(self):
+        """Return the associated FormatToolRelease."""
+        return self.__format_tool
+
+    @property
+    def version(self):
+        """Return the tool version string."""
+        return self.__version
+
+    def identify(self, path):
+        """Perform FIDO identification."""
+        if not path or not os.path.isfile(path):
+            raise ValueError("Arg path must be an exisiting file.")
+        if not self.version:
+            return None
+        metadata = {}
+        fido_types = self._get_fido_types(path)
+        if fido_types:
+            pronom_result = fido_types[0]
+            metadata['FIDO PUID'] = pronom_result.puid
+            metadata['FIDO SIG'] = pronom_result.sig
+            metadata['FIDO MIME'] = pronom_result.mime
+        return metadata
+
+    @classmethod
+    def _get_fido_types(cls, path):
+        retval = []
+        size = os.stat(path).st_size
+        fp_to_id = open(path, 'rb')
+        bofbuffer, eofbuffer, _ = cls.FIDO.get_buffers(fp_to_id, size, seekable=True)
+        matches = cls.FIDO.match_formats(bofbuffer, eofbuffer)
+        for (sig, sig_name) in matches:
+            mime = sig.find('mime')
+            mime_text = ""
+            if mime is not None:
+                mime_text = mime.text
+            pronom_id = PronomId(cls.FIDO.get_puid(sig), sig_name, mime_text)
+            retval.append(pronom_id)
+        return retval
+
+class PythonMagic(object):
+    """PythonMagic encapsulated"""
+    __executions__ = {
+        "version" : ['droid', '-v']
+    }
+    __version = __python_magic_version__
+
+    def __init__(self, format_tool):
+        self.__format_tool = format_tool
+
+    @property
+    def format_tool(self):
+        """Return the associated FormatToolRelease."""
+        return self.__format_tool
+
+    @property
+    def version(self):
+        """Return the tool version string."""
+        return self.__version
+
+    def identify(self, path):
+        """Perform Python Magic identification."""
+        if not path or not os.path.isfile(path):
+            raise ValueError("Arg path must be an exisiting file.")
+        if not self.version:
+            return None
+        metadata = {}
+        mime_string = MIME_IDENT.from_file(path)
+        mime_type = MimeType.from_mime_string(mime_string)
+        metadata['lib-magic MIME'] = mime_type.get_short_string()
+        magic_string = MAGIC_IDENT.from_file(path)
+        magic_type = MagicType.from_magic_string(magic_string)
+        metadata['lib-magic MAGIC'] = magic_type
+        return metadata
+
+class Tika(object):
+    """Tika encapsulated"""
+    __executions__ = {
+        "version" : ['tika', '--version']
+    }
+    __version = None
+
+    def __init__(self, format_tool):
+        self.__version = self.__version if self.__version else self._get_version()
+        self.__format_tool = format_tool
+
+    @property
+    def format_tool(self):
+        """Return the associated FormatToolRelease."""
+        return self.__format_tool
+
+    @property
+    def version(self):
+        """Return the version number of the file utility."""
+        return self.__version
+
+    def identify(self, path):
+        """Perform Tika identification."""
+        if not path or not os.path.isfile(path):
+            raise ValueError("Arg path must be an exisiting file.")
+        if not self.version:
+            return None
+        return None
+
+    @classmethod
+    def _get_version(cls):
+        try:
+            proc_result = subprocess.check_output(cls.__executions__['version'],
+                                                  universal_newlines=True)
+        except OSError:
+            # We're not supporting file here then
+            return None
+        return proc_result.split(' ')[-1]
+
+def get_format_tool_instance(format_tool):
+    """Given an instance from the DB will find the right tool."""
+    if format_tool.name.lower() == 'file':
+        return FineFreeFile(format_tool)
+    elif format_tool.name.lower() == 'droid':
+        return DROID(format_tool)
+    elif format_tool.name.lower() == 'fido':
+        return FIDO(format_tool)
+    elif format_tool.name.lower() == 'python-magic':
+        return PythonMagic(format_tool)
+    elif format_tool.name.lower() == 'apache tika':
+        return Tika(format_tool)
+    return None
+
 
 RDSS_ROOT = APP.config.get('RDSS_ROOT')
 RDSS_CACHE = os.path.join(RDSS_ROOT, 'cache')
@@ -121,8 +374,8 @@ def file_by_line_split_generator(path, splitter=':'):
             if splitter not in line:
                 continue
             parts = line.split(splitter)
-            yield get_sha1_from_path(parts[0].strip()), parts[1][:-1].strip()
+            yield _get_sha1_from_path(parts[0].strip()), parts[1][:-1].strip()
 
-def get_sha1_from_path(path_str):
+def _get_sha1_from_path(path_str):
     """ Parse the SHA1 from any BlobStore path. """
     return path_str.rpartition('/')[2]

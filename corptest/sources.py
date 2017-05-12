@@ -32,10 +32,9 @@ from boto3 import client, resource
 
 from tzlocal import get_localzone
 
-from corptest import APP
-from corptest.blobstore import Sha1Lookup, BlobStore
-from corptest.formats import MimeType, PronomId, MagicType
-from corptest.utilities import sha1_path, timestamp_fmt
+from .corptest import APP, TOOL_REG
+from .blobstore import Sha1Lookup, BlobStore
+from .utilities import sha1_path, timestamp_fmt
 
 RDSS_ROOT = APP.config.get('RDSS_ROOT')
 BLOB_STORE_ROOT = os.path.join(RDSS_ROOT, 'blobstore')
@@ -158,10 +157,7 @@ class SourceBase(object):
         return
 
     @staticmethod
-    def validate_key_and_return_prefix(filter_key):
-        """Checks that filter key is a folder and throws a ValueError if it's a
-        file. If filter_key is a folder then a search prefix based on the key is
-        returned, or an empty string if filter_key is None."""
+    def _validate_key_and_return_prefix(filter_key):
         prefix = ''
         if filter_key is not None:
             if not filter_key.is_folder:
@@ -197,7 +193,7 @@ class AS3Bucket(SourceBase):
                 yield SourceKey(obj_summary.key, False)
 
     def list_folders(self, filter_key=None, recurse=False):
-        prefix = super(AS3Bucket, self).validate_key_and_return_prefix(filter_key)
+        prefix = super(AS3Bucket, self)._validate_key_and_return_prefix(filter_key)
         if prefix and not prefix.endswith('/'):
             prefix += '/'
         s3_client = client('s3')
@@ -212,7 +208,7 @@ class AS3Bucket(SourceBase):
                         yield res
 
     def list_files(self, filter_key=None, recurse=False):
-        prefix = super(AS3Bucket, self).validate_key_and_return_prefix(filter_key)
+        prefix = super(AS3Bucket, self)._validate_key_and_return_prefix(filter_key)
         if prefix and not prefix.endswith('/'):
             prefix += '/'
         s3_client = client('s3')
@@ -249,23 +245,13 @@ class AS3Bucket(SourceBase):
         sha1 = Sha1Lookup.get_sha1(etag)
         full_path, sha1 = self.get_temp_file(augmented_key, sha1)
         augmented_key.metadata['SHA1'] = sha1
-        magic_mime = MimeType.from_file_by_magic(full_path)
-        augmented_key.metadata['lib-magic MIME'] = magic_mime if magic_mime else ''
-        augmented_key.metadata['lib-magic MAGIC'] = MagicType.from_file_by_magic(full_path)
-        logging.debug("Checking if FIDO enabled")
-        if APP.config['IS_FIDO']:
-            logging.debug("FIDO is enabled")
-            fido_types = PronomId.from_file_by_fido(full_path)
-            if fido_types:
-                pronom_result = fido_types[0]
-                augmented_key.metadata['FIDO PUID'] = pronom_result.puid
-                augmented_key.metadata['FIDO SIG'] = pronom_result.sig
-                augmented_key.metadata['FIDO MIME'] = pronom_result.mime
-        augmented_key.metadata['File MIME'] = \
-            MimeType.from_file_by_file(full_path).get_short_string()
-        augmented_key.metadata['File MAGIC'] = MagicType.from_file_by_file(full_path)
-        droid_puid = PronomId.from_file_by_droid(full_path)
-        augmented_key.metadata['DROID PUID'] = droid_puid
+        for tool in TOOL_REG:
+            logging.debug("Checking %s", tool.format_tool.name)
+            if tool.version:
+                logging.debug("Invoking %s", tool.format_tool.name)
+                metadata = tool.identify(full_path)
+                if metadata:
+                    augmented_key.metadata.update(metadata)
         return augmented_key
 
     def get_temp_file(self, key, sha1=None):
@@ -336,11 +322,11 @@ class FileSystem(SourceBase):
         return self.list_files(recurse=True)
 
     def list_folders(self, filter_key=None, recurse=False):
-        prefix = super(FileSystem, self).validate_key_and_return_prefix(filter_key)
+        prefix = super(FileSystem, self)._validate_key_and_return_prefix(filter_key)
         return self.yield_keys(prefix, list_files=False, recurse=recurse)
 
     def list_files(self, filter_key=None, recurse=False):
-        prefix = super(FileSystem, self).validate_key_and_return_prefix(filter_key)
+        prefix = super(FileSystem, self)._validate_key_and_return_prefix(filter_key)
         return self.yield_keys(prefix, list_folders=False, recurse=recurse)
 
     def yield_keys(self, prefix='', list_files=True, list_folders=True, recurse=False):
@@ -374,21 +360,13 @@ class FileSystem(SourceBase):
                                                                    self.TIME_ZONE)
         augmented_key.metadata['LastAccessed'] = datetime.fromtimestamp(result.st_atime,
                                                                         self.TIME_ZONE)
-        magic_mime = MimeType.from_file_by_magic(full_path)
-        augmented_key.metadata['lib-magic MIME'] = magic_mime if magic_mime else ''
-        augmented_key.metadata['lib-magic MAGIC'] = MagicType.from_file_by_magic(full_path)
-        if APP.config['IS_FIDO']:
-            fido_types = PronomId.from_file_by_fido(full_path)
-            if fido_types:
-                pronom_result = fido_types[0]
-                augmented_key.metadata['FIDO PUID'] = pronom_result.puid
-                augmented_key.metadata['FIDO SIG'] = pronom_result.sig
-                augmented_key.metadata['FIDO MIME'] = pronom_result.mime
-        augmented_key.metadata['File MIME'] = \
-            MimeType.from_file_by_file(full_path).get_short_string()
-        augmented_key.metadata['File MAGIC'] = MagicType.from_file_by_file(full_path)
-        droid_puid = PronomId.from_file_by_droid(full_path)
-        augmented_key.metadata['DROID PUID'] = droid_puid
+        for tool in TOOL_REG:
+            logging.debug("Checking %s", tool.format_tool.name)
+            if tool.version:
+                logging.debug("Invoking %s", tool.format_tool.name)
+                metadata = tool.identify(full_path)
+                if metadata:
+                    augmented_key.metadata.update(metadata)
         return augmented_key
 
     def get_temp_file(self, key):

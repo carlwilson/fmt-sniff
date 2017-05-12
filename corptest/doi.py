@@ -16,8 +16,8 @@ import os.path
 from lxml import html
 import requests
 
-from corptest.utilities import ObjectJsonEncoder, create_dirs
-from corptest import APP
+from .utilities import ObjectJsonEncoder, create_dirs
+from .corptest import APP
 
 RDSS_ROOT = APP.config.get('RDSS_ROOT')
 DOI_STORE = os.path.join(RDSS_ROOT, 'doi', 'lookup.json')
