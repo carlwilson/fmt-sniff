@@ -27,7 +27,7 @@ MAGIC_IDENT = magic.Magic()
 class FineFreeFile(object):
     """The Fine Free File Command encapsulated"""
     __executions__ = {
-        "version" : ['file', '-v'],
+        "version" : ['file', '--version'],
         "magic" : ['file'],
         "mime" : ['file', '--mime']
     }

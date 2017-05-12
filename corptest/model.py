@@ -16,13 +16,13 @@ import os.path
 from sqlalchemy import Column, DateTime, Integer, String, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import backref, relationship
 
-from .database import BASE, DB_SESSION
+from .database import BASE, DB_SESSION, ENGINE
 from .utilities import check_param_not_none, sha1_path, sha1_string, timestamp_fmt
 class Source(BASE):
     """Simple class to hold details common to all sources, e.g. name, description."""
     __tablename__ = 'source'
 
-    id = Column(Integer, primary_key=True)# pylint: disable-msg=C0103
+    id = Column(Integer, primary_key=True) # pylint: disable-msg=C0103
     __name = Column("name", String(256), unique=True)
     __description = Column("description", String(512))
     __discriminator = Column('type', String(64))
@@ -785,6 +785,10 @@ class FormatToolRelease(BASE):
         """Add a FormatToolRelease instance to the table."""
         check_param_not_none(format_tool_release, "format_tool_release")
         _add(format_tool_release)
+
+def init_db():
+    """Initialise the database."""
+    BASE.metadata.create_all(bind=ENGINE)
 
 def _add(obj):
     """Add an object instance to the database."""

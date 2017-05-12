@@ -15,10 +15,10 @@ import errno
 import logging
 import os.path
 
-from .model import ByteSequence
 from .utilities import check_param_not_none, sha1_path, sha1_copy_by_path
 from .utilities import only_files, create_dirs
 from .corptest import APP
+from .model import ByteSequence
 
 RDSS_ROOT = APP.config.get('RDSS_ROOT')
 

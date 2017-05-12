@@ -8,8 +8,10 @@ python:
 # command to install dependencies
 install:
   - sudo apt-get install -y python-dev libxml2-dev libxslt1-dev zlib1g-dev python3-dev
+  - file -v
+  - file --version
   - pip install pytest-cov codecov codacy-coverage
-  - python setup.py install
+  - pip install -e .
 
 # command to run tests
 script:

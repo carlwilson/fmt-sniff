@@ -32,7 +32,7 @@ logging.basicConfig(filename=APP.config['LOG_FILE'], level=logging.DEBUG,
                     format=APP.config['LOG_FORMAT'])
 logging.info("Started JISC RDSS Format Identification app.")
 
-from .database import init_db # pylint: disable-msg=C0413
+from .model import init_db # pylint: disable-msg=C0413
 logging.debug("Configured logging.")
 logging.info("Initialising database.")
 init_db()
