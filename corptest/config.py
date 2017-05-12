@@ -14,7 +14,7 @@ import os.path
 import sys
 import tempfile
 
-from corptest.const import ENV_CONF_PROFILE, ENV_CONF_FILE, JISC_BUCKET
+from .const import ENV_CONF_PROFILE, ENV_CONF_FILE, JISC_BUCKET
 
 HOST = 'localhost'
 
@@ -35,9 +35,38 @@ class BaseConfig(object):# pylint: disable-msg=R0903
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     FOLDERS = [
         {
-            'name' : 'Example File Source',
+            'name' : 'Temp File System',
             'description' : 'Example file based source using the temp directory.',
             'location' : TEMP
+        }
+    ]
+    TOOLS = [
+        {
+            'name' : 'DROID',
+            'description' : 'Digital Record and Object Identication',
+            'reference' :
+            ''.join(['http://www.nationalarchives.gov.uk/information-management/',
+                     'manage-information/preserving-digital-records/droid/'])
+        },
+        {
+            'name' : 'FIDO',
+            'description' : 'Format Identification for Digital Objects',
+            'reference' : 'http://openpreservation.org/technology/products/fido/'
+        },
+        {
+            'name' : 'File',
+            'description' : 'The fine free file command.',
+            'reference' : 'https://www.darwinsys.com/file/'
+        },
+        {
+            'name' : 'python-magic',
+            'description' : 'Python wrapping of the libmagic library.',
+            'reference' : 'https://github.com/ahupp/python-magic/'
+        },
+        {
+        'name' : 'Apache Tika',
+        'description' : 'A content analysis toolkit.',
+        'reference' : 'https://tika.apache.org/'
         }
     ]
 
@@ -49,8 +78,8 @@ class DevConfig(BaseConfig):# pylint: disable-msg=R0903
     LOG_FORMAT = '[%(levelname)-8s %(filename)-15s:%(lineno)-5d %(funcName)-30s] %(message)s'
     BUCKETS = [
         {
-            'name' : 'JISC Test Bucket',
-            'description' : 'JISC Research Data Shared Service test Amazon S3 bucket.',
+            'name' : 'JISC Sample Bucket',
+            'description' : 'JISC Research Data Shared Service Amazon S3 bucket.',
             'location' : JISC_BUCKET
         }
     ]

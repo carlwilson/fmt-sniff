@@ -19,25 +19,11 @@ except ImportError:
     from urllib import unquote as unquote
 
 from flask import render_template, send_file
-from corptest import APP, __version__
-from corptest.database import DB_SESSION
-from corptest.model import AS3BucketSource, FileSystemSource
-from corptest.sources import SourceKey, FileSystem, AS3Bucket
-
-BUCKET_LIST = APP.config.get('BUCKETS', {})
-if len(AS3BucketSource.all()) < 1:
-    logging.debug("Loading the bucket table")
-    for _bucket in BUCKET_LIST:
-        _bucket_item = AS3BucketSource(_bucket['name'], _bucket['description'],
-                                       _bucket['location'])
-        AS3BucketSource.add(_bucket_item)
-
-FOLDER_LIST = APP.config.get('FOLDERS', {})
-if len(FileSystemSource.all()) < 1:
-    logging.debug("Loading the file_system table")
-    for _folder in FOLDER_LIST:
-        _fs_item = FileSystemSource(_folder['name'], _folder['description'], _folder['location'])
-        FileSystemSource.add(_fs_item)
+from .corptest import APP, __version__, TOOL_REG
+from .database import DB_SESSION
+from .model import AS3BucketSource, FileSystemSource
+from .sources import SourceKey, FileSystem, AS3Bucket
+ROUTES = True
 
 @APP.route("/")
 def home():
@@ -76,6 +62,11 @@ def download_fs(folder_id, encoded_filepath):
 def download_bucket(bucket_id, encoded_filepath):
     """Download a file from an AS3 source."""
     return _download_item('bucket', AS3BucketSource.by_id(bucket_id), encoded_filepath)
+
+@APP.route("/tools")
+def tools():
+    """Application tools configuration"""
+    return render_template('tool_config.html', tools=TOOL_REG)
 
 @APP.route("/about")
 def about():

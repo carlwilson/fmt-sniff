@@ -16,8 +16,8 @@ import os.path
 from sqlalchemy import Column, DateTime, Integer, String, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import backref, relationship
 
-from corptest.database import BASE, DB_SESSION
-from corptest.utilities import check_param_not_none, sha1_path, sha1_string, timestamp_fmt
+from .database import BASE, DB_SESSION
+from .utilities import check_param_not_none, sha1_path, sha1_string, timestamp_fmt
 class Source(BASE):
     """Simple class to hold details common to all sources, e.g. name, description."""
     __tablename__ = 'source'
@@ -71,7 +71,7 @@ class Source(BASE):
     @staticmethod
     def count():
         """Returns the number of Source instances in the database."""
-        return len(Source.query.all())
+        return Source.query.all().count()
 
     @staticmethod
     def all():
@@ -82,13 +82,13 @@ class Source(BASE):
     def by_name(name):
         """Query for Source with matching name."""
         check_param_not_none(name, "name")
-        return Source.query.filter_by(name=name).first()
+        return Source.query.filter(Source.__name == name).first()
 
     @staticmethod
     def by_id(id):# pylint: disable-msg=W0622,C0103
         """Query for Source with matching id."""
         check_param_not_none(id, "id")
-        return Source.query.filter_by(id=id).first()
+        return Source.query.filter(Source.id == id).first()
 
     @staticmethod
     def add(source):
@@ -143,7 +143,7 @@ class AS3BucketSource(Source):
     @staticmethod
     def count():
         """Returns the number of AS3BucketSource instances in the database."""
-        return len(AS3BucketSource.query.all())
+        return AS3BucketSource.query.all().count()
 
     @staticmethod
     def all():
@@ -154,13 +154,15 @@ class AS3BucketSource(Source):
     def by_bucket_name(bucket_name):
         """Query for AS3BucketSource with matching bucket_name."""
         check_param_not_none(bucket_name, "bucket_name")
-        return AS3BucketSource.query.filter_by(__bucket_name=bucket_name).first()
+        import logging
+        logging.debug("lookign for bucket %s", bucket_name)
+        return AS3BucketSource.query.filter(AS3BucketSource.__bucket_name == bucket_name).first()
 
     @staticmethod
     def by_id(id):# pylint: disable-msg=W0622,C0103
         """Query for AS3BucketSource with matching id."""
         check_param_not_none(id, "id")
-        return AS3BucketSource.query.filter_by(id=id).first()
+        return AS3BucketSource.query.filter(AS3BucketSource.id == id).first()
 
 class FileSystemSource(Source):
     """Database table class for a File System details."""
@@ -210,7 +212,7 @@ class FileSystemSource(Source):
     @staticmethod
     def count():
         """Returns the number of FileSystemSource instances in the database."""
-        return len(FileSystemSource.query.all())
+        return FileSystemSource.query.all().count()
 
     @staticmethod
     def all():
@@ -221,13 +223,13 @@ class FileSystemSource(Source):
     def by_root(root):
         """Query for FileSystemSource with matching root."""
         check_param_not_none(root, "root")
-        return FileSystemSource.query.filter_by(__root=root).first()
+        return FileSystemSource.query.filter(FileSystemSource.__root == root).first()
 
     @staticmethod
     def by_id(id):# pylint: disable-msg=W0622,C0103
         """Query for FileSystemSource with matching id."""
         check_param_not_none(id, "id")
-        return FileSystemSource.query.filter_by(id=id).first()
+        return FileSystemSource.query.filter(FileSystemSource.id == id).first()
 
 class SourceIndex(BASE):
     """Association table that holds an indexed snapshot of a source's content."""
@@ -296,7 +298,7 @@ class SourceIndex(BASE):
     @staticmethod
     def count():
         """Returns the number of SourceIndex instances in the database."""
-        return len(SourceIndex.query.all())
+        return SourceIndex.query.all().count()
 
     @staticmethod
     def all():
@@ -305,11 +307,11 @@ class SourceIndex(BASE):
 
     @staticmethod
     def by_id(id):# pylint: disable-msg=W0622,C0103
-        """Query for Folder with matching id."""
+        """Query for SourceIndex with matching id."""
         check_param_not_none(id, "id")
         if not id:
             raise ValueError("id argument can not be null")
-        return SourceIndex.query.filter_by(id=id).first()
+        return SourceIndex.query.filter(SourceIndex.id == id).first()
 
     @staticmethod
     def add(source_index):
@@ -388,7 +390,7 @@ class Folder(Node):
     @staticmethod
     def count():
         """Returns the number of Node instances in the database."""
-        return len(Folder.query.all())
+        return Folder.query.all().count()
 
     @staticmethod
     def all():
@@ -399,7 +401,7 @@ class Folder(Node):
     def by_id(id):# pylint: disable-msg=W0622,C0103
         """Query for Folder with matching id."""
         check_param_not_none(id, "id")
-        return Folder.query.filter_by(id=id).first()
+        return Folder.query.filter(Folder.id == id).first()
 
     @staticmethod
     def add(folder):
@@ -465,7 +467,7 @@ class DataNode(Node):
     @staticmethod
     def count():
         """Returns the number of DataNode instances in the database."""
-        return len(DataNode.query.all())
+        return DataNode.query.all().count()
 
     @staticmethod
     def all():
@@ -476,7 +478,7 @@ class DataNode(Node):
     def by_id(id):# pylint: disable-msg=W0622,C0103
         """Query for DataNode with matching id."""
         check_param_not_none(id, "id")
-        return DataNode.query.filter_by(id=id).first()
+        return DataNode.query.filter(DataNode.id == id).first()
 
     @staticmethod
     def add(data_node):
@@ -573,7 +575,7 @@ class ByteSequence(BASE):
     @staticmethod
     def count():
         """Returns the number of ByteSequence instances in the database."""
-        return len(ByteSequence.query.all())
+        return ByteSequence.query.all().count()
 
     @staticmethod
     def all():
@@ -584,13 +586,13 @@ class ByteSequence(BASE):
     def by_sha1(sha1):
         """Query for ByteSequence with matching value."""
         check_param_not_none(sha1, "sha1")
-        return ByteSequence.query.filter_by(__sha1=sha1).first()
+        return ByteSequence.query.filter(ByteSequence.__sha1 == sha1).first()
 
     @staticmethod
     def by_id(id):# pylint: disable-msg=W0622,C0103
         """Query for ByteSequence with matching id."""
         check_param_not_none(id, "id")
-        return ByteSequence.query.filter_by(id=id).first()
+        return ByteSequence.query.filter(ByteSequence.id == id).first()
 
     @staticmethod
     def add(byte_sequence):
@@ -610,6 +612,179 @@ class ByteSequence(BASE):
         except ValueError:
             return False
         return True
+
+class FormatTool(BASE):
+    """Class to hold the details of a format identification tool."""
+    __tablename__ = 'format_tool'
+
+    id = Column(Integer, primary_key=True)# pylint: disable-msg=C0103
+    __name = Column("name", String(100), unique=True)
+    __description = Column("description", String(100))
+    __reference = Column("reference", String(512), unique=True)
+    versions = relationship("FormatToolRelease", back_populates='format_tool')
+
+    def __init__(self, name, description, reference):
+        check_param_not_none(name, "name")
+        check_param_not_none(description, "description")
+        check_param_not_none(reference, "reference")
+        self.__name = name
+        self.__description = description
+        self.__reference = reference
+
+    @property
+    def name(self):
+        """Returns the recognised name of the format tool"""
+        return self.__name
+
+    @property
+    def description(self):
+        """Returns the textual description of the format tool"""
+        return self.__description
+
+    @property
+    def reference(self):
+        """Returns a URL that refers to the format tools project page."""
+        return self.__reference
+
+    def put(self):
+        """Add this FormatTool instance to the database."""
+        return _add(self)
+
+    def __key(self):
+        return (self.name, self.reference)
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.__key() == other.__key()
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash(self.__key())
+
+    def __rep__(self):
+        ret_val = []
+        ret_val.append("FormatTool : [name =")
+        ret_val.append(self.name)
+        ret_val.append(", description =")
+        ret_val.append(self.__description)
+        ret_val.append(", reference =")
+        ret_val.append(self.__reference)
+        ret_val.append("]")
+        return "".join(ret_val)
+
+    @staticmethod
+    def count():
+        """Returns the number of FormatTool instances in the database."""
+        return FormatTool.query.all().count()
+
+    @staticmethod
+    def all():
+        """Convenience method, returns all of the FormatTool instances."""
+        return FormatTool.query.order_by(FormatTool.__name).all()
+
+    @staticmethod
+    def by_name(name):
+        """Query for FormatTool with matching name."""
+        check_param_not_none(name, "name")
+        return FormatTool.query.filter(FormatTool.__name == name).first()
+
+    @staticmethod
+    def by_reference(reference):
+        """Query for FormatTool with matching URL refernce."""
+        check_param_not_none(reference, "nareferenceme")
+        return FormatTool.query.filter(FormatTool.__reference == reference).first()
+
+    @staticmethod
+    def by_id(id):# pylint: disable-msg=W0622,C0103
+        """Query for FormatTool with matching id."""
+        check_param_not_none(id, "id")
+        return FormatTool.query.filter(FormatTool.id == id).first()
+
+    @staticmethod
+    def add(format_tool):
+        """Add a FormatTool instance to the table."""
+        check_param_not_none(format_tool, "format_tool")
+        _add(format_tool)
+
+class FormatToolRelease(BASE):
+    """An individual release of a particular format tool."""
+    __tablename__ = 'format_tool_release'
+
+    id = Column(Integer, primary_key=True)# pylint: disable-msg=C0103
+    __format_tool_id = Column("format_tool_id", Integer,
+                              ForeignKey('format_tool.id'))
+    format_tool = relationship("FormatTool", back_populates='versions')
+    __version = Column("version", String(50))
+    UniqueConstraint('format_tool_id', 'version', name='uix__tool_version')
+
+    def __init__(self, format_tool, version):
+        check_param_not_none(format_tool, "format_tool")
+        check_param_not_none(version, "version")
+        self.__format_tool = format_tool
+        self.__version = version
+
+    @property
+    def version(self):
+        """Returns the unique version number of the format tool"""
+        return self.__version
+
+    def put(self):
+        """Add this FormatToolRelease instance to the database."""
+        return _add(self)
+
+    def __key(self):
+        return (self.__format_tool_id, self.version)
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.__key() == other.__key()
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash(self.__key())
+
+    def __rep__(self):
+        ret_val = []
+        ret_val.append("corptest.model.FormatToolRelease : [format_tool = ")
+        ret_val.append(str(self.format_tool))
+        ret_val.append(", version = ")
+        ret_val.append(self.version)
+        ret_val.append("]")
+        return "".join(ret_val)
+
+    @staticmethod
+    def count():
+        """Returns the number of FormatToolRelease instances in the database."""
+        return FormatToolRelease.query.all().count()
+
+    @staticmethod
+    def all():
+        """Convenience method, returns all of the FormatToolRelease instances."""
+        return FormatToolRelease.query.all()
+
+    @staticmethod
+    def by_version(version):
+        """Query for FormatToolRelease with matching version."""
+        check_param_not_none(version, "version")
+        return FormatToolRelease.query.filter(FormatToolRelease.__version == version).first()
+
+    @staticmethod
+    def by_id(id):# pylint: disable-msg=W0622,C0103
+        """Query for FormatToolRelease with matching id."""
+        check_param_not_none(id, "id")
+        return FormatToolRelease.query.filter(FormatToolRelease.id == id).first()
+
+    @staticmethod
+    def add(format_tool_release):
+        """Add a FormatToolRelease instance to the table."""
+        check_param_not_none(format_tool_release, "format_tool_release")
+        _add(format_tool_release)
 
 def _add(obj):
     """Add an object instance to the database."""

@@ -13,7 +13,7 @@
 import os
 import unittest
 
-from corptest.format_tools import get_sha1_from_path, MimeLookup, DroidLookup, TikaLookup
+from corptest.format_tools import _get_sha1_from_path, MimeLookup, DroidLookup, TikaLookup
 from tests.const import THIS_DIR
 
 TEST_SHA1 = 'da39a3ee5e6b4b0d3255bfef95601890afd80709'
@@ -23,9 +23,9 @@ class MimeLookupTestCase(unittest.TestCase):
     """ Tests for the MagicLookup class. """
     def test_sha1_from_path(self):
         """ Tests for simple sha1 from path method. """
-        self.assertEqual(TEST_SHA1, get_sha1_from_path(TEST_SHA1))
-        self.assertEqual(TEST_SHA1, get_sha1_from_path('/' + TEST_SHA1))
-        self.assertEqual(TEST_SHA1, get_sha1_from_path('/test/' + TEST_SHA1))
+        self.assertEqual(TEST_SHA1, _get_sha1_from_path(TEST_SHA1))
+        self.assertEqual(TEST_SHA1, _get_sha1_from_path('/' + TEST_SHA1))
+        self.assertEqual(TEST_SHA1, _get_sha1_from_path('/test/' + TEST_SHA1))
 
     def test_mime_lookup(self):
         """ Test for the MIME lookup class for file data. """
