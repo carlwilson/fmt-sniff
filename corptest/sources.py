@@ -245,10 +245,10 @@ class AS3Bucket(SourceBase):
         sha1 = Sha1Lookup.get_sha1(etag)
         full_path, sha1 = self.get_temp_file(augmented_key, sha1)
         augmented_key.metadata['SHA1'] = sha1
-        for tool in TOOL_REG:
-            logging.debug("Checking %s", tool.format_tool.name)
+        for tool in TOOL_REG.values():
+            logging.debug("Checking %s", tool.format_tool_release.format_tool.name)
             if tool.version:
-                logging.debug("Invoking %s", tool.format_tool.name)
+                logging.debug("Invoking %s", tool.format_tool_release.format_tool.name)
                 metadata = tool.identify(full_path)
                 if metadata:
                     augmented_key.metadata.update(metadata)
@@ -360,10 +360,10 @@ class FileSystem(SourceBase):
                                                                    self.TIME_ZONE)
         augmented_key.metadata['LastAccessed'] = datetime.fromtimestamp(result.st_atime,
                                                                         self.TIME_ZONE)
-        for tool in TOOL_REG:
-            logging.debug("Checking %s", tool.format_tool.name)
+        for tool in TOOL_REG.values():
+            logging.debug("Checking %s", tool.format_tool_release.format_tool.name)
             if tool.version:
-                logging.debug("Invoking %s", tool.format_tool.name)
+                logging.debug("Invoking %s", tool.format_tool_release.format_tool.name)
                 metadata = tool.identify(full_path)
                 if metadata:
                     augmented_key.metadata.update(metadata)
