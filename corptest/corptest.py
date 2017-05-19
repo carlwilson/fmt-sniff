@@ -62,14 +62,22 @@ for _folder in FOLDER_LIST:
 
 TOOL_LIST = APP.config.get('TOOLS', {})
 logging.debug("Loading config TOOLS to the format_tools table")
-TOOL_REG = []
+TOOL_REG = {}
 for _tool in TOOL_LIST:
+    logging.debug("Tool from tool list: %s", _tool)
     if not FormatTool.by_name(_tool['name']):
         _tool_item = FormatTool(_tool['name'], _tool['description'], _tool['reference'])
         FormatTool.add(_tool_item)
+        logging.debug("Adding tool %s to DB", _tool_item)
     tool = FormatTool.by_name(_tool['name'])
-    tool_version = get_format_tool_instance(tool)
-    TOOL_REG.append(tool_version)
+    logging.debug("Retrieved tool %s", tool)
+    tool_release = get_format_tool_instance(tool)
+    logging.debug("Creating tool release %s", tool_release)
+    if tool_release:
+        logging.debug("Adding tool release %s to DB", tool_release)
+        tool_release.putdate()
+        logging.debug("Addoing tool release %s to registry", tool_release.format_tool_release)
+        TOOL_REG.update({tool_release.format_tool_release.id : tool_release})
 
 # Import the application routes
 logging.info("Setting up application routes")

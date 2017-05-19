@@ -13,7 +13,7 @@
 from datetime import datetime
 import errno
 import os.path
-from sqlalchemy import Column, DateTime, Integer, String, ForeignKey, UniqueConstraint
+from sqlalchemy import and_, Column, DateTime, Integer, String, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import backref, relationship
 
 from .database import BASE, DB_SESSION, ENGINE
@@ -664,9 +664,14 @@ class FormatTool(BASE):
     def __hash__(self):
         return hash(self.__key())
 
+    def __str__(self):
+        return self.__rep__()
+
     def __rep__(self):
         ret_val = []
-        ret_val.append("FormatTool : [name =")
+        ret_val.append("FormatTool : [id =")
+        ret_val.append(str(self.id))
+        ret_val.append(", name =")
         ret_val.append(self.name)
         ret_val.append(", description =")
         ret_val.append(self.__description)
@@ -723,7 +728,7 @@ class FormatToolRelease(BASE):
     def __init__(self, format_tool, version):
         check_param_not_none(format_tool, "format_tool")
         check_param_not_none(version, "version")
-        self.__format_tool = format_tool
+        self.format_tool = format_tool
         self.__version = version
 
     @property
@@ -749,9 +754,14 @@ class FormatToolRelease(BASE):
     def __hash__(self):
         return hash(self.__key())
 
+    def __str__(self):
+        return self.__rep__()
+
     def __rep__(self):
         ret_val = []
-        ret_val.append("corptest.model.FormatToolRelease : [format_tool = ")
+        ret_val.append("corptest.model.FormatToolRelease : [id = ")
+        ret_val.append(str(self.id))
+        ret_val.append(", format_tool = ")
         ret_val.append(str(self.format_tool))
         ret_val.append(", version = ")
         ret_val.append(self.version)
@@ -775,6 +785,15 @@ class FormatToolRelease(BASE):
         return FormatToolRelease.query.filter(FormatToolRelease.__version == version).first()
 
     @staticmethod
+    def by_tool_and_version(format_tool, version):
+        """Query for FormatToolRelease with matching version."""
+        check_param_not_none(format_tool, "format_tool")
+        check_param_not_none(version, "version")
+        return FormatToolRelease.query.filter(and_(FormatToolRelease.__format_tool_id == \
+                                                   format_tool.id,
+                                                   FormatToolRelease.__version == version)).first()
+
+    @staticmethod
     def by_id(id):# pylint: disable-msg=W0622,C0103
         """Query for FormatToolRelease with matching id."""
         check_param_not_none(id, "id")
@@ -794,4 +813,12 @@ def _add(obj):
     """Add an object instance to the database."""
     check_param_not_none(obj, "obj")
     DB_SESSION.add(obj)
+    DB_SESSION.commit()
+
+def _add_all(objects):
+    """Add all objects form an iterable to the database."""
+    check_param_not_none(objects, "objects")
+    for obj in objects:
+        check_param_not_none(obj, "obj")
+        DB_SESSION.add(obj)
     DB_SESSION.commit()

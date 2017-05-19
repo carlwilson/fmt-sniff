@@ -31,24 +31,24 @@ def home():
     return render_template('home.html', buckets=AS3BucketSource.all(),
                            folders=FileSystemSource.all())
 
-@APP.route("/folder/<folder_id>/", defaults={'encoded_filepath': ''})
-@APP.route('/folder/<folder_id>/<path:encoded_filepath>/')
+@APP.route("/folder/<int:folder_id>/", defaults={'encoded_filepath': ''})
+@APP.route('/folder/<int:folder_id>/<path:encoded_filepath>/')
 def list_folder(folder_id, encoded_filepath):
     """Display the contents of a File System source folder."""
     return _list_source('folder', FileSystemSource.by_id(folder_id), encoded_filepath)
 
-@APP.route("/bucket/<bucket_id>/", defaults={'encoded_filepath': ''})
-@APP.route('/bucket/<bucket_id>/<path:encoded_filepath>/')
+@APP.route("/bucket/<int:bucket_id>/", defaults={'encoded_filepath': ''})
+@APP.route('/bucket/<int:bucket_id>/<path:encoded_filepath>/')
 def list_bucket(bucket_id, encoded_filepath):
     """Display the contents of an AS3 source folder."""
     return _list_source('bucket', AS3BucketSource.by_id(bucket_id), encoded_filepath)
 
-@APP.route("/details/folder/<folder_id>/<path:encoded_filepath>/")
+@APP.route("/details/folder/<int:folder_id>/<path:encoded_filepath>/")
 def details_fs(folder_id, encoded_filepath):
     """Display details of a file from a File System source."""
     return _file_details('folder', FileSystemSource.by_id(folder_id), encoded_filepath)
 
-@APP.route("/details/bucket/<bucket_id>/<path:encoded_filepath>/")
+@APP.route("/details/bucket/<int:bucket_id>/<path:encoded_filepath>/")
 def details_bucket(bucket_id, encoded_filepath):
     """Display details of a file from an AS3 source."""
     return _file_details('bucket', AS3BucketSource.by_id(bucket_id), encoded_filepath)
@@ -63,12 +63,21 @@ def download_bucket(bucket_id, encoded_filepath):
     """Download a file from an AS3 source."""
     return _download_item('bucket', AS3BucketSource.by_id(bucket_id), encoded_filepath)
 
-@APP.route("/tools")
+@APP.route("/tools/")
 def tools():
     """Application tools configuration"""
     return render_template('tool_config.html', tools=TOOL_REG)
 
-@APP.route("/about")
+@APP.route("/tools/<int:tool_id>/")
+def show_tool(tool_id):
+    """Application tools configuration"""
+    for tool_inst in TOOL_REG.values():
+        logging.debug("Tool reg contains %s", tool_inst)
+    tool = TOOL_REG.get(tool_id)
+    logging.debug("Found tool %s", tool)
+    return render_template('tool.html', tool=tool)
+
+@APP.route("/about/")
 def about():
     """Show the application about and config page"""
     return render_template('about.html', config=APP.config, version=__version__)

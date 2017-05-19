@@ -20,6 +20,8 @@ from fido import fido
 
 from .corptest import APP, __opf_fido_version__, __python_magic_version__
 from .formats import MagicType, MimeType, PronomId
+from .model import FormatToolRelease
+from .utilities import check_param_not_none
 
 MIME_IDENT = magic.Magic(mime=True)
 MAGIC_IDENT = magic.Magic()
@@ -34,18 +36,39 @@ class FineFreeFile(object):
     __version = None
 
     def __init__(self, format_tool):
-        self.__version = self.__version if self.__version else self._get_version()
-        self.__format_tool = format_tool
+        check_param_not_none(format_tool, "format_tool")
+        FineFreeFile.__version = FineFreeFile.__version \
+            if FineFreeFile.__version else self._get_version()
+        self.__format_tool_release = FormatToolRelease(format_tool, FineFreeFile.__version)
+        self.__enabled = True
 
     @property
-    def format_tool(self):
+    def format_tool_release(self):
         """Return the associated FormatToolRelease."""
-        return self.__format_tool
+        return self.__format_tool_release
 
     @property
     def version(self):
         """Return the version number of the file utility."""
-        return self.__version
+        return FineFreeFile.__version
+
+    @property
+    def enabled(self):
+        """Return True if the user has enabled the tool."""
+        return self.__enabled
+
+    @enabled.setter
+    def enabled(self, value):
+        self.__enabled = value
+
+    def putdate(self):
+        """Add the contained format tool release to the database if not present."""
+        if not FormatToolRelease.by_tool_and_version(self.__format_tool_release.format_tool,
+                                                     self.__format_tool_release.version):
+            FormatToolRelease.add(self.format_tool_release)
+        self.__format_tool_release = \
+            FormatToolRelease.by_tool_and_version(self.__format_tool_release.format_tool,
+                                                  self.__format_tool_release.version)
 
     def identify(self, path):
         """"Runs the file utility on an individual file and returns the metadata."""
@@ -66,6 +89,12 @@ class FineFreeFile(object):
         metadata['File MIME'] = \
             mime_type.get_short_string()
         return metadata
+
+    def __str__(self):
+        return self.__rep__()
+
+    def __rep__(self):
+        return str(self.__format_tool_release)
 
     @classmethod
     def _get_version(cls):
@@ -91,18 +120,39 @@ class DROID(object):
     __version = None
 
     def __init__(self, format_tool):
-        self.__version = self.__version if self.__version else self._get_version()
-        self.__format_tool = format_tool
+        check_param_not_none(format_tool, "format_tool")
+        DROID.__version = DROID.__version \
+            if DROID.__version else self._get_version()
+        self.__format_tool_release = FormatToolRelease(format_tool, DROID.__version)
+        self.__enabled = True
 
     @property
-    def format_tool(self):
+    def format_tool_release(self):
         """Return the associated FormatToolRelease."""
-        return self.__format_tool
+        return self.__format_tool_release
 
     @property
     def version(self):
         """Return the version number of the DROID tool."""
-        return self.__version
+        return DROID.__version
+
+    @property
+    def enabled(self):
+        """Return True if the user has enabled the tool."""
+        return self.__enabled
+
+    @enabled.setter
+    def enabled(self, value):
+        self.__enabled = value
+
+    def putdate(self):
+        """Add the contained format tool release to the database if not present."""
+        if not FormatToolRelease.by_tool_and_version(self.__format_tool_release.format_tool,
+                                                     self.__format_tool_release.version):
+            FormatToolRelease.add(self.__format_tool_release)
+        self.__format_tool_release = \
+            FormatToolRelease.by_tool_and_version(self.__format_tool_release.format_tool,
+                                                  self.__format_tool_release.version)
 
     def identify(self, path):
         """Perform DROID identification."""
@@ -117,6 +167,12 @@ class DROID(object):
         output = subprocess.check_output(cmd, universal_newlines=True)
         metadata['DROID PUID'] = output[output.rindex(',')+1:]
         return metadata
+
+    def __str__(self):
+        return self.__rep__()
+
+    def __rep__(self):
+        return str(self.__format_tool_release)
 
     @classmethod
     def _get_version(cls):
@@ -136,17 +192,37 @@ class FIDO(object):
     __version = __opf_fido_version__ if APP.config['IS_FIDO'] else None
 
     def __init__(self, format_tool):
-        self.__format_tool = format_tool
+        check_param_not_none(format_tool, "format_tool")
+        self.__format_tool_release = FormatToolRelease(format_tool, FIDO.__version)
+        self.__enabled = True
 
     @property
-    def format_tool(self):
+    def format_tool_release(self):
         """Return the associated FormatToolRelease."""
-        return self.__format_tool
+        return self.__format_tool_release
 
     @property
     def version(self):
-        """Return the tool version string."""
-        return self.__version
+        """Return the version number of the FIDO tool."""
+        return FIDO.__version
+
+    @property
+    def enabled(self):
+        """Return True if the user has enabled the tool."""
+        return self.__enabled
+
+    @enabled.setter
+    def enabled(self, value):
+        self.__enabled = value
+
+    def putdate(self):
+        """Add the contained format tool release to the database if not present."""
+        if not FormatToolRelease.by_tool_and_version(self.__format_tool_release.format_tool,
+                                                     self.__format_tool_release.version):
+            FormatToolRelease.add(self.format_tool_release)
+        self.__format_tool_release = \
+            FormatToolRelease.by_tool_and_version(self.__format_tool_release.format_tool,
+                                                  self.__format_tool_release.version)
 
     def identify(self, path):
         """Perform FIDO identification."""
@@ -162,6 +238,12 @@ class FIDO(object):
             metadata['FIDO SIG'] = pronom_result.sig
             metadata['FIDO MIME'] = pronom_result.mime
         return metadata
+
+    def __str__(self):
+        return self.__rep__()
+
+    def __rep__(self):
+        return str(self.__format_tool_release)
 
     @classmethod
     def _get_fido_types(cls, path):
@@ -187,17 +269,43 @@ class PythonMagic(object):
     __version = __python_magic_version__
 
     def __init__(self, format_tool):
-        self.__format_tool = format_tool
+        check_param_not_none(format_tool, "format_tool")
+        self.__format_tool_release = FormatToolRelease(format_tool, PythonMagic.__version)
+        self.__enabled = True
 
     @property
-    def format_tool(self):
+    def format_tool_release(self):
         """Return the associated FormatToolRelease."""
-        return self.__format_tool
+        return self.__format_tool_release
 
     @property
     def version(self):
-        """Return the tool version string."""
-        return self.__version
+        """Return the version number of the PythonMagic tool."""
+        return PythonMagic.__version
+
+    @property
+    def enabled(self):
+        """Return True if the user has enabled the tool."""
+        return self.__enabled
+
+    @enabled.setter
+    def enabled(self, value):
+        self.__enabled = value
+
+    def putdate(self):
+        """Add the contained format tool release to the database if not present."""
+        if not FormatToolRelease.by_tool_and_version(self.__format_tool_release.format_tool,
+                                                     self.__format_tool_release.version):
+            FormatToolRelease.add(self.format_tool_release)
+        self.__format_tool_release = \
+            FormatToolRelease.by_tool_and_version(self.__format_tool_release.format_tool,
+                                                  self.__format_tool_release.version)
+
+    def __str__(self):
+        return self.__rep__()
+
+    def __rep__(self):
+        return str(self.__format_tool_release)
 
     def identify(self, path):
         """Perform Python Magic identification."""
@@ -222,18 +330,45 @@ class Tika(object):
     __version = None
 
     def __init__(self, format_tool):
-        self.__version = self.__version if self.__version else self._get_version()
-        self.__format_tool = format_tool
+        check_param_not_none(format_tool, "format_tool")
+        Tika.__version = Tika.__version \
+            if Tika.__version else self._get_version()
+        self.__format_tool_release = FormatToolRelease(format_tool, Tika.__version)
+        self.__enabled = True
 
     @property
-    def format_tool(self):
+    def format_tool_release(self):
         """Return the associated FormatToolRelease."""
-        return self.__format_tool
+        return self.__format_tool_release
 
     @property
     def version(self):
-        """Return the version number of the file utility."""
-        return self.__version
+        """Return the version number of the Tika tool."""
+        return Tika.__version
+
+    @property
+    def enabled(self):
+        """Return True if the user has enabled the tool."""
+        return self.__enabled
+
+    @enabled.setter
+    def enabled(self, value):
+        self.__enabled = value
+
+    def putdate(self):
+        """Add the contained format tool release to the database if not present."""
+        if not FormatToolRelease.by_tool_and_version(self.__format_tool_release.format_tool,
+                                                     self.__format_tool_release.version):
+            FormatToolRelease.add(self.format_tool_release)
+        self.__format_tool_release = \
+            FormatToolRelease.by_tool_and_version(self.__format_tool_release.format_tool,
+                                                  self.__format_tool_release.version)
+
+    def __str__(self):
+        return self.__rep__()
+
+    def __rep__(self):
+        return str(self.__format_tool_release)
 
     def identify(self, path):
         """Perform Tika identification."""
@@ -255,17 +390,22 @@ class Tika(object):
 
 def get_format_tool_instance(format_tool):
     """Given an instance from the DB will find the right tool."""
-    if format_tool.name.lower() == 'file':
-        return FineFreeFile(format_tool)
-    elif format_tool.name.lower() == 'droid':
-        return DROID(format_tool)
-    elif format_tool.name.lower() == 'fido':
-        return FIDO(format_tool)
-    elif format_tool.name.lower() == 'python-magic':
-        return PythonMagic(format_tool)
-    elif format_tool.name.lower() == 'apache tika':
-        return Tika(format_tool)
-    return None
+    check_param_not_none(format_tool, "format_tool")
+    format_tool_instance = None
+    try:
+        if format_tool.name.lower() == 'file':
+            format_tool_instance = FineFreeFile(format_tool)
+        elif format_tool.name.lower() == 'droid':
+            format_tool_instance = DROID(format_tool)
+        elif format_tool.name.lower() == 'fido':
+            format_tool_instance = FIDO(format_tool)
+        elif format_tool.name.lower() == 'python-magic':
+            format_tool_instance = PythonMagic(format_tool)
+        elif format_tool.name.lower() == 'apache tika':
+            format_tool_instance = Tika(format_tool)
+    except ValueError:
+        return None
+    return format_tool_instance
 
 
 RDSS_ROOT = APP.config.get('RDSS_ROOT')
