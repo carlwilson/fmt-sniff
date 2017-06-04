@@ -137,6 +137,11 @@ class SourceBase(object):
         return
 
     @abc.abstractmethod
+    def key_exists(self, key): # pragma: no cover
+        """Check to see if a key exists, returns true if it does, false otherwise."""
+        return
+
+    @abc.abstractmethod
     def list_folders(self, filter_key=None, recurse=False): # pragma: no cover
         """Generator that lists the keys for all folders that are children of
         filter_key which is a SourceKey instance and must be a folder. The
@@ -185,6 +190,27 @@ class AS3Bucket(SourceBase):
 
     def metadata_keys(self): # pragma: no cover
         return self.__KEYS
+
+    def key_exists(self, key):
+        if not key:
+            raise ValueError("Argument key can not be null.")
+        s3_client = client('s3')
+        if key.is_folder:
+            prefix = super(AS3Bucket, self)._validate_key_and_return_prefix(key)
+            if prefix and not prefix.endswith('/'):
+                prefix += '/'
+            result = s3_client.list_objects_v2(Bucket=self.bucket.location,
+                                               Prefix=prefix, Delimiter='/')
+            if not result.get('CommonPrefixes'):
+                if not result.get('Contents'):
+                    return False
+        else:
+            try:
+                s3_client.head_object(Bucket=self.bucket.location, Key=key.value)
+            except exceptions.ClientError:
+                return False
+        return True
+
 
     def all_file_keys(self):
         bucket = self.S3_RESOURCE.Bucket(self.bucket.location)
@@ -314,6 +340,12 @@ class FileSystem(SourceBase):
     def file_system(self):
         """Return the file system model entitiy for this corpus."""
         return self.__file_system
+
+    def key_exists(self, key): # pragma: no cover
+        check_val = key.value if key else ''
+        full_path = os.path.join(self.file_system.location, check_val)
+        return os.path.exists(full_path)
+
 
     def metadata_keys(self): # pragma: no cover
         return self.__KEYS

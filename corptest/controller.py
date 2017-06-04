@@ -19,6 +19,8 @@ except ImportError:
     from urllib import unquote as unquote
 
 from flask import render_template, send_file
+from werkzeug.exceptions import BadRequest, NotFound
+
 from .corptest import APP, __version__, TOOL_REG
 from .database import DB_SESSION
 from .model import SCHEMES, Source
@@ -66,6 +68,16 @@ def about():
     """Show the application about and config page"""
     return render_template('about.html', config=APP.config, version=__version__)
 
+@APP.errorhandler(BadRequest)
+def bad_request_handler(bad_request):
+    """Basic bad request handler."""
+    return "bad request %s" % bad_request
+
+@APP.errorhandler(NotFound)
+def not_found_handler(not_found):
+    """Basic not found request handler."""
+    return render_template('404.html', not_found=not_found)
+
 @APP.teardown_appcontext
 def shutdown_session(exception=None):
     """Tear down the database session."""
@@ -75,6 +87,8 @@ def shutdown_session(exception=None):
 
 def _folder_list(source_item, encoded_filepath):
     source, filter_key = _get_source_and_key(source_item, encoded_filepath)
+    if not source.key_exists(filter_key):
+        raise NotFound('Folder %s not found' % encoded_filepath)
     folders = source.list_folders(filter_key=filter_key)
     files = source.list_files(filter_key=filter_key)
     metadata_keys = source.metadata_keys()
@@ -83,6 +97,8 @@ def _folder_list(source_item, encoded_filepath):
 
 def _file_details(source_item, encoded_filepath):
     source, key = _get_source_and_key(source_item, encoded_filepath, is_folder=False)
+    if not source.key_exists(key):
+        raise NotFound('File %s not found' % encoded_filepath)
     enhanced_key = source.get_file_metadata(key)
     return render_template('file_details.html', source_item=source_item,
                            enhanced_key=enhanced_key)
@@ -96,6 +112,8 @@ def _get_source_and_key(source_item, encoded_filepath, is_folder=True):
 
 def _download_item(source_item, encoded_filepath):
     source, key = _get_source_and_key(source_item, encoded_filepath, is_folder=False)
+    if not source.key_exists(key):
+        raise NotFound('File %s not found' % encoded_filepath)
     temp_file, _ = source.get_temp_file(key)
     mime_type = MimeTypes().guess_type(key.value)[0]
     return send_file(temp_file, mimetype=mime_type, as_attachment=True,
