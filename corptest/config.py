@@ -64,9 +64,9 @@ class BaseConfig(object):# pylint: disable-msg=R0903
             'reference' : 'https://github.com/ahupp/python-magic/'
         },
         {
-        'name' : 'Apache Tika',
-        'description' : 'A content analysis toolkit.',
-        'reference' : 'https://tika.apache.org/'
+            'name' : 'Apache Tika',
+            'description' : 'A content analysis toolkit.',
+            'reference' : 'https://tika.apache.org/'
         }
     ]
 

@@ -173,9 +173,9 @@ class AS3Bucket(SourceBase):
     def __init__(self, bucket):
         if not bucket:
             raise ValueError("Argument bucket can not be None.")
-        bucket_exists = self.validate_bucket(bucket.bucket_name)
+        bucket_exists = self.validate_bucket(bucket.location)
         if not bucket_exists:
-            raise ValueError('No AS3 bucket called {} found.'.format(bucket.bucket_name))
+            raise ValueError('No AS3 bucket called {} found.'.format(bucket.location))
         self.__bucket = bucket
 
     @property
@@ -187,7 +187,7 @@ class AS3Bucket(SourceBase):
         return self.__KEYS
 
     def all_file_keys(self):
-        bucket = self.S3_RESOURCE.Bucket(self.bucket.bucket_name)
+        bucket = self.S3_RESOURCE.Bucket(self.bucket.location)
         for obj_summary in bucket.objects.all():
             if self.FOLDER_REGEX.match(obj_summary.key) is None:
                 yield SourceKey(obj_summary.key, False)
@@ -197,7 +197,7 @@ class AS3Bucket(SourceBase):
         if prefix and not prefix.endswith('/'):
             prefix += '/'
         s3_client = client('s3')
-        result = s3_client.list_objects_v2(Bucket=self.bucket.bucket_name,
+        result = s3_client.list_objects_v2(Bucket=self.bucket.location,
                                            Prefix=prefix, Delimiter='/')
         if result.get('CommonPrefixes'):
             for common_prefix in result.get('CommonPrefixes'):
@@ -212,7 +212,7 @@ class AS3Bucket(SourceBase):
         if prefix and not prefix.endswith('/'):
             prefix += '/'
         s3_client = client('s3')
-        result = s3_client.list_objects_v2(Bucket=self.bucket.bucket_name,
+        result = s3_client.list_objects_v2(Bucket=self.bucket.location,
                                            Prefix=prefix, Delimiter='/')
         if result.get('Contents'):
             for obj_summary in result.get('Contents'):
@@ -232,7 +232,7 @@ class AS3Bucket(SourceBase):
             raise ValueError("Argument key must be a file key.")
         logging.info("Obtaining S3 meta for key: %r", key)
         s3_client = client('s3')
-        result = s3_client.get_object(Bucket=self.bucket.bucket_name,
+        result = s3_client.get_object(Bucket=self.bucket.location,
                                       Key=key.value)
         augmented_key = SourceKey(key.value, False, result.get('ContentLength'),
                                   result.get('LastModified'))
@@ -245,10 +245,10 @@ class AS3Bucket(SourceBase):
         sha1 = Sha1Lookup.get_sha1(etag)
         full_path, sha1 = self.get_temp_file(augmented_key, sha1)
         augmented_key.metadata['SHA1'] = sha1
-        for tool in TOOL_REG:
-            logging.debug("Checking %s", tool.format_tool.name)
+        for tool in TOOL_REG.values():
+            logging.debug("Checking %s", tool.format_tool_release.format_tool.name)
             if tool.version:
-                logging.debug("Invoking %s", tool.format_tool.name)
+                logging.debug("Invoking %s", tool.format_tool_release.format_tool.name)
                 metadata = tool.identify(full_path)
                 if metadata:
                     augmented_key.metadata.update(metadata)
@@ -268,7 +268,7 @@ class AS3Bucket(SourceBase):
             logging.info("No locally cached copy so downloading from S3.")
             s3_client = client('s3')
             with tempfile.NamedTemporaryFile(delete=False) as temp:
-                s3_client.download_fileobj(self.bucket.bucket_name, key.value, temp)
+                s3_client.download_fileobj(self.bucket.location, key.value, temp)
                 sha1 = sha1_path(temp.name)
                 BLOBSTORE.add_file(temp.name, sha1)
         return BLOBSTORE.get_blob_path(sha1), sha1
@@ -306,13 +306,13 @@ class FileSystem(SourceBase):
     def __init__(self, file_system):
         if not file_system:
             raise ValueError("Argument file_system can not be None.")
-        if not os.path.isdir(file_system.root) or not access(file_system.root, R_OK):
-            raise ValueError("Argument file_system.root must be an existing dir")
+        if not os.path.isdir(file_system.location) or not access(file_system.location, R_OK):
+            raise ValueError("Argument file_system.location must be an existing dir")
         self.__file_system = file_system
 
     @property
     def file_system(self):
-        """Return the root path to the file system corpus."""
+        """Return the file system model entitiy for this corpus."""
         return self.__file_system
 
     def metadata_keys(self): # pragma: no cover
@@ -332,7 +332,7 @@ class FileSystem(SourceBase):
     def yield_keys(self, prefix='', list_files=True, list_folders=True, recurse=False):
         """Generator that yields a list of file and or folder keys from a root
         directory."""
-        for entry in scandir(os.path.join(self.file_system.root, prefix)):
+        for entry in scandir(os.path.join(self.file_system.location, prefix)):
             if list_files and entry.is_file(follow_symlinks=False):
                 yield SourceKey(os.path.join(prefix, entry.name), False, entry.stat().st_size,
                                 datetime.fromtimestamp(entry.stat().st_mtime, self.TIME_ZONE))
@@ -349,7 +349,7 @@ class FileSystem(SourceBase):
     def get_file_metadata(self, key):
         if not key or key.is_folder:
             raise ValueError("Argument key must be a file key.")
-        full_path = os.path.join(self.file_system.root, key.value)
+        full_path = os.path.join(self.file_system.location, key.value)
         result = stat(full_path)
         augmented_key = SourceKey(key.value, False, result.st_size,
                                   datetime.fromtimestamp(result.st_mtime,
@@ -373,7 +373,7 @@ class FileSystem(SourceBase):
         """Creates a temp file copy of a file from the specified image."""
         if not key or key.is_folder:
             raise ValueError("Argument key must be a file key.")
-        file_path = os.path.join(self.file_system.root, key.value)
+        file_path = os.path.join(self.file_system.location, key.value)
         sha1 = sha1_path(file_path)
         return file_path, sha1
 

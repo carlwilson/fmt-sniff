@@ -2,9 +2,9 @@
 {% block title %}File Details{% endblock %}
 {% block page_content %}
   <h2>{{ source_item.name }}</h2>
-  <p class="lead"><a href="/{{ source_type }}/{{ source_item.id }}/">{{ source_item.name }}/</a>
+  <p class="lead"><a href="/source/{{ source_item.id }}/folder/">{{ source_item.name }}</a>
      {%- for part, part_path in enhanced_key.parts -%}
-     <a href="/{{ source_type }}/{{ source_item.id }}/{{ part_path }}/">{{ part }}/</a>
+     <a href="/source/{{ source_item.id }}/folder/{{ part_path }}/">/{{ part }}</a>
      {%- endfor %}</p>
   <table class="table table-striped">
     <tr>
@@ -22,5 +22,5 @@
       {% endfor -%}
     </tr>
   </table>
-  <p><a class="btn btn-primary btn-lg" href="/download/{{ source_type }}/{{ source_item.id }}/{{ enhanced_key.value }}" >Download</a></p>
+  <p><a class="btn btn-primary btn-lg" href="/download/source/{{ source_item.id }}/{{ enhanced_key.value }}" >Download</a></p>
 {% endblock page_content %}

@@ -18,6 +18,10 @@ from sqlalchemy.orm import backref, relationship
 
 from .database import BASE, DB_SESSION, ENGINE
 from .utilities import check_param_not_none, sha1_path, sha1_string, timestamp_fmt
+SCHEMES = {
+    'AS3': "as3",
+    'FILE': "file"
+}
 class Source(BASE):
     """Simple class to hold details common to all sources, e.g. name, description."""
     __tablename__ = 'source'
@@ -25,15 +29,18 @@ class Source(BASE):
     id = Column(Integer, primary_key=True) # pylint: disable-msg=C0103
     __name = Column("name", String(256), unique=True)
     __description = Column("description", String(512))
-    __discriminator = Column('type', String(64))
-    __mapper_args__ = {'polymorphic_on': __discriminator}
+    __scheme = Column("scheme", String(10))
+    __location = Column("location", String(1024))
 
-    def __init__(self, name, description):
+    def __init__(self, name, description, scheme, location):
         check_param_not_none(name, "name")
-        if description is None:
-            check_param_not_none(description, "description")
+        check_param_not_none(description, "description")
+        check_param_not_none(scheme, "scheme")
+        check_param_not_none(location, "location")
         self.__name = name
         self.__description = description
+        self.__scheme = scheme
+        self.__location = location
 
     @property
     def name(self):
@@ -45,8 +52,18 @@ class Source(BASE):
         """Return a human readable, text description of the source."""
         return self.__description
 
+    @property
+    def scheme(self):
+        """Return the scheme used for resolving the location."""
+        return self.__scheme
+
+    @property
+    def location(self):
+        """Return a resolvable location where the data can be found."""
+        return self.__location
+
     def __key(self):
-        return (self.name, self.description)
+        return (self.name, self.description, self.location)
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -65,8 +82,15 @@ class Source(BASE):
         ret_val.append(self.name)
         ret_val.append(", description=")
         ret_val.append(str(self.description))
+        ret_val.append(", scheme=")
+        ret_val.append(str(self.scheme))
+        ret_val.append(", location=")
+        ret_val.append(str(self.location))
         ret_val.append("]")
         return "".join(ret_val)
+
+    def __str__(self):
+        return self.__rep__()
 
     @staticmethod
     def count():
@@ -79,157 +103,34 @@ class Source(BASE):
         return Source.query.order_by(Source.__name).all()
 
     @staticmethod
-    def by_name(name):
-        """Query for Source with matching name."""
-        check_param_not_none(name, "name")
-        return Source.query.filter(Source.__name == name).first()
-
-    @staticmethod
     def by_id(id):# pylint: disable-msg=W0622,C0103
         """Query for Source with matching id."""
         check_param_not_none(id, "id")
         return Source.query.filter(Source.id == id).first()
 
     @staticmethod
+    def by_name(name):
+        """Query for Source with matching name."""
+        check_param_not_none(name, "name")
+        return Source.query.filter(Source.__name == name).first()
+
+    @staticmethod
+    def by_scheme(scheme):
+        """Query for alls Sources with matching scheme."""
+        check_param_not_none(scheme, "scheme")
+        return Source.query.filter(Source.__scheme == scheme).all()
+
+    @staticmethod
+    def by_location(location):
+        """Query for Source with matching location."""
+        check_param_not_none(location, "location")
+        return Source.query.filter(Source.__location == location).all()
+
+    @staticmethod
     def add(source):
         """Add a Source instance to the table."""
         check_param_not_none(source, "source")
         _add(source)
-
-class AS3BucketSource(Source):
-    """Database table class for an AS3 Bucket Source details."""
-    __mapper_args__ = {'polymorphic_identity': 'as3_bucket_source'}
-    __bucket_name = Column("bucket_name", String(255), unique=True)
-
-    def __init__(self, name, description, bucket_name):
-        super(AS3BucketSource, self).__init__(name, description)
-        check_param_not_none(bucket_name, "bucket_name")
-        self.__bucket_name = bucket_name
-
-    @property
-    def bucket_name(self):
-        """ Return name of the AS3BucketSource. """
-        return self.__bucket_name
-
-    def put(self):
-        """Add this AS3BucketSource instance to the database."""
-        return _add(self)
-
-    def __key(self):
-        return (super(AS3BucketSource, self).__key(), self.bucket_name)
-
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return self.__key() == other.__key()
-        return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __hash__(self):
-        return hash(self.__key())
-
-    def __rep__(self): # pragma: no cover
-        ret_val = []
-        ret_val.append("corptest.model.AS3BucketSource : [name=")
-        ret_val.append(self.name)
-        ret_val.append(", description=")
-        ret_val.append(self.description)
-        ret_val.append(", bucket_name=")
-        ret_val.append(self.bucket_name)
-        ret_val.append("]")
-        return "".join(ret_val)
-
-    @staticmethod
-    def count():
-        """Returns the number of AS3BucketSource instances in the database."""
-        return AS3BucketSource.query.all().count()
-
-    @staticmethod
-    def all():
-        """Convenience method, returns all of the AS3BucketSource instances."""
-        return AS3BucketSource.query.order_by(AS3BucketSource.__bucket_name).all()
-
-    @staticmethod
-    def by_bucket_name(bucket_name):
-        """Query for AS3BucketSource with matching bucket_name."""
-        check_param_not_none(bucket_name, "bucket_name")
-        import logging
-        logging.debug("lookign for bucket %s", bucket_name)
-        return AS3BucketSource.query.filter(AS3BucketSource.__bucket_name == bucket_name).first()
-
-    @staticmethod
-    def by_id(id):# pylint: disable-msg=W0622,C0103
-        """Query for AS3BucketSource with matching id."""
-        check_param_not_none(id, "id")
-        return AS3BucketSource.query.filter(AS3BucketSource.id == id).first()
-
-class FileSystemSource(Source):
-    """Database table class for a File System details."""
-    __mapper_args__ = {'polymorphic_identity': 'file_system_source'}
-
-    __root = Column("root", String(512), unique=True)
-
-    def __init__(self, name, description, root):
-        super(FileSystemSource, self).__init__(name, description)
-        check_param_not_none(root, "root")
-        self.__root = root
-
-    @property
-    def root(self):
-        """Return the root folder location of the FileSystemSource."""
-        return self.__root
-
-    def put(self):
-        """Add this FileSystemSource instance to the database."""
-        return _add(self)
-
-    def __key(self):
-        return (super(FileSystemSource, self).__key(), self.root)
-
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return self.__key() == other.__key()
-        return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __hash__(self):
-        return hash(self.__key())
-
-    def __rep__(self): # pragma: no cover
-        ret_val = []
-        ret_val.append("corptest.model.FileSystemSource : [name=")
-        ret_val.append(str(self.name))
-        ret_val.append(", description=")
-        ret_val.append(self.description)
-        ret_val.append(", root=")
-        ret_val.append(self.root)
-        ret_val.append("]")
-        return "".join(ret_val)
-
-    @staticmethod
-    def count():
-        """Returns the number of FileSystemSource instances in the database."""
-        return FileSystemSource.query.all().count()
-
-    @staticmethod
-    def all():
-        """Convenience method, returns all of the FileSystemSource instances."""
-        return FileSystemSource.query.order_by(FileSystemSource.__root).all()
-
-    @staticmethod
-    def by_root(root):
-        """Query for FileSystemSource with matching root."""
-        check_param_not_none(root, "root")
-        return FileSystemSource.query.filter(FileSystemSource.__root == root).first()
-
-    @staticmethod
-    def by_id(id):# pylint: disable-msg=W0622,C0103
-        """Query for FileSystemSource with matching id."""
-        check_param_not_none(id, "id")
-        return FileSystemSource.query.filter(FileSystemSource.id == id).first()
 
 class SourceIndex(BASE):
     """Association table that holds an indexed snapshot of a source's content."""

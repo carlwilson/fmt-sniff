@@ -13,7 +13,7 @@ import os.path
 import unittest
 
 from corptest.const import JISC_BUCKET
-from corptest.model import ByteSequence, AS3BucketSource
+from corptest.model import SCHEMES, ByteSequence, Source
 from corptest.utilities import ObjectJsonEncoder
 
 from tests.const import THIS_DIR, TEST_DESCRIPTION, TEST_NAME, TEST_BUCKET_NAME
@@ -23,21 +23,21 @@ class AS3BucketSourceTestCase(unittest.TestCase):
     def test_null_name(self):
         """ Test case for None name case. """
         with self.assertRaises(ValueError) as _:
-            AS3BucketSource(None, TEST_DESCRIPTION, TEST_BUCKET_NAME)
+            Source(None, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
 
     def test_empty_name(self):
         """ Test case for empty name case. """
         with self.assertRaises(ValueError) as _:
-            AS3BucketSource('', TEST_DESCRIPTION, TEST_BUCKET_NAME)
+            Source('', TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
 
     def test_null_description(self):
         """ Test case for None description case. """
         with self.assertRaises(ValueError) as _:
-            AS3BucketSource(TEST_NAME, None, TEST_BUCKET_NAME)
+            Source(TEST_NAME, None, SCHEMES['AS3'], TEST_BUCKET_NAME)
 
     def test_get_details(self):
         """ Test case for ensuring details threadthrough works. """
-        bucket_source = AS3BucketSource(TEST_NAME, TEST_DESCRIPTION, TEST_BUCKET_NAME)
+        bucket_source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
         self.assertEqual(bucket_source.name, TEST_NAME, \
         'bucket_source.name should equal test instance TEST_NAME')
         self.assertEqual(bucket_source.description, TEST_DESCRIPTION, \
@@ -46,20 +46,20 @@ class AS3BucketSourceTestCase(unittest.TestCase):
     def test_empty_bucket_name(self):
         """ Test case for empty name. """
         with self.assertRaises(ValueError) as _:
-            AS3BucketSource(TEST_NAME, TEST_DESCRIPTION, '')
+            Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], '')
 
     def test_null_bucket_name(self):
         """ Test case for None name cases. """
         with self.assertRaises(ValueError) as _:
-            AS3BucketSource(TEST_NAME, TEST_DESCRIPTION, None)
+            Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], None)
 
     def test_bucket_name(self):
         """ Test case for bucket name. """
-        bucket_source = AS3BucketSource(TEST_NAME, TEST_DESCRIPTION, TEST_BUCKET_NAME)
-        self.assertEqual(bucket_source.bucket_name, TEST_BUCKET_NAME, \
+        bucket_source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
+        self.assertEqual(bucket_source.location, TEST_BUCKET_NAME, \
         'bucket_source.bucket_name should equal test instance TEST_BUCKET_NAME')
-        bucket_source = AS3BucketSource(TEST_NAME, TEST_DESCRIPTION, JISC_BUCKET)
-        self.assertEqual(bucket_source.bucket_name, JISC_BUCKET, \
+        bucket_source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], JISC_BUCKET)
+        self.assertEqual(bucket_source.location, JISC_BUCKET, \
         'bucket_source.bucket_name should equal test instance JISC_BUCKET')
 
 class ByteSequenceTestCase(unittest.TestCase):
