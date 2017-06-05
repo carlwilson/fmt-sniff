@@ -18,12 +18,12 @@ try:
 except ImportError:
     from urllib import unquote as unquote
 
-from flask import render_template, send_file
+from flask import render_template, send_file, jsonify
 from werkzeug.exceptions import BadRequest, NotFound
 
-from .corptest import APP, __version__, TOOL_REG
+from .corptest import APP, __version__
 from .database import DB_SESSION
-from .model import SCHEMES, Source
+from .model import SCHEMES, Source, FormatToolRelease
 from .sources import SourceKey, FileSystem, AS3Bucket
 ROUTES = True
 
@@ -52,16 +52,27 @@ def download_fs(source_id, encoded_filepath):
 @APP.route("/tools/")
 def tools():
     """Application tools configuration"""
-    return render_template('tool_config.html', tools=TOOL_REG)
+    return render_template('tool_config.html', tools=FormatToolRelease.all())
 
-@APP.route("/tools/<int:tool_id>/")
+@APP.route("/tools/<int:tool_id>/", methods=['GET'])
 def show_tool(tool_id):
     """Application tools configuration"""
-    for tool_inst in TOOL_REG.values():
-        logging.debug("Tool reg contains %s", tool_inst)
-    tool = TOOL_REG.get(tool_id)
+    tool = FormatToolRelease.by_id(tool_id)
     logging.debug("Found tool %s", tool)
     return render_template('tool.html', tool=tool)
+
+@APP.route("/tools/<int:tool_id>/", methods=['POST'])
+def toggle_tool_enabed(tool_id):
+    tool = FormatToolRelease.by_id(tool_id)
+    enabled = tool.enabled
+    logging.debug("Tool %s is %s", tool, enabled)
+    if enabled:
+        tool.disable()
+    else:
+        tool.enable()
+    enabled = not tool.enabled
+    logging.debug("Tool %s is %s", tool, enabled)
+    return jsonify(enabled)
 
 @APP.route("/about/")
 def about():

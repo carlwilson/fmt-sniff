@@ -13,7 +13,7 @@
 from datetime import datetime
 import errno
 import os.path
-from sqlalchemy import and_, Column, DateTime, Integer, String, ForeignKey, UniqueConstraint
+from sqlalchemy import and_, Column, DateTime, Integer, String, ForeignKey, UniqueConstraint, Boolean
 from sqlalchemy.orm import backref, relationship
 
 from .database import BASE, DB_SESSION, ENGINE
@@ -624,18 +624,40 @@ class FormatToolRelease(BASE):
                               ForeignKey('format_tool.id'))
     format_tool = relationship("FormatTool", back_populates='versions')
     __version = Column("version", String(50))
+    __available = Column("available", Boolean)
+    __enabled = Column("enabled", Boolean)
     UniqueConstraint('format_tool_id', 'version', name='uix__tool_version')
 
-    def __init__(self, format_tool, version):
+    def __init__(self, format_tool, version, available=True, enabled=True):
         check_param_not_none(format_tool, "format_tool")
         check_param_not_none(version, "version")
         self.format_tool = format_tool
         self.__version = version
+        self.__available = available
+        self.__enabled = enabled
 
     @property
     def version(self):
         """Returns the unique version number of the format tool"""
         return self.__version
+
+    @property
+    def available(self):
+        """Returns true if the format tool is currently available"""
+        return self.__available
+
+    @property
+    def enabled(self):
+        """Returns true if the format tool is currently enabled"""
+        return self.__enabled
+
+    def disable(self):
+        self.__enabled = False;
+        DB_SESSION.commit();
+
+    def enable(self):
+        self.__enabled = True;
+        DB_SESSION.commit();
 
     def put(self):
         """Add this FormatToolRelease instance to the database."""
@@ -705,6 +727,25 @@ class FormatToolRelease(BASE):
         """Add a FormatToolRelease instance to the table."""
         check_param_not_none(format_tool_release, "format_tool_release")
         _add(format_tool_release)
+
+    @staticmethod
+    def get_available():
+        """Retrieve all available format tools."""
+        return FormatToolRelease.query.filter(FormatToolRelease.__available == True).all()
+
+    @staticmethod
+    def all_unavailable():
+        stmt = FormatToolRelease.__table__.update().\
+            values({
+                'available': False,
+                })
+        DB_SESSION.execute(stmt, [])
+        DB_SESSION.commit()
+
+    @staticmethod
+    def get_enabled():
+        """Retrieve all enabled format tools."""
+        return FormatToolRelease.query.filter(FormatToolRelease.__enabled == True).all()
 
 def init_db():
     """Initialise the database."""

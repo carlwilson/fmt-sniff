@@ -1,20 +1,29 @@
 {% extends "page.html" %}
 {% block title %}Configure tool{% endblock %}
 {% block page_content %}
-  <h2>Configure {{ tool.format_tool_release.format_tool.name }}</h2>
+  <h2>Configure {{ tool.format_tool.name }}</h2>
   <div class="panel panel-default">
     <div class="panel-heading">
-      <h3 class="panel-title">{{ tool.format_tool_release.format_tool.name }} v{{ tool.format_tool_release.version }}</h3>
+      <h3 class="panel-title">{{ tool.format_tool.name }} v{{ tool.version }}</h3>
     </div>
     <div class="panel-body">
-      <p>{{ tool.format_tool_release.format_tool.description }}</p>
+      <p>{{ tool.format_tool.description }}</p>
       <div class="checkbox">
         <label>
-          <input type="checkbox" {{ 'checked ' if tool.enabled else '' }}data-toggle="toggle">
+          <input id="toggle-enabled" type="checkbox" {{ 'checked ' if tool.enabled else '' }}data-toggle="toggle"  data-size="small">
           Turn tool on or off
         </label>
       </div>
     </div>
-    <div class="panel-footer">For more information see <a href="{{ tool.format_tool_release.format_tool.reference }}">{{ tool.format_tool_release.format_tool.reference }}</a></div>
+    <div class="panel-footer">For more information see <a href="{{ tool.format_tool.reference }}">{{ tool.format_tool.reference }}</a></div>
   </div>
 {% endblock page_content %}
+{% block page_javascript %}
+  <script>
+    $(function() {
+      $('#toggle-enabled').change(function() {
+        $.post( window.location.href);
+      })
+    })
+  </script>
+{% endblock page_javascript %}

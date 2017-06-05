@@ -32,9 +32,11 @@ from boto3 import client, resource
 
 from tzlocal import get_localzone
 
-from .corptest import APP, TOOL_REG
+from .corptest import APP
 from .blobstore import Sha1Lookup, BlobStore
+from .model import FormatToolRelease
 from .utilities import sha1_path, timestamp_fmt
+from .format_tools import get_format_tool_instance
 
 RDSS_ROOT = APP.config.get('RDSS_ROOT')
 BLOB_STORE_ROOT = os.path.join(RDSS_ROOT, 'blobstore')
@@ -81,7 +83,7 @@ class SourceKey(object):
     def name(self):
         """Return the name of the item without the path."""
         parts = self.value.split('/')
-        return parts[-2 if self.is_folder and len(parts) > 1 else -1]
+        return parts[-2] if self.value.endswith('/') else parts[-1]
 
     @property
     def last_modified(self):
@@ -192,8 +194,7 @@ class AS3Bucket(SourceBase):
         return self.__KEYS
 
     def key_exists(self, key):
-        if not key:
-            raise ValueError("Argument key can not be null.")
+        key = key if key else SourceKey('/')
         s3_client = client('s3')
         if key.is_folder:
             prefix = super(AS3Bucket, self)._validate_key_and_return_prefix(key)
@@ -271,8 +272,9 @@ class AS3Bucket(SourceBase):
         sha1 = Sha1Lookup.get_sha1(etag)
         full_path, sha1 = self.get_temp_file(augmented_key, sha1)
         augmented_key.metadata['SHA1'] = sha1
-        for tool in TOOL_REG.values():
-            logging.debug("Checking %s", tool.format_tool_release.format_tool.name)
+        for tool_release in FormatToolRelease.get_enabled():
+            logging.debug("Checking %s", tool_release.format_tool.name)
+            tool = get_format_tool_instance(tool_release.format_tool)
             if tool.version:
                 logging.debug("Invoking %s", tool.format_tool_release.format_tool.name)
                 metadata = tool.identify(full_path)
@@ -392,7 +394,8 @@ class FileSystem(SourceBase):
                                                                    self.TIME_ZONE)
         augmented_key.metadata['LastAccessed'] = datetime.fromtimestamp(result.st_atime,
                                                                         self.TIME_ZONE)
-        for tool in TOOL_REG.values():
+        for tool_release in FormatToolRelease.get_enabled():
+            tool = get_format_tool_instance(tool_release.format_tool)
             logging.debug("Checking %s", tool.format_tool_release.format_tool.name)
             if tool.version:
                 logging.debug("Invoking %s", tool.format_tool_release.format_tool.name)

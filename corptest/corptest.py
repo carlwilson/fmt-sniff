@@ -42,7 +42,7 @@ if not APP.config['IS_FIDO']:
 else:
     logging.info("Python %r enables inline FIDO support.", sys.version_info)
 
-from .model import Source, FormatTool # pylint: disable-msg=C0413
+from .model import Source, FormatTool, FormatToolRelease # pylint: disable-msg=C0413
 from .format_tools import get_format_tool_instance # pylint: disable-msg=C0413
 
 BUCKET_LIST = APP.config.get('BUCKETS', {})
@@ -73,21 +73,20 @@ for _folder in FOLDER_LIST:
 
 TOOL_LIST = APP.config.get('TOOLS', {})
 logging.debug("Loading config TOOLS to the format_tools table")
-TOOL_REG = {}
 for _tool in TOOL_LIST:
     logging.debug("Tool from tool list: %s", _tool)
     if not FormatTool.by_name(_tool['name']):
         _tool_item = FormatTool(_tool['name'], _tool['description'], _tool['reference'])
         logging.debug("Adding tool %s to DB", _tool_item)
         FormatTool.add(_tool_item)
-    tool = FormatTool.by_name(_tool['name'])
-    logging.debug("Retrieved tool %s", tool)
-    tool_release = get_format_tool_instance(tool)
+
+FormatToolRelease.all_unavailable()
+for _tool in FormatTool.all():
+    logging.debug("Retrieved tool %s", _tool)
+    tool_release = get_format_tool_instance(_tool)
     if tool_release:
         logging.debug("Adding tool release %s to DB", tool_release)
         tool_release.putdate()
-        logging.debug("Adding tool release %s to registry", tool_release.format_tool_release)
-        TOOL_REG.update({tool_release.format_tool_release.id : tool_release})
 
 # Import the application routes
 logging.info("Setting up application routes")
