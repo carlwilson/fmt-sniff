@@ -80,6 +80,7 @@ for _tool in TOOL_LIST:
         logging.debug("Adding tool %s to DB", _tool_item)
         FormatTool.add(_tool_item)
 
+logging.debug("Setting all tools unavailable")
 FormatToolRelease.all_unavailable()
 for _tool in FormatTool.all():
     logging.debug("Retrieved tool %s", _tool)

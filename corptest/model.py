@@ -13,8 +13,9 @@
 from datetime import datetime
 import errno
 import os.path
-from sqlalchemy import and_, Column, DateTime, Integer, String, ForeignKey, UniqueConstraint, Boolean
-from sqlalchemy.orm import backref, relationship
+from sqlalchemy import and_, Column, DateTime, Integer, String, ForeignKey
+from sqlalchemy import UniqueConstraint, Boolean
+from sqlalchemy.orm import relationship
 
 from .database import BASE, DB_SESSION, ENGINE
 from .utilities import check_param_not_none, sha1_path, sha1_string, timestamp_fmt
@@ -139,8 +140,9 @@ class SourceIndex(BASE):
     id = Column(Integer, primary_key=True)# pylint: disable-msg=C0103
     source_id = Column(Integer, ForeignKey('source.id'))# pylint: disable-msg=C0103
     __timestamp = Column("timestamp", DateTime)
+    __root_key = Column("root_path", String(2048))
     __source = relationship("Source")
-    __nodes = relationship("Node")
+    __keys = relationship("Key")
     UniqueConstraint('source_id', 'timestamp', name='uix_source_date')
 
     def __init__(self, source, timestamp):
@@ -165,9 +167,9 @@ class SourceIndex(BASE):
         return timestamp_fmt(self.__timestamp)
 
     @property
-    def nodes(self):
-        """Return all the nodes in the index."""
-        return self.__nodes
+    def keys(self):
+        """Return all the keys in the index."""
+        return self.__keys
 
     def put(self):
         """ Add the SourceIndex to the database."""
@@ -219,23 +221,30 @@ class SourceIndex(BASE):
         """Add a SourceIndex instance to the table."""
         _add(source_index)
 
-class Node(BASE):
-    """Encapsulates a node on a file system, base class for folder and data nodes."""
-    __tablename__ = 'node'
+class Key(BASE):
+    """Encapsulates a key on a file system for storing data."""
+    __tablename__ = 'key'
 
     id = Column(Integer, primary_key=True)# pylint: disable-msg=C0103
     source_index_id = Column(Integer, ForeignKey('source_index.id'))# pylint: disable-msg=C0103
     __path = Column("path", String(2048))
-    parent_id = Column(Integer, ForeignKey('node.id'))
+    __size = Column("size", Integer)
+    __last_modified = Column("last_modified", DateTime)
+
     __source_index = relationship("SourceIndex")
-    __parent = relationship("Folder")
     UniqueConstraint('source_id', 'path', name='uix_source_path')
 
-    def __init__(self, source_index, path):
+    def __init__(self, source_index, path, size, last_modified=datetime.now()):
         check_param_not_none(source_index, "source_index")
         check_param_not_none(path, "path")
+        check_param_not_none(size, "size")
+        if size < 0:
+            raise ValueError("Argument size can not be less than zero.")
+        check_param_not_none(last_modified, "last_modified")
         self.__source_index = source_index
         self.__path = path
+        self.__size = size
+        self.__last_modified = last_modified
 
     @property
     def source(self):
@@ -243,14 +252,19 @@ class Node(BASE):
         return self.__source
 
     @property
-    def parent(self):
-        """ Return the Node's parent. """
-        return self.__parent
-
-    @property
     def path(self):
         """ Return the Node's unique path. """
         return self.__path
+
+    @property
+    def size(self):
+        """Returns the size of the file in bytes."""
+        return self.__size
+
+    @property
+    def last_modified(self):
+        """Returns the datetime that the file was last modified."""
+        return self.__last_modified
 
     def __key(self):
         return (self.source_id, self.path)
@@ -268,96 +282,8 @@ class Node(BASE):
 
     def __rep__(self): # pragma: no cover
         ret_val = []
-        ret_val.append("corptest.model.Node : path=")
+        ret_val.append("corptest.model.Key : path=")
         ret_val.append(self.path)
-        ret_val.append("]")
-        return "".join(ret_val)
-
-class Folder(Node):
-    """Class for folder nodes."""
-    __children = relationship("Folder", backref=backref('parent', remote_side=[Node.id]))
-    def __init__(self, source, path):# pylint: disable-msg=W0235
-        super(Folder, self).__init__(source, path)
-
-    @property
-    def children(self):
-        """Return the child nodes of the folder."""
-        return self.__children
-
-    def put(self):
-        """ Add the Folder to the database."""
-        _add(self)
-
-    @staticmethod
-    def count():
-        """Returns the number of Node instances in the database."""
-        return Folder.query.all().count()
-
-    @staticmethod
-    def all():
-        """Convenience method, returns all of the Folder instances."""
-        return Folder.query.order_by(Folder.__path).all()
-
-    @staticmethod
-    def by_id(id):# pylint: disable-msg=W0622,C0103
-        """Query for Folder with matching id."""
-        check_param_not_none(id, "id")
-        return Folder.query.filter(Folder.id == id).first()
-
-    @staticmethod
-    def add(folder):
-        """Add a Folder instance to the table."""
-        check_param_not_none(folder, "folder")
-        _add(folder)
-
-class DataNode(Node):
-    """Class that encapsulates a data node."""
-    __size = Column("size", Integer)
-    __last_modified = Column("last_modified", DateTime)
-
-    def __init__(self, source, path, size, last_modified=datetime.now()):
-        super(DataNode, self).__init__(source, path)
-        check_param_not_none(size, "size")
-        if size < 0:
-            raise ValueError("Argument size can not be less than zero.")
-        check_param_not_none(last_modified, "last_modified")
-        self.__size = size
-        self.__last_modified = last_modified
-
-    @property
-    def size(self):
-        """Returns the size of the file in bytes."""
-        return self.__size
-
-    @property
-    def last_modified(self):
-        """Returns the datetime that the file was last modified."""
-        return self.__last_modified
-
-    def put(self):
-        """Add this DataNode instance to the database."""
-        return _add(self)
-
-    def __key(self):
-        return (super.key(), self.self.size, self.last_modified)
-
-    def __eq__(self, other):
-        """ Define an equality test for FileItem """
-        if isinstance(other, self.__class__):
-            return self.__key() == other.__key()
-        return False
-
-    def __ne__(self, other):
-        """ Define an inequality test for FileItem """
-        return not self.__eq__(other)
-
-    def __hash__(self):
-        return hash(self.__key())
-
-    def __rep__(self):
-        ret_val = []
-        ret_val.append("FileItem : [node=")
-        ret_val.append(str(super()))
         ret_val.append(", size=")
         ret_val.append(str(self.size))
         ret_val.append(", last_modified=")
@@ -365,21 +291,25 @@ class DataNode(Node):
         ret_val.append("]")
         return "".join(ret_val)
 
+    def put(self):
+        """Add this DataNode instance to the database."""
+        return _add(self)
+
     @staticmethod
     def count():
         """Returns the number of DataNode instances in the database."""
-        return DataNode.query.all().count()
+        return Key.query.all().count()
 
     @staticmethod
     def all():
         """Convenience method, returns all of the DataNode instances."""
-        return DataNode.query.all()
+        return Key.query.all()
 
     @staticmethod
     def by_id(id):# pylint: disable-msg=W0622,C0103
         """Query for DataNode with matching id."""
         check_param_not_none(id, "id")
-        return DataNode.query.filter(DataNode.id == id).first()
+        return Key.query.filter(Key.id == id).first()
 
     @staticmethod
     def add(data_node):
@@ -652,12 +582,12 @@ class FormatToolRelease(BASE):
         return self.__enabled
 
     def disable(self):
-        self.__enabled = False;
-        DB_SESSION.commit();
+        self.__enabled = False
+        DB_SESSION.commit()
 
     def enable(self):
-        self.__enabled = True;
-        DB_SESSION.commit();
+        self.__enabled = True
+        DB_SESSION.commit()
 
     def put(self):
         """Add this FormatToolRelease instance to the database."""

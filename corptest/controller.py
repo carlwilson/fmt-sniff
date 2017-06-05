@@ -24,7 +24,7 @@ from werkzeug.exceptions import BadRequest, NotFound
 from .corptest import APP, __version__
 from .database import DB_SESSION
 from .model import SCHEMES, Source, FormatToolRelease
-from .sources import SourceKey, FileSystem, AS3Bucket
+from .sources import SourceKey, FileSystem, AS3Bucket, BLOBSTORE
 ROUTES = True
 
 @APP.route("/")
@@ -53,6 +53,11 @@ def download_fs(source_id, encoded_filepath):
 def tools():
     """Application tools configuration"""
     return render_template('tool_config.html', tools=FormatToolRelease.all())
+
+@APP.route("/blobstore/")
+def blobstore():
+    """Application tools configuration"""
+    return render_template('blobstore.html', blobstore=BLOBSTORE)
 
 @APP.route("/tools/<int:tool_id>/", methods=['GET'])
 def show_tool(tool_id):
