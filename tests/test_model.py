@@ -16,12 +16,17 @@ import unittest
 import dateutil.parser
 
 from corptest.const import JISC_BUCKET
-from corptest.model import SCHEMES, ByteSequence, Source, FormatTool, SourceIndex
+from corptest.model import SCHEMES, ByteSequence, Source, FormatTool, SourceIndex, Key
 from corptest.utilities import ObjectJsonEncoder
 from corptest.format_tools import FormatToolRelease, get_format_tool_instance
+from corptest.sources import FileSystem, SourceKey
 
 from tests.const import THIS_DIR, TEST_DESCRIPTION, TEST_NAME, TEST_BUCKET_NAME
 from tests.conf_test import db, session, app
+
+TEST_ROOT = "__root__"
+TEST_READABLE_ROOT = os.path.join(THIS_DIR, "disk-corpus")
+TEST_BYTES_ROOT = os.path.join(THIS_DIR, "content-corpus")
 
 class AS3BucketSourceTestCase(unittest.TestCase):
     """ Test cases for the AS3BucketSource class and methods. """
@@ -135,6 +140,63 @@ def test_source_index_add(session):
     _index_count = len(SourceIndex.all())
     assert _index_count > 0
 
+class KeyTestCase(unittest.TestCase):
+    """ Test cases for the Key class and methods. """
+    def setUp(self):
+        """ Set up default instance """
+        self.default_source = Source(TEST_NAME + " test",
+                                     TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
+        self.def_index = SourceIndex(self.default_source)
+
+    def test_null_source_index(self):
+        """ Test case for None SourceIndex case. """
+        with self.assertRaises(ValueError) as _:
+            Key(None, 'test.dat', 1)
+
+    def test_null_path(self):
+        """ Test case for null path case. """
+        with self.assertRaises(ValueError) as _:
+            Key(self.def_index, None, 1)
+
+    def test_empty_path(self):
+        """ Test case for null path case. """
+        with self.assertRaises(ValueError) as _:
+            Key(self.def_index, '', 1)
+
+    def test_null_size(self):
+        """ Test case for null Size case. """
+        with self.assertRaises(ValueError) as _:
+            Key(self.def_index, 'test.dat', None)
+
+    def test_less_than_zero(self):
+        """ Test case for null Size case. """
+        Key(self.def_index, 'test.dat', 0)
+        with self.assertRaises(ValueError) as _:
+            Key(self.def_index, 'test.dat', -1)
+
+    def test_get_source_index(self):
+        """ Test case for retrieving source index. """
+        _key = Key(self.def_index, 'test.dat', 0)
+        assert _key.source_index == self.def_index
+
+def test_add_files(session):
+    """ Set up default instance """
+    file_system_source = Source("Readable Test", TEST_DESCRIPTION, SCHEMES['FILE'],
+                                TEST_READABLE_ROOT)
+    file_system_index = SourceIndex(file_system_source)
+    file_system_index.put()
+    file_system = FileSystem(file_system_source)
+    for key in file_system.all_file_keys():
+        _source_key = Key(file_system_index, key.value, key.size,
+                          dateutil.parser.parse(key.last_modified))
+        _source_key.put()
+    assert Key.count() == 8
+    for key in Key.all():
+        file_key = SourceKey(key.path, False, key.size, key.last_modified)
+        assert key.last_modified == dateutil.parser.parse(file_key.last_modified)
+        retrieved_key = Key.by_id(key.id)
+        assert retrieved_key == key
+
 class ByteSequenceTestCase(unittest.TestCase):
     """ Test cases for the ByteSequence class and methods. """
     def setUp(self):
@@ -201,6 +263,26 @@ class ByteSequenceTestCase(unittest.TestCase):
         test_byte_seq = ByteSequence.json_decode(json_string)
         self.assertNotEqual(test_byte_seq, self.def_inst,
                             'Test from JSON should be equal to default instance')
+
+def test_add_bytesequence(session):
+    """ Set up default instance """
+    file_system_source = Source("BS Test", TEST_DESCRIPTION, SCHEMES['FILE'],
+                                TEST_BYTES_ROOT)
+    file_system_index = SourceIndex(file_system_source)
+    file_system_index.put()
+    file_system = FileSystem(file_system_source)
+    for key in file_system.all_file_keys():
+        assert key.size != 0
+        _aug_key = file_system.get_file_metadata(key)
+        assert _aug_key.metadata['SHA1'] != ByteSequence.EMPTY_SHA1
+        _bytes = ByteSequence(_aug_key.metadata['SHA1'], key.size)
+        _retrieved_bytes = ByteSequence.by_sha1(_aug_key.metadata['SHA1'])
+        if _retrieved_bytes is None:
+            _bytes.put()
+        else:
+            assert _bytes == _retrieved_bytes
+    _byte_count = len( ByteSequence.all())
+    assert _byte_count == 2
 
 def test_format_tool_release(session):
     tool_count = FormatToolRelease.count()

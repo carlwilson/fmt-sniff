@@ -237,7 +237,8 @@ class Key(BASE):
     def __init__(self, source_index, path, size, last_modified=datetime.now()):
         check_param_not_none(source_index, "source_index")
         check_param_not_none(path, "path")
-        check_param_not_none(size, "size")
+        if size is None:
+            raise ValueError("Argument size can not be None.")
         if size < 0:
             raise ValueError("Argument size can not be less than zero.")
         check_param_not_none(last_modified, "last_modified")
@@ -247,9 +248,9 @@ class Key(BASE):
         self.__last_modified = last_modified
 
     @property
-    def source(self):
+    def source_index(self):
         """ Return the Node's unique path. """
-        return self.__source
+        return self.__source_index
 
     @property
     def path(self):
@@ -267,7 +268,7 @@ class Key(BASE):
         return self.__last_modified
 
     def __key(self):
-        return (self.source_id, self.path)
+        return (self.source_index, self.path, self.size, self.last_modified)
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
