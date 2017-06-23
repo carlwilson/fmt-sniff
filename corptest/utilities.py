@@ -147,7 +147,7 @@ def sizeof_fmt(num, suffix='B'):
 
 def timestamp_fmt(timestamp):
     """ISO format for timestamps."""
-    return timestamp.strftime("%Y-%m-%d %H:%M:%S")
+    return timestamp.strftime("%Y-%m-%d %H:%M:%S.%f")
 
 def fill_file_from_response(source_url, temp_file):
     """HTTP get from source_url and writes the resoponse to temp_file"""

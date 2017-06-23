@@ -10,10 +10,13 @@
 # about the terms of this license.
 """ Tests for the classes in model.py. """
 import os.path
+from datetime import datetime
 import unittest
 
+import dateutil.parser
+
 from corptest.const import JISC_BUCKET
-from corptest.model import SCHEMES, ByteSequence, Source, FormatTool
+from corptest.model import SCHEMES, ByteSequence, Source, FormatTool, SourceIndex
 from corptest.utilities import ObjectJsonEncoder
 from corptest.format_tools import FormatToolRelease, get_format_tool_instance
 
@@ -68,14 +71,11 @@ def test_add_source(session):
     base_count = Source.count()
     bucket_source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
     Source.add(bucket_source)
-    id_value = bucket_source.id
     assert bucket_source.id > 0
     assert Source.count() == base_count + 1
     Source.add(bucket_source)
     assert Source.count() == base_count + 1
     retrieved_source = Source.by_name(TEST_NAME)
-    assert bucket_source == retrieved_source
-    retrieved_source = Source.by_id(id_value)
     assert bucket_source == retrieved_source
     for _source in Source.all():
         if _source.id == bucket_source.id:
@@ -83,13 +83,57 @@ def test_add_source(session):
         else:
             assert _source != bucket_source
 
-def test_format_tool_release(session):
-    tool_count = FormatToolRelease.count();
-    for _tool in FormatTool.all():
-        tool_release = get_format_tool_instance(_tool)
-        if tool_release:
-            tool_release.putdate()
-    assert tool_count == FormatToolRelease.count()
+class SourceIndexTestCase(unittest.TestCase):
+    """ Test cases for the SourceIndex class and methods. """
+    def test_null_source(self):
+        """ Test case for None source case. """
+        with self.assertRaises(ValueError) as _:
+            SourceIndex(None)
+
+    def test_null_timestamp(self):
+        """ Test case for empty timestamp case. """
+        _source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
+        with self.assertRaises(ValueError) as _:
+            SourceIndex(_source, None)
+
+    def test_get_timestamp(self):
+        """ Test case for retrieveing timestamp. """
+        _source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
+        _source_index = SourceIndex(_source)
+        self.assertTrue(_source_index.timestamp < datetime.now())
+
+    def test_get_iso_timestamp(self):
+        """ Test case for retrieveing timestamp. """
+        _source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
+        _timestamp = datetime.now()
+        _source_index = SourceIndex(_source, _timestamp)
+        self.assertEqual(_source_index.timestamp, _timestamp)
+        _timestamp = dateutil.parser.parse(_source_index.iso_timestamp)
+        self.assertEqual(_source_index.timestamp, _timestamp)
+
+    def test_get_source(self):
+        """ Test case for getting index sourdce. """
+        _source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
+        _source_index = SourceIndex(_source)
+        self.assertEqual(_source_index.source, _source)
+
+def test_source_index_add(session):
+    index_count = SourceIndex.count()
+    _source = Source.by_name(TEST_NAME)
+    if not _source:
+        _source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
+    _source_index = SourceIndex(_source)
+    _source_index.put()
+    assert _source_index.id > 0
+    assert SourceIndex.count() > index_count
+    _retrieved_index = SourceIndex.by_id(_source_index.id)
+    assert _source_index == _retrieved_index
+    _source = Source(TEST_NAME + " test", TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
+    _source_index = SourceIndex(_source)
+    _source_index.put()
+    assert _source_index != _retrieved_index
+    _index_count = len(SourceIndex.all())
+    assert _index_count > 0
 
 class ByteSequenceTestCase(unittest.TestCase):
     """ Test cases for the ByteSequence class and methods. """
@@ -157,3 +201,11 @@ class ByteSequenceTestCase(unittest.TestCase):
         test_byte_seq = ByteSequence.json_decode(json_string)
         self.assertNotEqual(test_byte_seq, self.def_inst,
                             'Test from JSON should be equal to default instance')
+
+def test_format_tool_release(session):
+    tool_count = FormatToolRelease.count()
+    for _tool in FormatTool.all():
+        tool_release = get_format_tool_instance(_tool)
+        if tool_release:
+            tool_release.putdate()
+            assert tool_count == FormatToolRelease.count()

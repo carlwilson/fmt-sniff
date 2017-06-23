@@ -309,6 +309,7 @@ class AS3Bucket(SourceBase):
         if not cls.S3_RESOURCE:
             cls.S3_RESOURCE = resource('s3')
         exists = True
+
         try:
             cls.S3_RESOURCE.meta.client.head_bucket(Bucket=bucket_name)
         except exceptions.ClientError as boto_excep:

@@ -145,7 +145,7 @@ class SourceIndex(BASE):
     __keys = relationship("Key")
     UniqueConstraint('source_id', 'timestamp', name='uix_source_date')
 
-    def __init__(self, source, timestamp):
+    def __init__(self, source, timestamp=datetime.now()):
         check_param_not_none(source, "source")
         check_param_not_none(timestamp, "timestamp")
         self.__source = source
