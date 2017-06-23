@@ -68,6 +68,7 @@ def show_tool(tool_id):
 
 @APP.route("/tools/<int:tool_id>/", methods=['POST'])
 def toggle_tool_enabed(tool_id):
+    """ Toggle a preservation tool on / off. """
     tool = FormatToolRelease.by_id(tool_id)
     enabled = tool.enabled
     logging.debug("Tool %s is %s", tool, enabled)

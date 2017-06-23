@@ -13,10 +13,12 @@ import os.path
 import unittest
 
 from corptest.const import JISC_BUCKET
-from corptest.model import SCHEMES, ByteSequence, Source
+from corptest.model import SCHEMES, ByteSequence, Source, FormatTool
 from corptest.utilities import ObjectJsonEncoder
+from corptest.format_tools import FormatToolRelease, get_format_tool_instance
 
 from tests.const import THIS_DIR, TEST_DESCRIPTION, TEST_NAME, TEST_BUCKET_NAME
+from tests.conf_test import db, session, app
 
 class AS3BucketSourceTestCase(unittest.TestCase):
     """ Test cases for the AS3BucketSource class and methods. """
@@ -61,6 +63,33 @@ class AS3BucketSourceTestCase(unittest.TestCase):
         bucket_source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], JISC_BUCKET)
         self.assertEqual(bucket_source.location, JISC_BUCKET, \
         'bucket_source.bucket_name should equal test instance JISC_BUCKET')
+
+def test_add_source(session):
+    base_count = Source.count()
+    bucket_source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
+    Source.add(bucket_source)
+    id_value = bucket_source.id
+    assert bucket_source.id > 0
+    assert Source.count() == base_count + 1
+    Source.add(bucket_source)
+    assert Source.count() == base_count + 1
+    retrieved_source = Source.by_name(TEST_NAME)
+    assert bucket_source == retrieved_source
+    retrieved_source = Source.by_id(id_value)
+    assert bucket_source == retrieved_source
+    for _source in Source.all():
+        if _source.id == bucket_source.id:
+            assert _source == bucket_source
+        else:
+            assert _source != bucket_source
+
+def test_format_tool_release(session):
+    tool_count = FormatToolRelease.count();
+    for _tool in FormatTool.all():
+        tool_release = get_format_tool_instance(_tool)
+        if tool_release:
+            tool_release.putdate()
+    assert tool_count == FormatToolRelease.count()
 
 class ByteSequenceTestCase(unittest.TestCase):
     """ Test cases for the ByteSequence class and methods. """

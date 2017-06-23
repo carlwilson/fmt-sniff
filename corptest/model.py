@@ -96,7 +96,7 @@ class Source(BASE):
     @staticmethod
     def count():
         """Returns the number of Source instances in the database."""
-        return Source.query.all().count()
+        return Source.query.count()
 
     @staticmethod
     def all():
@@ -201,7 +201,7 @@ class SourceIndex(BASE):
     @staticmethod
     def count():
         """Returns the number of SourceIndex instances in the database."""
-        return SourceIndex.query.all().count()
+        return SourceIndex.query.count()
 
     @staticmethod
     def all():
@@ -298,7 +298,7 @@ class Key(BASE):
     @staticmethod
     def count():
         """Returns the number of DataNode instances in the database."""
-        return Key.query.all().count()
+        return Key.query.count()
 
     @staticmethod
     def all():
@@ -406,7 +406,7 @@ class ByteSequence(BASE):
     @staticmethod
     def count():
         """Returns the number of ByteSequence instances in the database."""
-        return ByteSequence.query.all().count()
+        return ByteSequence.query.count()
 
     @staticmethod
     def all():
@@ -514,7 +514,7 @@ class FormatTool(BASE):
     @staticmethod
     def count():
         """Returns the number of FormatTool instances in the database."""
-        return FormatTool.query.all().count()
+        return FormatTool.query.count()
 
     @staticmethod
     def all():
@@ -624,7 +624,7 @@ class FormatToolRelease(BASE):
     @staticmethod
     def count():
         """Returns the number of FormatToolRelease instances in the database."""
-        return FormatToolRelease.query.all().count()
+        return FormatToolRelease.query.count()
 
     @staticmethod
     def all():
