@@ -11,12 +11,14 @@
 """ Tests for the classes in model.py. """
 import os.path
 from datetime import datetime
+import logging
 import unittest
 
 import dateutil.parser
 
 from corptest.const import JISC_BUCKET
-from corptest.model import SCHEMES, ByteSequence, Source, FormatTool, SourceIndex, Key
+from corptest.model import SCHEMES, ByteSequence, Source, FormatTool
+from corptest.model import SourceIndex, Key, DB_SESSION
 from corptest.utilities import ObjectJsonEncoder
 from corptest.format_tools import FormatToolRelease, get_format_tool_instance
 from corptest.sources import FileSystem, SourceKey
@@ -94,12 +96,6 @@ class SourceIndexTestCase(unittest.TestCase):
         """ Test case for None source case. """
         with self.assertRaises(ValueError) as _:
             SourceIndex(None)
-
-    def test_null_timestamp(self):
-        """ Test case for empty timestamp case. """
-        _source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
-        with self.assertRaises(ValueError) as _:
-            SourceIndex(_source, None)
 
     def test_get_timestamp(self):
         """ Test case for retrieveing timestamp. """
@@ -183,19 +179,32 @@ def test_add_files(session):
     """ Set up default instance """
     file_system_source = Source("Readable Test", TEST_DESCRIPTION, SCHEMES['FILE'],
                                 TEST_READABLE_ROOT)
-    file_system_index = SourceIndex(file_system_source)
+    file_system_index = SourceIndex(file_system_source, datetime.now())
     file_system_index.put()
     file_system = FileSystem(file_system_source)
     for key in file_system.all_file_keys():
         _source_key = Key(file_system_index, key.value, key.size,
                           dateutil.parser.parse(key.last_modified))
         _source_key.put()
+    DB_SESSION.commit()
+
     assert Key.count() == 8
     for key in Key.all():
         file_key = SourceKey(key.path, False, key.size, key.last_modified)
         assert key.last_modified == dateutil.parser.parse(file_key.last_modified)
         retrieved_key = Key.by_id(key.id)
         assert retrieved_key == key
+
+    file_system_index_two = SourceIndex(file_system_source, datetime.now())
+    file_system_index_two.put()
+    for key in file_system.all_file_keys():
+        _source_key = Key(file_system_index_two, key.value, key.size,
+                          dateutil.parser.parse(key.last_modified))
+        _source_key.put()
+        DB_SESSION.commit()
+    for key in Key.all():
+        print "KEY : {0!s}".format(key)
+    assert Key.count() == 16
 
 class ByteSequenceTestCase(unittest.TestCase):
     """ Test cases for the ByteSequence class and methods. """

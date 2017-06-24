@@ -138,16 +138,17 @@ class SourceIndex(BASE):
     __tablename__ = "source_index"
 
     id = Column(Integer, primary_key=True)# pylint: disable-msg=C0103
-    source_id = Column(Integer, ForeignKey('source.id'))# pylint: disable-msg=C0103
+    __source_id = Column("source_id", Integer, ForeignKey('source.id'))# pylint: disable-msg=C0103
     __timestamp = Column("timestamp", DateTime)
     __root_key = Column("root_path", String(2048))
     __source = relationship("Source")
     __keys = relationship("Key")
-    UniqueConstraint('source_id', 'timestamp', name='uix_source_date')
+    __table_args__ = (UniqueConstraint('source_id', 'timestamp', name='uix_source_date'),)
 
-    def __init__(self, source, timestamp=datetime.now()):
+    def __init__(self, source, timestamp=None):
         check_param_not_none(source, "source")
-        check_param_not_none(timestamp, "timestamp")
+        if not timestamp:
+            timestamp = datetime.now()
         self.__source = source
         self.__timestamp = timestamp
 
@@ -226,22 +227,24 @@ class Key(BASE):
     __tablename__ = 'key'
 
     id = Column(Integer, primary_key=True)# pylint: disable-msg=C0103
-    source_index_id = Column(Integer, ForeignKey('source_index.id'))# pylint: disable-msg=C0103
+    __source_index_id = Column("source_index_id",
+                               Integer, ForeignKey('source_index.id'))# pylint: disable-msg=C0103
     __path = Column("path", String(2048))
     __size = Column("size", Integer)
     __last_modified = Column("last_modified", DateTime)
 
     __source_index = relationship("SourceIndex")
-    UniqueConstraint('source_id', 'path', name='uix_source_path')
+    __table_args__ = (UniqueConstraint('source_index_id', 'path', name='uix_source_path'),)
 
-    def __init__(self, source_index, path, size, last_modified=datetime.now()):
+    def __init__(self, source_index, path, size, last_modified=None):
         check_param_not_none(source_index, "source_index")
         check_param_not_none(path, "path")
         if size is None:
             raise ValueError("Argument size can not be None.")
         if size < 0:
             raise ValueError("Argument size can not be less than zero.")
-        check_param_not_none(last_modified, "last_modified")
+        if not last_modified:
+            last_modified = datetime.now()
         self.__source_index = source_index
         self.__path = path
         self.__size = size
@@ -281,9 +284,14 @@ class Key(BASE):
     def __hash__(self):
         return hash(self.__key())
 
+    def __str__(self): # pragma: no cover
+        return self.__rep__()
+
     def __rep__(self): # pragma: no cover
         ret_val = []
-        ret_val.append("corptest.model.Key : path=")
+        ret_val.append("corptest.model.Key : id={}".format(self.id))
+        ret_val.append(", index={}".format(self.__source_index_id))
+        ret_val.append(", path=")
         ret_val.append(self.path)
         ret_val.append(", size=")
         ret_val.append(str(self.size))
