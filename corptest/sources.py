@@ -99,6 +99,11 @@ class SourceKey(object):
     def metadata(self, key, value):
         self.__metadata.update({key: value})
 
+    @property
+    def has_metadata(self):
+        """Return true if the key has metadata."""
+        return len(self.__metadata) > 0
+
     def __key(self):
         return (self.value, self.is_folder)
 
@@ -115,13 +120,25 @@ class SourceKey(object):
     def __hash__(self):
         return hash(self.__key())
 
+    def __str__(self):
+        return self.__rep__()
+
     def __rep__(self): # pragma: no cover
         ret_val = []
         ret_val.append("corptest.sources.SourceKey : [value=")
         ret_val.append(self.value)
         ret_val.append(", is_folder=")
         ret_val.append(str(self.is_folder))
-        ret_val.append("]")
+        ret_val.append(", size=")
+        ret_val.append(self.size)
+        if self.has_metadata:
+            ret_val.append(", metadata={")
+            for key in self.metadata:
+                ret_val.append('"{}" : "{}", '.format(key, self.metadata[key]))
+            ret_val.append("}]")
+        else:
+            ret_val.append("]")
+
         return "".join(ret_val)
 
 class SourceBase(object):

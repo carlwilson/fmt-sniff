@@ -28,10 +28,10 @@ class Source(BASE):
     __tablename__ = 'source'
 
     id = Column(Integer, primary_key=True) # pylint: disable-msg=C0103
-    __name = Column("name", String(256), unique=True)
+    __name = Column("name", String(256), unique=True, nullable=False)
     __description = Column("description", String(512))
-    __scheme = Column("scheme", String(10))
-    __location = Column("location", String(1024))
+    __scheme = Column("scheme", String(10), nullable=False)
+    __location = Column("location", String(1024), nullable=False)
 
     def __init__(self, name, description, scheme, location):
         check_param_not_none(name, "name")
@@ -138,19 +138,19 @@ class SourceIndex(BASE):
     __tablename__ = "source_index"
 
     id = Column(Integer, primary_key=True)# pylint: disable-msg=C0103
-    __source_id = Column("source_id", Integer, ForeignKey('source.id'))# pylint: disable-msg=C0103
-    __timestamp = Column("timestamp", DateTime)
-    __root_key = Column("root_path", String(2048))
+    __source_id = Column("source_id", Integer, ForeignKey('source.id')
+                         , nullable=False)# pylint: disable-msg=C0103
+    __timestamp = Column("timestamp", DateTime, nullable=False)
+    __root_key = Column("root_path", String(2048), nullable=False)
     __source = relationship("Source")
     __keys = relationship("Key")
     __table_args__ = (UniqueConstraint('source_id', 'timestamp', name='uix_source_date'),)
 
-    def __init__(self, source, timestamp=None):
+    def __init__(self, source, timestamp=None, root_key=None):
         check_param_not_none(source, "source")
-        if not timestamp:
-            timestamp = datetime.now()
         self.__source = source
-        self.__timestamp = timestamp
+        self.__timestamp = timestamp if timestamp else datetime.now()
+        self.__root_key = '/' if not root_key else root_key
 
     @property
     def source(self):
@@ -228,10 +228,12 @@ class Key(BASE):
 
     id = Column(Integer, primary_key=True)# pylint: disable-msg=C0103
     __source_index_id = Column("source_index_id",
-                               Integer, ForeignKey('source_index.id'))# pylint: disable-msg=C0103
-    __path = Column("path", String(2048))
-    __size = Column("size", Integer)
-    __last_modified = Column("last_modified", DateTime)
+                               Integer, ForeignKey('source_index.id'), nullable=False)
+    __byte_sequence_id = Column("byte_sequence_id",
+                                Integer, ForeignKey('byte_sequence.id'))
+    __path = Column("path", String(2048), nullable=False)
+    __size = Column("size", Integer, nullable=False)
+    __last_modified = Column("last_modified", DateTime, nullable=False)
 
     __source_index = relationship("SourceIndex")
     __table_args__ = (UniqueConstraint('source_index_id', 'path', name='uix_source_path'),)
@@ -331,8 +333,8 @@ class ByteSequence(BASE):
     __tablename__ = 'byte_sequence'
 
     id = Column(Integer, primary_key=True)# pylint: disable-msg=C0103
-    __sha1 = Column("sha1", String(40), unique=True)
-    __size = Column("size", Integer)
+    __sha1 = Column("sha1", String(40), unique=True, nullable=False)
+    __size = Column("size", Integer, nullable=False)
 
     EMPTY_SHA1 = 'da39a3ee5e6b4b0d3255bfef95601890afd80709'
 
@@ -458,7 +460,7 @@ class FormatTool(BASE):
     __tablename__ = 'format_tool'
 
     id = Column(Integer, primary_key=True)# pylint: disable-msg=C0103
-    __name = Column("name", String(100), unique=True)
+    __name = Column("name", String(100), unique=True, nullable=False)
     __description = Column("description", String(100))
     __reference = Column("reference", String(512), unique=True)
     versions = relationship("FormatToolRelease", back_populates='format_tool')
@@ -560,11 +562,11 @@ class FormatToolRelease(BASE):
 
     id = Column(Integer, primary_key=True)# pylint: disable-msg=C0103
     __format_tool_id = Column("format_tool_id", Integer,
-                              ForeignKey('format_tool.id'))
+                              ForeignKey('format_tool.id'), nullable=False)
     format_tool = relationship("FormatTool", back_populates='versions')
-    __version = Column("version", String(50))
-    __available = Column("available", Boolean)
-    __enabled = Column("enabled", Boolean)
+    __version = Column("version", String(50), nullable=False)
+    __available = Column("available", Boolean, nullable=False)
+    __enabled = Column("enabled", Boolean, nullable=False)
     UniqueConstraint('format_tool_id', 'version', name='uix__tool_version')
 
     def __init__(self, format_tool, version, available=True, enabled=True):
@@ -590,13 +592,19 @@ class FormatToolRelease(BASE):
         """Returns true if the format tool is currently enabled"""
         return self.__enabled
 
-    def disable(self):
-        self.__enabled = False
+    @enabled.setter
+    def enabled(self, value):
+        """Returns true if the format tool is currently enabled"""
+        self.__enabled = value
         DB_SESSION.commit()
 
+    def disable(self):
+        """Sets the tool's enabled flag False."""
+        self.enabled = False
+
     def enable(self):
-        self.__enabled = True
-        DB_SESSION.commit()
+        """Sets the tool's enabled flag True."""
+        self.enabled = True
 
     def put(self):
         """Add this FormatToolRelease instance to the database."""
@@ -670,21 +678,34 @@ class FormatToolRelease(BASE):
     @staticmethod
     def get_available():
         """Retrieve all available format tools."""
-        return FormatToolRelease.query.filter(FormatToolRelease.__available == True).all()
+        return FormatToolRelease.query.filter(
+            FormatToolRelease.__available == True).all()# pylint: disable-msg=C0121
+
+    @staticmethod
+    def all_available():
+        """Sets every FormatToolRelease's available flag to false."""
+        FormatToolRelease.set_availability(True)
 
     @staticmethod
     def all_unavailable():
+        """Sets every FormatToolRelease's available flag to false."""
+        FormatToolRelease.set_availability(False)
+
+    @staticmethod
+    def set_availability(availability):
+        """Sets every FormatToolRelease's available flag to value of availability."""
         stmt = FormatToolRelease.__table__.update().\
             values({
-                'available': False,
+                'available': availability,
                 })
-        DB_SESSION.execute(stmt, [])
+        DB_SESSION.execute(stmt, [])# pylint: disable-msg=E1101
         DB_SESSION.commit()
 
     @staticmethod
     def get_enabled():
         """Retrieve all enabled format tools."""
-        return FormatToolRelease.query.filter(FormatToolRelease.__enabled == True).all()
+        return FormatToolRelease.query.filter(
+            FormatToolRelease.__enabled == True).all()# pylint: disable-msg=C0121
 
 def init_db():
     """Initialise the database."""

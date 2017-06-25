@@ -11,7 +11,6 @@
 """ Tests for the classes in model.py. """
 import os.path
 from datetime import datetime
-import logging
 import unittest
 
 import dateutil.parser
@@ -24,7 +23,7 @@ from corptest.format_tools import FormatToolRelease, get_format_tool_instance
 from corptest.sources import FileSystem, SourceKey
 
 from tests.const import THIS_DIR, TEST_DESCRIPTION, TEST_NAME, TEST_BUCKET_NAME
-from tests.conf_test import db, session, app
+from tests.conf_test import db, session, app# pylint: disable-msg=W0611
 
 TEST_ROOT = "__root__"
 TEST_READABLE_ROOT = os.path.join(THIS_DIR, "disk-corpus")
@@ -74,7 +73,8 @@ class AS3BucketSourceTestCase(unittest.TestCase):
         self.assertEqual(bucket_source.location, JISC_BUCKET, \
         'bucket_source.bucket_name should equal test instance JISC_BUCKET')
 
-def test_add_source(session):
+def test_add_source(session):# pylint: disable-msg=W0621, W0613
+    """Test Source model class persistence."""
     base_count = Source.count()
     bucket_source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
     Source.add(bucket_source)
@@ -118,11 +118,14 @@ class SourceIndexTestCase(unittest.TestCase):
         _source_index = SourceIndex(_source)
         self.assertEqual(_source_index.source, _source)
 
-def test_source_index_add(session):
+def test_source_index_add(session):# pylint: disable-msg=W0621, W0613
+    """Test SourceIndex model class persistence."""
     index_count = SourceIndex.count()
     _source = Source.by_name(TEST_NAME)
     if not _source:
         _source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
+        _source.put()
+    assert _source.id > 0
     _source_index = SourceIndex(_source)
     _source_index.put()
     assert _source_index.id > 0
@@ -175,8 +178,9 @@ class KeyTestCase(unittest.TestCase):
         _key = Key(self.def_index, 'test.dat', 0)
         assert _key.source_index == self.def_index
 
-def test_add_files(session):
+def test_add_files(session):# pylint: disable-msg=W0621, W0613
     """ Set up default instance """
+    corp_file_count = file_count(TEST_READABLE_ROOT)
     file_system_source = Source("Readable Test", TEST_DESCRIPTION, SCHEMES['FILE'],
                                 TEST_READABLE_ROOT)
     file_system_index = SourceIndex(file_system_source, datetime.now())
@@ -188,7 +192,7 @@ def test_add_files(session):
         _source_key.put()
     DB_SESSION.commit()
 
-    assert Key.count() == 8
+    assert Key.count() == corp_file_count
     for key in Key.all():
         file_key = SourceKey(key.path, False, key.size, key.last_modified)
         assert key.last_modified == dateutil.parser.parse(file_key.last_modified)
@@ -204,7 +208,21 @@ def test_add_files(session):
         DB_SESSION.commit()
     for key in Key.all():
         print "KEY : {0!s}".format(key)
-    assert Key.count() == 16
+    assert Key.count() == (2 * corp_file_count)
+
+def file_count(folder):
+    "count the number of files in a directory"
+    count = 0
+
+    for filename in os.listdir(folder):
+        path = os.path.join(folder, filename)
+
+        if os.path.isfile(path):
+            count += 1
+        elif os.path.isdir(path):
+            count += file_count(path)
+
+    return count
 
 class ByteSequenceTestCase(unittest.TestCase):
     """ Test cases for the ByteSequence class and methods. """
@@ -273,8 +291,9 @@ class ByteSequenceTestCase(unittest.TestCase):
         self.assertNotEqual(test_byte_seq, self.def_inst,
                             'Test from JSON should be equal to default instance')
 
-def test_add_bytesequence(session):
+def test_add_bytesequence(session):# pylint: disable-msg=W0621, W0613
     """ Set up default instance """
+    corp_file_count = file_count(TEST_BYTES_ROOT)
     file_system_source = Source("BS Test", TEST_DESCRIPTION, SCHEMES['FILE'],
                                 TEST_BYTES_ROOT)
     file_system_index = SourceIndex(file_system_source)
@@ -282,21 +301,36 @@ def test_add_bytesequence(session):
     file_system = FileSystem(file_system_source)
     for key in file_system.all_file_keys():
         assert key.size != 0
+        assert not key.metadata['SHA1']
         _aug_key = file_system.get_file_metadata(key)
         assert _aug_key.metadata['SHA1'] != ByteSequence.EMPTY_SHA1
         _bytes = ByteSequence(_aug_key.metadata['SHA1'], key.size)
-        _retrieved_bytes = ByteSequence.by_sha1(_aug_key.metadata['SHA1'])
-        if _retrieved_bytes is None:
-            _bytes.put()
-        else:
-            assert _bytes == _retrieved_bytes
-    _byte_count = len( ByteSequence.all())
-    assert _byte_count == 2
+        _bytes.put()
+    _byte_count = len(ByteSequence.all())
+    assert _byte_count == corp_file_count
 
-def test_format_tool_release(session):
-    tool_count = FormatToolRelease.count()
+def test_format_tool_release(session):# pylint: disable-msg=W0621, W0613
+    """Test FormatToolRelease model class persistence."""
+    tool_count = FormatTool.count()
+    assert tool_count > 0
+    tool_release_count = FormatToolRelease.count()
+    assert tool_release_count > 0
+    FormatToolRelease.all_unavailable()
+    available_tools = len(FormatToolRelease.get_available())
+    assert available_tools == 0
+    FormatToolRelease.all_available()
+    available_tools = len(FormatToolRelease.get_available())
+    assert available_tools == tool_release_count
     for _tool in FormatTool.all():
         tool_release = get_format_tool_instance(_tool)
         if tool_release:
+            assert not tool_release.format_tool_release.id
             tool_release.putdate()
-            assert tool_count == FormatToolRelease.count()
+            assert tool_release.format_tool_release.id > 0
+    for _tool in FormatToolRelease.all():
+        _tool_check = FormatToolRelease.by_id(_tool.id)
+        assert _tool == _tool_check
+        _tool_check = FormatToolRelease.by_version(_tool.version)
+        assert _tool == _tool_check
+        _tool_check = FormatToolRelease.by_tool_and_version(_tool.format_tool, _tool.version)
+        assert _tool == _tool_check
