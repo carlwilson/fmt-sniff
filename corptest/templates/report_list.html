@@ -1,0 +1,27 @@
+{% extends "page.html" %}
+{% block title %}Folder List{% endblock %}
+{% block page_content %}
+  <h2>Report Listing</h2>
+  <table class="table table-striped">
+    <tr>
+      <th>Source</th>
+      <th>Root Path</th>
+      <th>Created</th>
+    </tr>
+    {{ key_rows(reports) }}
+  </table>
+{% endblock page_content %}
+
+  {% macro key_rows(reports) %}
+  {% for report in reports %}
+    {{ key_row(report) }}
+  {% endfor %}
+  {% endmacro %}
+
+  {% macro key_row(report) %}
+    <tr>
+      <td><a href="{{ report.id }}">{{ report.source.name }}</a></td>
+      <td>{{ report.root_key }}</td>
+      <td>{{ report.short_iso_timestamp }}</td>
+    </tr>
+  {% endmacro -%}

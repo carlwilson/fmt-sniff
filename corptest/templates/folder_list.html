@@ -8,6 +8,19 @@
     <a href="/source/{{ source_item.id }}/folder/{{ part_path }}/">{{ part }}/</a>
     {%- endfor %}
   </p>
+  <form role="form" action="/reports/" method="POST">
+    <input type="hidden" value="{{ source_item.id }}" name="source_id" />
+    <input type="hidden" value="{{ filter_key.value }}" name="encoded_filepath" />
+    <div class="form-group">
+      <span class="input-group-btn">
+        <button type="submit" class="btn btn-primary">
+          Analyse
+          <span class="glyphicon glyphicon-tasks">
+          </span>
+        </button>
+      </span>
+    </div>
+  </form>
   <table class="table table-striped">
     <tr>
       <th>Type</th>

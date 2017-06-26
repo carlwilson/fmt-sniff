@@ -14,7 +14,7 @@ from datetime import datetime
 import errno
 import os.path
 from sqlalchemy import and_, Column, DateTime, Integer, String, ForeignKey
-from sqlalchemy import UniqueConstraint, Boolean
+from sqlalchemy import UniqueConstraint, Boolean, func
 from sqlalchemy.orm import relationship
 
 from .database import BASE, DB_SESSION, ENGINE
@@ -28,40 +28,20 @@ class Source(BASE):
     __tablename__ = 'source'
 
     id = Column(Integer, primary_key=True) # pylint: disable-msg=C0103
-    __name = Column("name", String(256), unique=True, nullable=False)
-    __description = Column("description", String(512))
-    __scheme = Column("scheme", String(10), nullable=False)
-    __location = Column("location", String(1024), nullable=False)
+    name = Column(String(256), unique=True, nullable=False)
+    description = Column("description", String(512))
+    scheme = Column(String(10), nullable=False)
+    location = Column(String(1024), nullable=False)
 
     def __init__(self, name, description, scheme, location):
         check_param_not_none(name, "name")
         check_param_not_none(description, "description")
         check_param_not_none(scheme, "scheme")
         check_param_not_none(location, "location")
-        self.__name = name
-        self.__description = description
-        self.__scheme = scheme
-        self.__location = location
-
-    @property
-    def name(self):
-        """Return the source's name, a unique string identifier."""
-        return self.__name
-
-    @property
-    def description(self):
-        """Return a human readable, text description of the source."""
-        return self.__description
-
-    @property
-    def scheme(self):
-        """Return the scheme used for resolving the location."""
-        return self.__scheme
-
-    @property
-    def location(self):
-        """Return a resolvable location where the data can be found."""
-        return self.__location
+        self.name = name
+        self.description = description
+        self.scheme = scheme
+        self.location = location
 
     def __key(self):
         return (self.name, self.description, self.location)
@@ -101,7 +81,7 @@ class Source(BASE):
     @staticmethod
     def all():
         """Convenience method, returns all of the Source instances."""
-        return Source.query.order_by(Source.__name).all()
+        return Source.query.order_by(Source.name).all()
 
     @staticmethod
     def by_id(id):# pylint: disable-msg=W0622,C0103
@@ -113,19 +93,19 @@ class Source(BASE):
     def by_name(name):
         """Query for Source with matching name."""
         check_param_not_none(name, "name")
-        return Source.query.filter(Source.__name == name).first()
+        return Source.query.filter(Source.name == name).first()
 
     @staticmethod
     def by_scheme(scheme):
         """Query for alls Sources with matching scheme."""
         check_param_not_none(scheme, "scheme")
-        return Source.query.filter(Source.__scheme == scheme).all()
+        return Source.query.filter(Source.scheme == scheme).all()
 
     @staticmethod
     def by_location(location):
         """Query for Source with matching location."""
         check_param_not_none(location, "location")
-        return Source.query.filter(Source.__location == location).all()
+        return Source.query.filter(Source.location == location).all()
 
     @staticmethod
     def add(source):
@@ -138,39 +118,39 @@ class SourceIndex(BASE):
     __tablename__ = "source_index"
 
     id = Column(Integer, primary_key=True)# pylint: disable-msg=C0103
-    __source_id = Column("source_id", Integer, ForeignKey('source.id')
-                         , nullable=False)# pylint: disable-msg=C0103
-    __timestamp = Column("timestamp", DateTime, nullable=False)
-    __root_key = Column("root_path", String(2048), nullable=False)
-    __source = relationship("Source")
-    __keys = relationship("Key")
+    source_id = Column(Integer, ForeignKey('source.id'), nullable=False)# pylint: disable-msg=C0103
+    root_key = Column(String(2048), nullable=False)
+    timestamp = Column(DateTime, nullable=False)
+    source = relationship("Source")
+    keys = relationship("Key")
     __table_args__ = (UniqueConstraint('source_id', 'timestamp', name='uix_source_date'),)
 
     def __init__(self, source, timestamp=None, root_key=None):
         check_param_not_none(source, "source")
-        self.__source = source
-        self.__timestamp = timestamp if timestamp else datetime.now()
-        self.__root_key = '/' if not root_key else root_key
-
-    @property
-    def source(self):
-        """ Return the Index's source instance. """
-        return self.__source
-
-    @property
-    def timestamp(self):
-        """ Return the SourceIndex's timestamp, the time that the indexing was started. """
-        return self.__timestamp
+        self.source = source
+        self.timestamp = timestamp if timestamp else datetime.now()
+        self.root_key = '/' if not root_key else root_key
 
     @property
     def iso_timestamp(self):
         """ Return the ISO formatted String of the SourceIndex's timestamp. """
-        return timestamp_fmt(self.__timestamp)
+        return timestamp_fmt(self.timestamp)
 
     @property
-    def keys(self):
+    def short_iso_timestamp(self):
+        """ Return the ISO formatted String of the SourceIndex's timestamp. """
+        return timestamp_fmt(self.timestamp, False)
+
+    @property
+    def key_count(self):
         """Return all the keys in the index."""
-        return self.__keys
+        return Key.query.filter(Key.source_index_id == self.id).count()
+
+    @property
+    def size(self):
+        """Returns the total size in bytes of all files in the index."""
+        return DB_SESSION.query(func.sum(Key.size)).group_by(Key.source_index_id).\
+            filter(Key.source_index_id == self.id).scalar()
 
     def put(self):
         """ Add the SourceIndex to the database."""
@@ -227,18 +207,17 @@ class Key(BASE):
     __tablename__ = 'key'
 
     id = Column(Integer, primary_key=True)# pylint: disable-msg=C0103
-    __source_index_id = Column("source_index_id",
-                               Integer, ForeignKey('source_index.id'), nullable=False)
-    __byte_sequence_id = Column("byte_sequence_id",
-                                Integer, ForeignKey('byte_sequence.id'))
-    __path = Column("path", String(2048), nullable=False)
-    __size = Column("size", Integer, nullable=False)
-    __last_modified = Column("last_modified", DateTime, nullable=False)
+    source_index_id = Column(Integer, ForeignKey('source_index.id'), nullable=False)
+    byte_sequence_id = Column(Integer, ForeignKey('byte_sequence.id'))
+    path = Column(String(2048), nullable=False)
+    size = Column(Integer, nullable=False)
+    last_modified = Column(DateTime, nullable=False)
 
-    __source_index = relationship("SourceIndex")
+    source_index = relationship("SourceIndex")
+    byte_sequence = relationship("ByteSequence")
     __table_args__ = (UniqueConstraint('source_index_id', 'path', name='uix_source_path'),)
 
-    def __init__(self, source_index, path, size, last_modified=None):
+    def __init__(self, source_index, path, size, last_modified=None, byte_sequence=None):
         check_param_not_none(source_index, "source_index")
         check_param_not_none(path, "path")
         if size is None:
@@ -247,30 +226,17 @@ class Key(BASE):
             raise ValueError("Argument size can not be less than zero.")
         if not last_modified:
             last_modified = datetime.now()
-        self.__source_index = source_index
-        self.__path = path
-        self.__size = size
-        self.__last_modified = last_modified
+        self.source_index = source_index
+        self.path = path
+        self.size = size
+        self.last_modified = last_modified
+        self.byte_sequence = byte_sequence
 
     @property
-    def source_index(self):
-        """ Return the Node's unique path. """
-        return self.__source_index
-
-    @property
-    def path(self):
-        """ Return the Node's unique path. """
-        return self.__path
-
-    @property
-    def size(self):
-        """Returns the size of the file in bytes."""
-        return self.__size
-
-    @property
-    def last_modified(self):
-        """Returns the datetime that the file was last modified."""
-        return self.__last_modified
+    def name(self):
+        """Return the name of the item without the path."""
+        parts = self.path.split('/')
+        return parts[-2] if self.path.endswith('/') else parts[-1]
 
     def __key(self):
         return (self.source_index, self.path, self.size, self.last_modified)
@@ -292,7 +258,7 @@ class Key(BASE):
     def __rep__(self): # pragma: no cover
         ret_val = []
         ret_val.append("corptest.model.Key : id={}".format(self.id))
-        ret_val.append(", index={}".format(self.__source_index_id))
+        ret_val.append(", index={}".format(self.source_index_id))
         ret_val.append(", path=")
         ret_val.append(self.path)
         ret_val.append(", size=")
@@ -323,18 +289,323 @@ class Key(BASE):
         return Key.query.filter(Key.id == id).first()
 
     @staticmethod
+    def by_index_id(id):# pylint: disable-msg=W0622,C0103
+        """Query for DataNode with matching id."""
+        check_param_not_none(id, "id")
+        return Key.query.filter(Key.source_index_id == id).all()
+
+    @staticmethod
     def add(data_node):
         """Add a DataNode instance to the table."""
         check_param_not_none(data_node, "data_node")
         _add(data_node)
+
+class Property(BASE):
+    """Key attributes for all byte sequences, i.e. arbitary blobs of data."""
+    __tablename__ = 'property'
+
+    id = Column(Integer, primary_key=True)# pylint: disable-msg=C0103
+    namespace = Column(String(255), nullable=False)
+    name = Column(String(100), nullable=False)
+    description = Column(String(255))
+
+    __table_args__ = (UniqueConstraint('namespace', 'name', name='uix_property_name'),)
+
+    def __init__(self, namespace, name, description=None):
+        check_param_not_none(namespace, "namespace")
+        check_param_not_none(name, "name")
+        self.namespace = namespace
+        self.name = name
+        self.description = description
+
+    def put(self):
+        """Add this ByteSequence instance to the database."""
+        return _add(self)
+
+    def __key(self):
+        return (self.namespace, self.name)
+
+    def __eq__(self, other):
+        """ Define an equality test for ByteSequence """
+        if isinstance(other, self.__class__):
+            return self.__key() == other.__key()
+        return False
+
+    def __ne__(self, other):
+        """ Define an inequality test for ByteSequence """
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash(self.__key())
+
+    def __str__(self):
+        return self.__rep__()
+
+    def __rep__(self):
+        ret_val = []
+        ret_val.append("Property : [namespace=")
+        ret_val.append(self.namespace)
+        ret_val.append(", name=")
+        ret_val.append(self.name)
+        ret_val.append("]")
+        return "".join(ret_val)
+
+    @staticmethod
+    def count():
+        """Returns the number of ByteSequence instances in the database."""
+        return Property.query.count()
+
+    @staticmethod
+    def all():
+        """Convenience method, returns all of the ByteSequence instances."""
+        return Property.query.order_by(Property.namespace, Property.name).all()
+
+    @staticmethod
+    def by_id(id):# pylint: disable-msg=W0622,C0103
+        """Query for ByteSequence with matching id."""
+        check_param_not_none(id, "id")
+        return Property.query.filter(Property.id == id).first()
+
+    @staticmethod
+    def by_name(name):# pylint: disable-msg=W0622,C0103
+        """Query for ByteSequence with matching id."""
+        check_param_not_none(name, "name")
+        return Property.query.filter(Property.name == name).all()
+
+    @staticmethod
+    def by_namespace(namespace):# pylint: disable-msg=W0622,C0103
+        """Query for ByteSequence with matching id."""
+        check_param_not_none(namespace, "namespace")
+        return Property.query.filter(Property.namespace == namespace).all()
+
+    @staticmethod
+    def by_namespace_and_name(namespace, name):# pylint: disable-msg=W0622,C0103
+        """Query for ByteSequence with matching id."""
+        check_param_not_none(name, "name")
+        check_param_not_none(namespace, "namespace")
+        return Property.query.filter(Property.namespace == namespace, Property.name == name).first()
+
+    @classmethod
+    def putdate(cls, namespace, name, description=None):
+        ret_val = cls.by_namespace_and_name(namespace, name)
+        if ret_val is None:
+            ret_val = Property(namespace, name, description)
+        elif description and description != ret_val.description:
+            ret_val.description = description
+        ret_val.put()
+        return ret_val
+
+
+    @staticmethod
+    def add(to_add):
+        """Add a property instance to the table."""
+        check_param_not_none(property, "property")
+        _add(to_add)
+
+class PropertyValue(BASE):
+    """Key attributes for all byte sequences, i.e. arbitary blobs of data."""
+    __tablename__ = 'property_value'
+
+    id = Column(Integer, primary_key=True)# pylint: disable-msg=C0103
+    value = Column(String(512), nullable=False, unique=True)
+
+    def __init__(self, value):
+        check_param_not_none(value, "value")
+        self.value = str(value)
+
+    def put(self):
+        """Add this ByteSequence instance to the database."""
+        return _add(self)
+
+    def __key(self):
+        return self.value
+
+    def __eq__(self, other):
+        """ Define an equality test for ByteSequence """
+        if isinstance(other, self.__class__):
+            return self.__key() == other.__key()
+        return False
+
+    def __ne__(self, other):
+        """ Define an inequality test for ByteSequence """
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash(self.__key())
+
+    def __str__(self):
+        return self.__rep__()
+
+    def __rep__(self):
+        ret_val = []
+        ret_val.append("PropertyValue : [value=")
+        ret_val.append(self.value)
+        ret_val.append("]")
+        return "".join(ret_val)
+
+    @staticmethod
+    def count():
+        """Returns the number of ByteSequence instances in the database."""
+        return PropertyValue.query.count()
+
+    @staticmethod
+    def all():
+        """Convenience method, returns all of the ByteSequence instances."""
+        return PropertyValue.query.order_by(PropertyValue.value).all()
+
+    @staticmethod
+    def by_id(id):# pylint: disable-msg=W0622,C0103
+        """Query for ByteSequence with matching id."""
+        check_param_not_none(id, "id")
+        return PropertyValue.query.filter(PropertyValue.id == id).first()
+
+    @staticmethod
+    def by_value(value):# pylint: disable-msg=W0622,C0103
+        """Query for ByteSequence with matching id."""
+        check_param_not_none(value, "value")
+        return PropertyValue.query.filter(PropertyValue.value == str(value)).first()
+
+    @staticmethod
+    def add(to_add):
+        """Add a property instance to the table."""
+        check_param_not_none(property, "property")
+        _add(to_add)
+
+    @classmethod
+    def putdate(cls, value):
+        ret_val = cls.by_value(value)
+        if ret_val is None:
+            ret_val = PropertyValue(value)
+            ret_val.put()
+        return ret_val
+
+class KeyProperties(BASE):
+    __tablename__ = 'key_properties'
+
+    id = Column(Integer, primary_key=True)# pylint: disable-msg=C0103
+    key_id = Column(Integer, ForeignKey('key.id'), nullable=False)
+    prop_id = Column(Integer, ForeignKey('property.id'), nullable=False)
+    prop_val_id = Column(Integer, ForeignKey('property_value.id'), nullable=False)
+
+    key = relationship('Key')
+    prop = relationship('Property')
+    prop_val = relationship('PropertyValue')
+    __table_args__ = (UniqueConstraint('key_id', 'prop_id', name='uix_key_property'),)
+
+    def __init__(self, key, prop, prop_val):
+        check_param_not_none(key, "key")
+        check_param_not_none(prop, "prop")
+        check_param_not_none(prop_val, "prop_val")
+        self.key = key
+        self.prop = prop
+        self.prop_val = prop_val
+
+
+    def put(self):
+        """Add this ByteSequence instance to the database."""
+        return _add(self)
+
+    def __key(self):
+        return (self.key, self.prop)
+
+    def __eq__(self, other):
+        """ Define an equality test for ByteSequence """
+        if isinstance(other, self.__class__):
+            return self.__key() == other.__key()
+        return False
+
+    def __ne__(self, other):
+        """ Define an inequality test for ByteSequence """
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash(self.__key())
+
+    def __str__(self):
+        return self.__rep__()
+
+    def __rep__(self):
+        ret_val = []
+        ret_val.append("ByteSequence : [key=")
+        ret_val.append(self.key)
+        ret_val.append(", prop=")
+        ret_val.append(self.prop)
+        ret_val.append(", prop_val=")
+        ret_val.append(self.prop_val)
+        ret_val.append("]")
+        return "".join(ret_val)
+
+    @staticmethod
+    def count():
+        """Returns the number of KeyProperties instances in the database."""
+        return KeyProperties.query.count()
+
+    @staticmethod
+    def all():
+        """Convenience method, returns all of the ByteSequence instances."""
+        return KeyProperties.query.order_by(KeyProperties.prop_id).all()
+
+    @staticmethod
+    def by_id(id):# pylint: disable-msg=W0622,C0103
+        """Query for KeyProperties with matching id."""
+        check_param_not_none(id, "id")
+        return KeyProperties.query.filter(KeyProperties.id == id).first()
+
+    @staticmethod
+    def by_prop_id(id):# pylint: disable-msg=W0622,C0103
+        """Query for KeyProperties with matching id."""
+        check_param_not_none(id, "id")
+        return KeyProperties.query.filter(KeyProperties.prop_id == id).all()
+
+    @staticmethod
+    def by_key_id(id):# pylint: disable-msg=W0622,C0103
+        """Query for KeyProperties with matching id."""
+        check_param_not_none(id, "id")
+        return KeyProperties.query.filter(KeyProperties.key_id == id).all()
+
+    @staticmethod
+    def by_key_and_prop_id(key_id, prop_id):# pylint: disable-msg=W0622,C0103
+        """Query for KeyProperties with matching id."""
+        check_param_not_none(id, "id")
+        return KeyProperties.query.filter(KeyProperties.prop_id == prop_id,
+                                          KeyProperties.key_id == key_id).first()
+
+    @staticmethod
+    def get_properties_for_index(source_index_id):
+        """Returns the total size in bytes of all files in the index."""
+        return DB_SESSION.query(Property).distinct(Property.id, Property.namespace,
+                                                   Property.name).\
+                                group_by(Property.id, Property.namespace, Property.name).\
+                                join(KeyProperties).join(Key).\
+                                filter(Key.source_index_id == source_index_id).all()
+
+    @staticmethod
+    def get_property_values_for_index(source_index_id, prop_id):
+        """Returns the total size in bytes of all files in the index."""
+        return DB_SESSION.query(PropertyValue.value,
+                                func.count(KeyProperties.id).label('prop_count')).\
+                                distinct(PropertyValue.value).\
+                                group_by(PropertyValue.id, PropertyValue.value).\
+                                join(KeyProperties).\
+                                filter(KeyProperties.prop_id == prop_id).join(Key).\
+                                filter(Key.source_index_id == source_index_id).all()
+
+
+    @classmethod
+    def putdate(cls, key, prop, prop_val):
+        ret_val = cls.by_key_and_prop_id(key.id, prop.id)
+        if ret_val is None:
+            ret_val = KeyProperties(key, prop, prop_val)
+            ret_val.put()
+        return ret_val
 
 class ByteSequence(BASE):
     """Key attributes for all byte sequences, i.e. arbitary blobs of data."""
     __tablename__ = 'byte_sequence'
 
     id = Column(Integer, primary_key=True)# pylint: disable-msg=C0103
-    __sha1 = Column("sha1", String(40), unique=True, nullable=False)
-    __size = Column("size", Integer, nullable=False)
+    sha1 = Column(String(40), unique=True, nullable=False)
+    size = Column(Integer, nullable=False)
 
     EMPTY_SHA1 = 'da39a3ee5e6b4b0d3255bfef95601890afd80709'
 
@@ -342,18 +613,10 @@ class ByteSequence(BASE):
         check_param_not_none(sha1, "sha1")
         if size < 0:
             raise ValueError("Argument size can not be less than zero.")
-        self.__sha1 = sha1
-        self.__size = size
-
-    @property
-    def sha1(self):
-        """Returns the SHA-1 hash of the ByteSequence, use as an id."""
-        return self.__sha1
-
-    @property
-    def size(self):
-        """Return the size of the ByteSequence in bytes."""
-        return self.__size
+        if size < 1 and sha1 != self.EMPTY_SHA1:
+            raise ValueError('If size is zero SHA1 must be {}'.format(self.EMPTY_SHA1))
+        self.sha1 = sha1
+        self.size = size
 
     def put(self):
         """Add this ByteSequence instance to the database."""
@@ -374,6 +637,9 @@ class ByteSequence(BASE):
 
     def __hash__(self):
         return hash(self.__key())
+
+    def __str__(self):
+        return self.__rep__()
 
     def __rep__(self):
         ret_val = []
@@ -411,7 +677,7 @@ class ByteSequence(BASE):
         cls_name = '__{}__'.format(cls.__name__)
         if cls_name in obj:
             byte_seq = obj[cls_name]
-            return cls(byte_seq['_ByteSequence__sha1'], byte_seq['_ByteSequence__size'])
+            return cls(byte_seq['sha1'], byte_seq['size'])
         return obj
 
     @staticmethod
@@ -422,13 +688,13 @@ class ByteSequence(BASE):
     @staticmethod
     def all():
         """Convenience method, returns all of the ByteSequence instances."""
-        return ByteSequence.query.order_by(ByteSequence.__sha1).all()
+        return ByteSequence.query.order_by(ByteSequence.sha1).all()
 
     @staticmethod
     def by_sha1(sha1):
         """Query for ByteSequence with matching value."""
         check_param_not_none(sha1, "sha1")
-        return ByteSequence.query.filter(ByteSequence.__sha1 == sha1).first()
+        return ByteSequence.query.filter(ByteSequence.sha1 == sha1).first()
 
     @staticmethod
     def by_id(id):# pylint: disable-msg=W0622,C0103
@@ -460,33 +726,18 @@ class FormatTool(BASE):
     __tablename__ = 'format_tool'
 
     id = Column(Integer, primary_key=True)# pylint: disable-msg=C0103
-    __name = Column("name", String(100), unique=True, nullable=False)
-    __description = Column("description", String(100))
-    __reference = Column("reference", String(512), unique=True)
+    name = Column(String(100), unique=True, nullable=False)
+    description = Column(String(100))
+    reference = Column(String(512), unique=True)
     versions = relationship("FormatToolRelease", back_populates='format_tool')
 
     def __init__(self, name, description, reference):
         check_param_not_none(name, "name")
         check_param_not_none(description, "description")
         check_param_not_none(reference, "reference")
-        self.__name = name
-        self.__description = description
-        self.__reference = reference
-
-    @property
-    def name(self):
-        """Returns the recognised name of the format tool"""
-        return self.__name
-
-    @property
-    def description(self):
-        """Returns the textual description of the format tool"""
-        return self.__description
-
-    @property
-    def reference(self):
-        """Returns a URL that refers to the format tools project page."""
-        return self.__reference
+        self.name = name
+        self.description = description
+        self.reference = reference
 
     def put(self):
         """Add this FormatTool instance to the database."""
@@ -516,9 +767,9 @@ class FormatTool(BASE):
         ret_val.append(", name =")
         ret_val.append(self.name)
         ret_val.append(", description =")
-        ret_val.append(self.__description)
+        ret_val.append(self.description)
         ret_val.append(", reference =")
-        ret_val.append(self.__reference)
+        ret_val.append(self.reference)
         ret_val.append("]")
         return "".join(ret_val)
 
@@ -530,19 +781,19 @@ class FormatTool(BASE):
     @staticmethod
     def all():
         """Convenience method, returns all of the FormatTool instances."""
-        return FormatTool.query.order_by(FormatTool.__name).all()
+        return FormatTool.query.order_by(FormatTool.name).all()
 
     @staticmethod
     def by_name(name):
         """Query for FormatTool with matching name."""
         check_param_not_none(name, "name")
-        return FormatTool.query.filter(FormatTool.__name == name).first()
+        return FormatTool.query.filter(FormatTool.name == name).first()
 
     @staticmethod
     def by_reference(reference):
         """Query for FormatTool with matching URL refernce."""
         check_param_not_none(reference, "nareferenceme")
-        return FormatTool.query.filter(FormatTool.__reference == reference).first()
+        return FormatTool.query.filter(FormatTool.reference == reference).first()
 
     @staticmethod
     def by_id(id):# pylint: disable-msg=W0622,C0103
@@ -561,41 +812,25 @@ class FormatToolRelease(BASE):
     __tablename__ = 'format_tool_release'
 
     id = Column(Integer, primary_key=True)# pylint: disable-msg=C0103
-    __format_tool_id = Column("format_tool_id", Integer,
-                              ForeignKey('format_tool.id'), nullable=False)
+    format_tool_id = Column(Integer,
+                            ForeignKey('format_tool.id'), nullable=False)
     format_tool = relationship("FormatTool", back_populates='versions')
-    __version = Column("version", String(50), nullable=False)
-    __available = Column("available", Boolean, nullable=False)
-    __enabled = Column("enabled", Boolean, nullable=False)
+    version = Column(String(50), nullable=False)
+    available = Column(Boolean, nullable=False)
+    enabled = Column(Boolean, nullable=False)
     UniqueConstraint('format_tool_id', 'version', name='uix__tool_version')
 
     def __init__(self, format_tool, version, available=True, enabled=True):
         check_param_not_none(format_tool, "format_tool")
         check_param_not_none(version, "version")
         self.format_tool = format_tool
-        self.__version = version
-        self.__available = available
-        self.__enabled = enabled
+        self.version = version
+        self.available = available
+        self.enabled = enabled
 
-    @property
-    def version(self):
-        """Returns the unique version number of the format tool"""
-        return self.__version
-
-    @property
-    def available(self):
-        """Returns true if the format tool is currently available"""
-        return self.__available
-
-    @property
-    def enabled(self):
+    def set_enabled(self, value):
         """Returns true if the format tool is currently enabled"""
-        return self.__enabled
-
-    @enabled.setter
-    def enabled(self, value):
-        """Returns true if the format tool is currently enabled"""
-        self.__enabled = value
+        self.enabled = value
         DB_SESSION.commit()
 
     def disable(self):
@@ -611,7 +846,7 @@ class FormatToolRelease(BASE):
         return _add(self)
 
     def __key(self):
-        return (self.__format_tool_id, self.version)
+        return (self.format_tool_id, self.version)
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -652,16 +887,16 @@ class FormatToolRelease(BASE):
     def by_version(version):
         """Query for FormatToolRelease with matching version."""
         check_param_not_none(version, "version")
-        return FormatToolRelease.query.filter(FormatToolRelease.__version == version).first()
+        return FormatToolRelease.query.filter(FormatToolRelease.version == version).first()
 
     @staticmethod
     def by_tool_and_version(format_tool, version):
         """Query for FormatToolRelease with matching version."""
         check_param_not_none(format_tool, "format_tool")
         check_param_not_none(version, "version")
-        return FormatToolRelease.query.filter(and_(FormatToolRelease.__format_tool_id == \
+        return FormatToolRelease.query.filter(and_(FormatToolRelease.format_tool_id == \
                                                    format_tool.id,
-                                                   FormatToolRelease.__version == version)).first()
+                                                   FormatToolRelease.version == version)).first()
 
     @staticmethod
     def by_id(id):# pylint: disable-msg=W0622,C0103
@@ -679,7 +914,7 @@ class FormatToolRelease(BASE):
     def get_available():
         """Retrieve all available format tools."""
         return FormatToolRelease.query.filter(
-            FormatToolRelease.__available == True).all()# pylint: disable-msg=C0121
+            FormatToolRelease.available == True).all()# pylint: disable-msg=C0121
 
     @staticmethod
     def all_available():
@@ -705,7 +940,7 @@ class FormatToolRelease(BASE):
     def get_enabled():
         """Retrieve all enabled format tools."""
         return FormatToolRelease.query.filter(
-            FormatToolRelease.__enabled == True).all()# pylint: disable-msg=C0121
+            FormatToolRelease.enabled == True).all()# pylint: disable-msg=C0121
 
 def init_db():
     """Initialise the database."""

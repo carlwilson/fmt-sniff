@@ -1,0 +1,27 @@
+{% extends "page.html" %}
+{% block title %}Report Details{% endblock %}
+{% block page_content %}
+  <h2>Report Details</h2>
+  <p class="lead"><a href="">{{ report.source.name }}</a>/<a href="/{{ report.root_key }}">{{ report.root_key }}</a></p>
+  <p>Created at {{ report.short_iso_timestamp }}, for {{ file_count }} files totalling {{ size }} in size.</p>
+  <table class="table table-striped">
+    <tr>
+      <th>namespace</th>
+      <th>name</th>
+    </tr>
+  {{ prop_rows(report.id, props) }}
+</table>
+{% endblock page_content %}
+
+{% macro prop_rows(report_id, props) %}
+{% for prop in props %}
+  {{ prop_row(report_id, prop) }}
+{% endfor %}
+{% endmacro %}
+
+{% macro prop_row(report_id, prop) %}
+  <tr>
+    <td><a href="prop/{{ prop.id }}" >{{ prop.namespace }}</a></td>
+    <td>{{ prop.name }}</td>
+  </tr>
+{% endmacro -%}

@@ -34,8 +34,8 @@ from tzlocal import get_localzone
 
 from .corptest import APP
 from .blobstore import Sha1Lookup, BlobStore
-from .model import FormatToolRelease
-from .utilities import sha1_path, timestamp_fmt
+from .model import FormatToolRelease, Property, PropertyValue, KeyProperties
+from .utilities import sha1_path, timestamp_fmt, Extension
 from .format_tools import get_format_tool_instance
 
 RDSS_ROOT = APP.config.get('RDSS_ROOT')
@@ -180,6 +180,12 @@ class SourceBase(object):
         element. Throws a ValueError if a folder key is passed."""
         return
 
+    @abc.abstractmethod
+    def get_file_properties(self, key, source_key):
+        """Takes a key and augments it with detailed metadata about a File
+        element. Throws a ValueError if a folder key is passed."""
+        return
+
     @staticmethod
     def _validate_key_and_return_prefix(filter_key):
         prefix = ''
@@ -274,19 +280,16 @@ class AS3Bucket(SourceBase):
     def get_file_metadata(self, key):
         if not key or key.is_folder:
             raise ValueError("Argument key must be a file key.")
-        logging.info("Obtaining S3 meta for key: %r", key)
+        logging.info("Obtaining meta for key: %r", key)
         s3_client = client('s3')
         result = s3_client.get_object(Bucket=self.bucket.location,
                                       Key=key.value)
         augmented_key = SourceKey(key.value, False, result.get('ContentLength'),
                                   result.get('LastModified'))
-        etag = result.get('ETag')[1:-1]
-        augmented_key.metadata['ETag'] = etag
-        augmented_key.metadata['ContentType'] = result.get('ContentType')
-        augmented_key.metadata['ContentEncoding'] = result.get('ContentEncoding')
+        augmented_key.metadata.update(self.get_s3_metadata_from_result(key, result))
         for md_key, md_value in result['Metadata']:
             augmented_key.metadata[md_key] = md_value
-        sha1 = Sha1Lookup.get_sha1(etag)
+        sha1 = Sha1Lookup.get_sha1(augmented_key.metadata['ETag'])
         full_path, sha1 = self.get_temp_file(augmented_key, sha1)
         augmented_key.metadata['SHA1'] = sha1
         for tool_release in FormatToolRelease.get_enabled():
@@ -298,6 +301,35 @@ class AS3Bucket(SourceBase):
                 if metadata:
                     augmented_key.metadata.update(metadata)
         return augmented_key
+
+    def get_file_properties(self, key, source_key):
+        if not key or key.is_folder:
+            raise ValueError("Argument key must be a file key.")
+        logging.info("Obtaining S3 Properties for key: %r", key)
+        s3_client = client('s3')
+        result = s3_client.get_object(Bucket=self.bucket.location,
+                                      Key=key.value)
+        metadata = self.get_s3_metadata_from_result(key, result)
+        ret_val = []
+        for _md_key in metadata:
+            prop = Property.putdate('s3.amazon.com', _md_key)
+            prop_val = PropertyValue.putdate(metadata[_md_key])
+            key_prop = KeyProperties.putdate(source_key, prop, prop_val)
+            ret_val.append(key_prop)
+        return ret_val
+
+    @classmethod
+    def get_s3_metadata_from_result(cls, key, result):
+        """Get the S3 Metadata types for a key."""
+        if not key or key.is_folder:
+            raise ValueError("Argument key must be a file key.")
+        logging.info("Obtaining S3 meta for key: %r", key)
+        metadata = collections.defaultdict(dict)
+        etag = result.get('ETag')[1:-1]
+        metadata['ETag'] = etag
+        metadata['ContentType'] = result.get('ContentType')
+        metadata['Extension'] = Extension.from_file_name(key.name).ext
+        return metadata
 
     def get_temp_file(self, key, sha1=None):
         """Creates a temp file copy of a file from the specified image."""
@@ -406,12 +438,10 @@ class FileSystem(SourceBase):
         augmented_key = SourceKey(key.value, False, result.st_size,
                                   datetime.fromtimestamp(result.st_mtime,
                                                          self.TIME_ZONE))
+        augmented_key.metadata.update(self.get_fs_metadata_from_result(key, result))
         sha1 = sha1_path(full_path)
         augmented_key.metadata['SHA1'] = sha1 if sha1 else ''
-        augmented_key.metadata['Created'] = datetime.fromtimestamp(result.st_ctime,
-                                                                   self.TIME_ZONE)
-        augmented_key.metadata['LastAccessed'] = datetime.fromtimestamp(result.st_atime,
-                                                                        self.TIME_ZONE)
+
         for tool_release in FormatToolRelease.get_enabled():
             tool = get_format_tool_instance(tool_release.format_tool)
             logging.debug("Checking %s", tool.format_tool_release.format_tool.name)
@@ -421,6 +451,33 @@ class FileSystem(SourceBase):
                 if metadata:
                     augmented_key.metadata.update(metadata)
         return augmented_key
+
+    @classmethod
+    def get_fs_metadata_from_result(cls, key, result):
+        """Get the fs Metadata types for a key."""
+        if not key or key.is_folder:
+            raise ValueError("Argument key must be a file key.")
+        logging.info("Obtaining FS meta for key: %s", key)
+        metadata = collections.defaultdict(dict)
+        metadata['Created'] = datetime.fromtimestamp(result.st_ctime,
+                                                     cls.TIME_ZONE)
+        metadata['LastAccessed'] = datetime.fromtimestamp(result.st_atime,
+                                                          cls.TIME_ZONE)
+        return metadata
+
+    def get_file_properties(self, key, source_key):
+        if not key or key.is_folder:
+            raise ValueError("Argument key must be a file key.")
+        full_path = os.path.join(self.file_system.location, key.value)
+        result = stat(full_path)
+        metadata = self.get_fs_metadata_from_result(key, result)
+        ret_val = []
+        for _md_key in metadata:
+            prop = Property.putdate('filesys.python', _md_key)
+            prop_val = PropertyValue.putdate(metadata[_md_key])
+            key_prop = KeyProperties.putdate(source_key, prop, prop_val)
+            ret_val.append(key_prop)
+        return ret_val
 
     def get_temp_file(self, key):
         """Creates a temp file copy of a file from the specified image."""
