@@ -8,17 +8,27 @@
     <a href="/source/{{ source_item.id }}/folder/{{ part_path }}/">{{ part }}/</a>
     {%- endfor %}
   </p>
+  <p class="lead">
+    Here you can browse the source folders, analyse individual files and analyse
+    this folder and its sub-folders.
+  </p>
   <form role="form" action="/reports/" method="POST">
     <input type="hidden" value="{{ source_item.id }}" name="source_id" />
-    <input type="hidden" value="{{ filter_key.value }}" name="encoded_filepath" />
+    <input type="hidden" value="{{ filter_key.value if filter_key.value else '' }}" name="encoded_filepath" />
     <div class="form-group">
       <span class="input-group-btn">
         <button type="submit" class="btn btn-primary">
-          Analyse
           <span class="glyphicon glyphicon-tasks">
           </span>
+          Analyse
         </button>
       </span>
+      <div class="checkbox">
+        <label>
+          <input type="checkbox" name="analyse_sub_folders"> Analyse sub-folders.
+        </label>
+      </div>
+      <p class="help">Start analysis of this folder and optionally its sub-folders.</p>
     </div>
   </form>
   <table class="table table-striped">

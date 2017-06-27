@@ -7,23 +7,22 @@
       </div>
       <div class="media-body">
         <h1 class="media-heading">RDSS Format Analysis</h1>
-        <p>
-          Choose Bucket or Local Folder
-        </p>
+        <p>Choose one of the tabs below to browse an S3 Bucket or Local File System Folder</p>
       </div>
     </div>
     <div class="row">
       <div class="col-md-1"></div>
-      {{ source_list(buckets, 'bucket') }}
+      {{ source_list(buckets) }}
       <div class="col-md-2"></div>
-      {{ source_list(folders, 'folder') }}
+      {{ source_list(folders, type='folder', sub_heading='Browse the local file system.') }}
       <div class="col-md-1"></div>
     </div>
 {% endblock page_content %}
 
-{% macro source_list(sources, type='bucket') %}
+{% macro source_list(sources, type='bucket', sub_heading='Browse an Amazon S3 Bucket.') %}
         <div class="col-md-4">
           <h2>{{ type|capitalize }}s</h2>
+          <p class="lead">{{ sub_heading }}</p>
           <div class="list-group">
           {% for source in sources %}
             <a href="source/{{ source.id }}/folder" class="list-group-item">

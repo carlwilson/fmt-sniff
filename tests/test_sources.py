@@ -22,11 +22,11 @@ TEST_READABLE_ROOT = os.path.join(THIS_DIR, "disk-corpus")
 
 class SourceKeyTestCase(unittest.TestCase):
     """ Test cases for the SourceDetails class and methods. """
-    def test_empty_value(self):
-        """ Test case for empty value. """
-        with self.assertRaises(ValueError) as _:
-            SourceKey('')
-
+    # def test_empty_value(self):
+    #     """ Test case for empty value. """
+    #     with self.assertRaises(ValueError) as _:
+    #         SourceKey('')
+    #
     def test_null_value(self):
         """ Test case for null value."""
         with self.assertRaises(ValueError) as _:

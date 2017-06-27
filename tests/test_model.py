@@ -187,7 +187,7 @@ def test_add_files(session):# pylint: disable-msg=W0621, W0613
     file_system_index.put()
     file_system = FileSystem(file_system_source)
     for key in file_system.all_file_keys():
-        _source_key = Key(file_system_index, key.value, key.size,
+        _source_key = Key(file_system_index, key.value, int(key.size),
                           dateutil.parser.parse(key.last_modified))
         _source_key.put()
     DB_SESSION.commit()
@@ -202,12 +202,10 @@ def test_add_files(session):# pylint: disable-msg=W0621, W0613
     file_system_index_two = SourceIndex(file_system_source, datetime.now())
     file_system_index_two.put()
     for key in file_system.all_file_keys():
-        _source_key = Key(file_system_index_two, key.value, key.size,
+        _source_key = Key(file_system_index_two, key.value, int(key.size),
                           dateutil.parser.parse(key.last_modified))
         _source_key.put()
         DB_SESSION.commit()
-    for key in Key.all():
-        print "KEY : {0!s}".format(key)
     assert Key.count() == (2 * corp_file_count)
 
 def file_count(folder):
@@ -304,7 +302,7 @@ def test_add_bytesequence(session):# pylint: disable-msg=W0621, W0613
         assert not key.metadata['SHA1']
         _aug_key = file_system.get_file_metadata(key)
         assert _aug_key.metadata['SHA1'] != ByteSequence.EMPTY_SHA1
-        _bytes = ByteSequence(_aug_key.metadata['SHA1'], key.size)
+        _bytes = ByteSequence(_aug_key.metadata['SHA1'], int(key.size))
         _bytes.put()
     _byte_count = len(ByteSequence.all())
     assert _byte_count == corp_file_count

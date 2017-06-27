@@ -129,7 +129,7 @@ class SourceIndex(BASE):
         check_param_not_none(source, "source")
         self.source = source
         self.timestamp = timestamp if timestamp else datetime.now()
-        self.root_key = '/' if not root_key else root_key
+        self.root_key = '' if not root_key else root_key
 
     @property
     def iso_timestamp(self):
@@ -151,6 +151,14 @@ class SourceIndex(BASE):
         """Returns the total size in bytes of all files in the index."""
         return DB_SESSION.query(func.sum(Key.size)).group_by(Key.source_index_id).\
             filter(Key.source_index_id == self.id).scalar()
+
+    @property
+    def to_download(self):
+        """Returns true if there is still data to download for this index."""
+        if self.source.scheme == SCHEMES['FILE']:
+            return False
+        return Key.query.filter(Key.source_index_id == self.id,
+                             Key.byte_sequence_id == None).count() > 0
 
     def put(self):
         """ Add the SourceIndex to the database."""
@@ -217,7 +225,7 @@ class Key(BASE):
     byte_sequence = relationship("ByteSequence")
     __table_args__ = (UniqueConstraint('source_index_id', 'path', name='uix_source_path'),)
 
-    def __init__(self, source_index, path, size, last_modified=None, byte_sequence=None):
+    def __init__(self, source_index, path, size=0, last_modified=None, byte_sequence=None):
         check_param_not_none(source_index, "source_index")
         check_param_not_none(path, "path")
         if size is None:
@@ -387,6 +395,7 @@ class Property(BASE):
 
     @classmethod
     def putdate(cls, namespace, name, description=None):
+        """Create or update the Property."""
         ret_val = cls.by_namespace_and_name(namespace, name)
         if ret_val is None:
             ret_val = Property(namespace, name, description)
@@ -394,7 +403,6 @@ class Property(BASE):
             ret_val.description = description
         ret_val.put()
         return ret_val
-
 
     @staticmethod
     def add(to_add):
@@ -410,7 +418,7 @@ class PropertyValue(BASE):
     value = Column(String(512), nullable=False, unique=True)
 
     def __init__(self, value):
-        check_param_not_none(value, "value")
+        value = value if value else ''
         self.value = str(value)
 
     def put(self):
@@ -462,7 +470,7 @@ class PropertyValue(BASE):
     @staticmethod
     def by_value(value):# pylint: disable-msg=W0622,C0103
         """Query for ByteSequence with matching id."""
-        check_param_not_none(value, "value")
+        value = value if value else ''
         return PropertyValue.query.filter(PropertyValue.value == str(value)).first()
 
     @staticmethod
@@ -473,6 +481,7 @@ class PropertyValue(BASE):
 
     @classmethod
     def putdate(cls, value):
+        """Create or update the Property."""
         ret_val = cls.by_value(value)
         if ret_val is None:
             ret_val = PropertyValue(value)
@@ -480,6 +489,7 @@ class PropertyValue(BASE):
         return ret_val
 
 class KeyProperties(BASE):
+    """Properties assigned to SourceKeys."""
     __tablename__ = 'key_properties'
 
     id = Column(Integer, primary_key=True)# pylint: disable-msg=C0103
@@ -593,6 +603,7 @@ class KeyProperties(BASE):
 
     @classmethod
     def putdate(cls, key, prop, prop_val):
+        """Create or update the KeyProperty."""
         ret_val = cls.by_key_and_prop_id(key.id, prop.id)
         if ret_val is None:
             ret_val = KeyProperties(key, prop, prop_val)
@@ -835,11 +846,11 @@ class FormatToolRelease(BASE):
 
     def disable(self):
         """Sets the tool's enabled flag False."""
-        self.enabled = False
+        self.set_enabled(False)
 
     def enable(self):
         """Sets the tool's enabled flag True."""
-        self.enabled = True
+        self.set_enabled(True)
 
     def put(self):
         """Add this FormatToolRelease instance to the database."""
@@ -909,6 +920,16 @@ class FormatToolRelease(BASE):
         """Add a FormatToolRelease instance to the table."""
         check_param_not_none(format_tool_release, "format_tool_release")
         _add(format_tool_release)
+
+    @staticmethod
+    def putdate(to_put):
+        """Add a FormatToolRelease instance to the table."""
+        check_param_not_none(to_put, "to_put")
+        ret_val = FormatToolRelease.by_tool_and_version(to_put.format_tool, to_put.version)
+        if ret_val is None:
+            _add(to_put)
+            ret_val = to_put
+        return ret_val
 
     @staticmethod
     def get_available():

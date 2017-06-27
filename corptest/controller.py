@@ -26,7 +26,7 @@ from werkzeug.exceptions import BadRequest, NotFound
 from .corptest import APP, __version__
 from .database import DB_SESSION
 from .model import SCHEMES, Source, FormatToolRelease, SourceIndex, Key
-from .model import ByteSequence, KeyProperties, Property
+from .model import KeyProperties, Property
 from .sources import SourceKey, FileSystem, AS3Bucket, BLOBSTORE
 from .utilities import sizeof_fmt
 ROUTES = True
@@ -74,15 +74,8 @@ def show_tool(tool_id):
 def toggle_tool_enabed(tool_id):
     """POST method to toggle a tool on and off."""
     tool = FormatToolRelease.by_id(tool_id)
-    enabled = tool.enabled
-    logging.debug("Tool %s is %s", tool, enabled)
-    if enabled:
-        tool.disable()
-    else:
-        tool.enable()
-    enabled = not tool.enabled
-    logging.debug("Tool %s is %s", tool, enabled)
-    return jsonify(enabled)
+    tool.set_enabled(not tool.enabled)
+    return jsonify(tool.enabled)
 
 @APP.route("/reports/")
 def list_reports():
@@ -95,8 +88,9 @@ def new_report():
     source_id = request.form.get('source_id')
     logging.debug('source_id : %s', source_id)
     encoded_filepath = request.form.get('encoded_filepath')
+    analyse_sub_folders = request.form.get('analyse_sub_folders')
     logging.debug('encoded_filepath : %s', encoded_filepath)
-    return _add_index(Source.by_id(source_id), encoded_filepath)
+    return _add_index(Source.by_id(source_id), encoded_filepath, analyse_sub_folders)
 
 @APP.route("/reports/<int:report_id>/")
 def report_detail(report_id):
@@ -150,23 +144,18 @@ def _folder_list(source_item, encoded_filepath):
     return render_template('folder_list.html', source_item=source_item, filter_key=filter_key,
                            metadata_keys=metadata_keys, folders=folders, files=files)
 
-def _add_index(source_item, encoded_filepath):
+def _add_index(source_item, encoded_filepath, analyse_sub_folders):
     source, filter_key = _get_source_and_key(source_item, encoded_filepath)
+    filter_key = filter_key if filter_key else SourceKey('')
     if not source.key_exists(filter_key):
         raise NotFound('Folder %s not found' % encoded_filepath)
     source_index = SourceIndex(source_item, datetime.now(), filter_key.value)
     source_index.put()
-    for key in source.list_files(filter_key=filter_key, recurse=True):
-        full_path, sha1 = source.get_temp_file(key)
-        byte_seq = ByteSequence.by_sha1(sha1)
-        logging.debug('byte_seq : %s', byte_seq)
-        if byte_seq is None:
-            byte_seq = ByteSequence.from_file(full_path)
-            byte_seq.put()
-        _source_key = Key(source_index, key.value, key.size,
-                          dateutil.parser.parse(key.last_modified), byte_sequence=byte_seq)
-        _source_key.put()
-        source.get_file_properties(key, _source_key)
+    for source_key in source.list_files(filter_key=filter_key, recurse=analyse_sub_folders):
+        key = Key(source_index, source_key.value, source_key.size,
+                  dateutil.parser.parse(source_key.last_modified), byte_sequence=None)
+        key.put()
+        source.get_key_properties(source_key, key)
     return list_reports()
 
 def _file_details(source_item, encoded_filepath):

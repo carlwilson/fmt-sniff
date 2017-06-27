@@ -7,6 +7,9 @@
       <th>Source</th>
       <th>Root Path</th>
       <th>Created</th>
+      <th>Files</th>
+      <th>Size</th>
+      <th>To Download</th>
     </tr>
     {{ key_rows(reports) }}
   </table>
@@ -23,5 +26,8 @@
       <td><a href="{{ report.id }}">{{ report.source.name }}</a></td>
       <td>{{ report.root_key }}</td>
       <td>{{ report.short_iso_timestamp }}</td>
+      <td>{{ report.key_count }}</td>
+      <td>{{ report.size if report.size else 0 }}</td>
+      <td>{{ report.to_download }}</td>
     </tr>
   {% endmacro -%}

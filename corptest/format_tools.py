@@ -41,6 +41,7 @@ class FineFreeFile(object):
             if FineFreeFile.__version else self._get_version()
         self.__format_tool_release = FormatToolRelease(format_tool, FineFreeFile.__version)
         self.__enabled = True
+        FormatToolRelease.putdate(self.format_tool_release)
 
     @property
     def format_tool_release(self):
@@ -125,6 +126,7 @@ class DROID(object):
             if DROID.__version else self._get_version()
         self.__format_tool_release = FormatToolRelease(format_tool, DROID.__version)
         self.__enabled = True
+        FormatToolRelease.putdate(self.format_tool_release)
 
     @property
     def format_tool_release(self):
@@ -195,6 +197,7 @@ class FIDO(object):
         check_param_not_none(format_tool, "format_tool")
         self.__format_tool_release = FormatToolRelease(format_tool, FIDO.__version)
         self.__enabled = True
+        FormatToolRelease.putdate(self.format_tool_release)
 
     @property
     def format_tool_release(self):
@@ -272,6 +275,7 @@ class PythonMagic(object):
         check_param_not_none(format_tool, "format_tool")
         self.__format_tool_release = FormatToolRelease(format_tool, PythonMagic.__version)
         self.__enabled = True
+        FormatToolRelease.putdate(self.format_tool_release)
 
     @property
     def format_tool_release(self):
@@ -335,6 +339,7 @@ class Tika(object):
             if Tika.__version else self._get_version()
         self.__format_tool_release = FormatToolRelease(format_tool, Tika.__version)
         self.__enabled = True
+        FormatToolRelease.putdate(self.format_tool_release)
 
     @property
     def format_tool_release(self):

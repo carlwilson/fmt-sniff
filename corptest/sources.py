@@ -34,7 +34,7 @@ from tzlocal import get_localzone
 
 from .corptest import APP
 from .blobstore import Sha1Lookup, BlobStore
-from .model import FormatToolRelease, Property, PropertyValue, KeyProperties
+from .model import FormatToolRelease, Property, PropertyValue, KeyProperties, ByteSequence
 from .utilities import sha1_path, timestamp_fmt, Extension
 from .format_tools import get_format_tool_instance
 
@@ -48,8 +48,8 @@ class SourceKey(object):
     """Simple class encapsulating 2 parts of a key, the value and whether it's a folder."""
 
     def __init__(self, value, is_folder=True, size=0, last_modified=datetime.now()):
-        if not value:
-            raise ValueError("Argument value can not be None or an empty string.")
+        if value is None:
+            raise ValueError("Argument value can not be None.")
         self.__value = value
         self.__is_folder = is_folder
         self.__size = size
@@ -143,6 +143,7 @@ class SourceKey(object):
 
 class SourceBase(object):
     """Abstract base class for Source classes."""
+    EXT = "Ext"
     __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
@@ -186,6 +187,17 @@ class SourceBase(object):
         element. Throws a ValueError if a folder key is passed."""
         return
 
+    @abc.abstractmethod
+    def get_key_properties(self, key, source_key):
+        """Takes a key and augments it with detailed metadata about a File
+        element. Throws a ValueError if a folder key is passed."""
+        return
+
+    @abc.abstractmethod
+    def get_path_and_byte_seq(self, key, sha1):
+        """ Returns a file path and ByteSequence tuple for the key. """
+        return
+
     @staticmethod
     def _validate_key_and_return_prefix(filter_key):
         prefix = ''
@@ -195,11 +207,27 @@ class SourceBase(object):
             prefix = filter_key.value
         return prefix
 
+    @staticmethod
+    def _properties_from_metadata(namespace, metadata, source_key):
+        logging.debug('Checking dict %s', metadata)
+        ret_val = []
+        if isinstance(metadata, dict):
+            for _md_key in metadata:
+                prop = Property.putdate(namespace, _md_key)
+                prop_val = PropertyValue.putdate(metadata[_md_key])
+                key_prop = KeyProperties.putdate(source_key, prop, prop_val)
+                ret_val.append(key_prop)
+        else:
+            logging.debug('Passed non dict %s', metadata)
+        return ret_val
+
 class AS3Bucket(SourceBase):
     """A Source based on an Amazon S3 bucket."""
     FOLDER_REGEX = re.compile('.*/$')
     S3_RESOURCE = None
-    __KEYS = ['ETag']
+    ETAG = 'ETag'
+
+    __KEYS = [ETAG, SourceBase.EXT]
     def __init__(self, bucket):
         if not bucket:
             raise ValueError("Argument bucket can not be None.")
@@ -268,7 +296,9 @@ class AS3Bucket(SourceBase):
             for obj_summary in result.get('Contents'):
                 key = SourceKey(obj_summary.get('Key'), False, obj_summary.get('Size'),
                                 obj_summary.get('LastModified'))
-                key.metadata['ETag'] = obj_summary.get('ETag')[1:-1]
+                key.metadata[self.ETAG] = self._etag_from_result(obj_summary)
+                key.metadata[super(AS3Bucket, self).EXT] = Extension.from_file_name(key.name).ext
+
                 yield key
         if recurse:
             if result.get('CommonPrefixes'):
@@ -281,16 +311,14 @@ class AS3Bucket(SourceBase):
         if not key or key.is_folder:
             raise ValueError("Argument key must be a file key.")
         logging.info("Obtaining meta for key: %r", key)
-        s3_client = client('s3')
-        result = s3_client.get_object(Bucket=self.bucket.location,
-                                      Key=key.value)
+        result = self._get_object_result(key.value)
         augmented_key = SourceKey(key.value, False, result.get('ContentLength'),
                                   result.get('LastModified'))
         augmented_key.metadata.update(self.get_s3_metadata_from_result(key, result))
         for md_key, md_value in result['Metadata']:
             augmented_key.metadata[md_key] = md_value
-        sha1 = Sha1Lookup.get_sha1(augmented_key.metadata['ETag'])
-        full_path, sha1 = self.get_temp_file(augmented_key, sha1)
+        sha1 = Sha1Lookup.get_sha1(augmented_key.metadata[self.ETAG])
+        full_path, sha1 = self.get_path_and_byte_seq(augmented_key, sha1)
         augmented_key.metadata['SHA1'] = sha1
         for tool_release in FormatToolRelease.get_enabled():
             logging.debug("Checking %s", tool_release.format_tool.name)
@@ -306,17 +334,20 @@ class AS3Bucket(SourceBase):
         if not key or key.is_folder:
             raise ValueError("Argument key must be a file key.")
         logging.info("Obtaining S3 Properties for key: %r", key)
-        s3_client = client('s3')
-        result = s3_client.get_object(Bucket=self.bucket.location,
-                                      Key=key.value)
+        result = self._get_object_result(key.value)
         metadata = self.get_s3_metadata_from_result(key, result)
-        ret_val = []
-        for _md_key in metadata:
-            prop = Property.putdate('s3.amazon.com', _md_key)
-            prop_val = PropertyValue.putdate(metadata[_md_key])
-            key_prop = KeyProperties.putdate(source_key, prop, prop_val)
-            ret_val.append(key_prop)
-        return ret_val
+        return super(AS3Bucket, self)._properties_from_metadata('s3.amazon.com',
+                                                                metadata,
+                                                                source_key)
+
+    def get_key_properties(self, key, source_key):
+        return super(AS3Bucket, self)._properties_from_metadata('s3.amazon.com',
+                                                                key.metadata,
+                                                                source_key)
+
+    def _get_object_result(self, key_value):
+        s3_client = client('s3')
+        return s3_client.get_object(Bucket=self.bucket.location, Key=key_value)
 
     @classmethod
     def get_s3_metadata_from_result(cls, key, result):
@@ -325,18 +356,16 @@ class AS3Bucket(SourceBase):
             raise ValueError("Argument key must be a file key.")
         logging.info("Obtaining S3 meta for key: %r", key)
         metadata = collections.defaultdict(dict)
-        etag = result.get('ETag')[1:-1]
-        metadata['ETag'] = etag
         metadata['ContentType'] = result.get('ContentType')
-        metadata['Extension'] = Extension.from_file_name(key.name).ext
         return metadata
 
-    def get_temp_file(self, key, sha1=None):
+    def get_path_and_byte_seq(self, key, sha1=None):
         """Creates a temp file copy of a file from the specified image."""
         if not key or key.is_folder:
             # File keys only please
             raise ValueError("Argument key must be a file key.")
-
+        if sha1 is None:
+            sha1 = Sha1Lookup.get_sha1(key.metadata[self.ETAG])
         # Check if we know the SHA1, if we do and the Blobstore has a copy use that
         if sha1 and BLOBSTORE.has_copy(sha1):
             logging.info('SHA1 %s is cached in local BlobStore, using as temp', sha1)
@@ -348,7 +377,12 @@ class AS3Bucket(SourceBase):
                 s3_client.download_fileobj(self.bucket.location, key.value, temp)
                 sha1 = sha1_path(temp.name)
                 BLOBSTORE.add_file(temp.name, sha1)
-        return BLOBSTORE.get_blob_path(sha1), sha1
+        byte_seq = ByteSequence.by_sha1(sha1)
+        file_path = BLOBSTORE.get_blob_path(sha1)
+        if byte_seq is None:
+            byte_seq = ByteSequence(sha1, os.path.getsize(file_path))
+            byte_seq.put()
+        return file_path, byte_seq
 
     @classmethod
     def validate_bucket(cls, bucket_name):
@@ -376,10 +410,14 @@ class AS3Bucket(SourceBase):
         ret_val.append("]")
         return "".join(ret_val)
 
+    @classmethod
+    def _etag_from_result(cls, result):
+        return result.get(cls.ETAG)[1:-1]
+
 class FileSystem(SourceBase):
     """A source based on a file system"""
     TIME_ZONE = get_localzone()
-    __KEYS = []
+    __KEYS = [SourceBase.EXT]
 
     def __init__(self, file_system):
         if not file_system:
@@ -416,19 +454,25 @@ class FileSystem(SourceBase):
     def yield_keys(self, prefix='', list_files=True, list_folders=True, recurse=False):
         """Generator that yields a list of file and or folder keys from a root
         directory."""
-        for entry in scandir(os.path.join(self.file_system.location, prefix)):
-            if list_files and entry.is_file(follow_symlinks=False):
-                yield SourceKey(os.path.join(prefix, entry.name), False, entry.stat().st_size,
-                                datetime.fromtimestamp(entry.stat().st_mtime, self.TIME_ZONE))
-            if entry.is_dir(follow_symlinks=False):
-                if list_folders:
-                    yield SourceKey(os.path.join(prefix, entry.name))
-                if recurse:
-                    for child in self.yield_keys(prefix=os.path.join(prefix, entry.name),
-                                                 list_files=list_files,
-                                                 list_folders=list_folders,
-                                                 recurse=True):
-                        yield child
+        path = os.path.join(self.file_system.location, prefix)
+        if os.access(path, os.R_OK):
+            for entry in scandir(os.path.join(self.file_system.location, prefix)):
+                if list_files and entry.is_file(follow_symlinks=False):
+                    key = SourceKey(os.path.join(prefix, entry.name), False,
+                                    int(entry.stat().st_size),
+                                    datetime.fromtimestamp(entry.stat().st_mtime, self.TIME_ZONE))
+                    key.metadata[SourceBase.EXT] = Extension.from_file_name(key.name).ext
+                    yield key
+
+                if entry.is_dir(follow_symlinks=False):
+                    if list_folders:
+                        yield SourceKey(os.path.join(prefix, entry.name))
+                    if recurse:
+                        for child in self.yield_keys(prefix=os.path.join(prefix, entry.name),
+                                                     list_files=list_files,
+                                                     list_folders=list_folders,
+                                                     recurse=True):
+                            yield child
 
     def get_file_metadata(self, key):
         if not key or key.is_folder:
@@ -463,6 +507,7 @@ class FileSystem(SourceBase):
                                                      cls.TIME_ZONE)
         metadata['LastAccessed'] = datetime.fromtimestamp(result.st_atime,
                                                           cls.TIME_ZONE)
+        metadata['Extension'] = Extension.from_file_name(key.name).ext
         return metadata
 
     def get_file_properties(self, key, source_key):
@@ -471,21 +516,28 @@ class FileSystem(SourceBase):
         full_path = os.path.join(self.file_system.location, key.value)
         result = stat(full_path)
         metadata = self.get_fs_metadata_from_result(key, result)
-        ret_val = []
-        for _md_key in metadata:
-            prop = Property.putdate('filesys.python', _md_key)
-            prop_val = PropertyValue.putdate(metadata[_md_key])
-            key_prop = KeyProperties.putdate(source_key, prop, prop_val)
-            ret_val.append(key_prop)
-        return ret_val
+        return super(FileSystem, self)._properties_from_metadata('os.python.org',
+                                                                 metadata,
+                                                                 source_key)
 
-    def get_temp_file(self, key):
+    def get_key_properties(self, key, source_key):
+        return super(FileSystem, self)._properties_from_metadata('os.python.org',
+                                                                 key.metadata,
+                                                                 source_key)
+
+
+    def get_path_and_byte_seq(self, key, sha1=None):
         """Creates a temp file copy of a file from the specified image."""
         if not key or key.is_folder:
             raise ValueError("Argument key must be a file key.")
         file_path = os.path.join(self.file_system.location, key.value)
-        sha1 = sha1_path(file_path)
-        return file_path, sha1
+
+        sha1 = sha1_path(file_path) if os.access(file_path, R_OK) else ByteSequence.EMPTY_SHA1
+        byte_seq = ByteSequence.by_sha1(sha1)
+        if byte_seq is None:
+            byte_seq = ByteSequence(sha1, os.path.getsize(file_path))
+            byte_seq.put()
+        return file_path, byte_seq
 
     def __rep__(self): # pragma: no cover
         ret_val = []
