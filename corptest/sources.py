@@ -310,7 +310,8 @@ class AS3Bucket(SourceBase):
     def get_file_metadata(self, key):
         if not key or key.is_folder:
             raise ValueError("Argument key must be a file key.")
-        logging.info("Obtaining meta for key: %r", key)
+        logging.info("Obtaining meta for key: %s", key)
+        logging.info("Obtaining meta for key.value: %s", key.value)
         result = self._get_object_result(key.value)
         augmented_key = SourceKey(key.value, False, result.get('ContentLength'),
                                   result.get('LastModified'))
@@ -356,7 +357,9 @@ class AS3Bucket(SourceBase):
             raise ValueError("Argument key must be a file key.")
         logging.info("Obtaining S3 meta for key: %r", key)
         metadata = collections.defaultdict(dict)
+        metadata['ETag'] = result.get('ETag')[1:-1]
         metadata['ContentType'] = result.get('ContentType')
+        metadata['ContentEncoding'] = result.get('ContentEncoding')
         return metadata
 
     def get_path_and_byte_seq(self, key, sha1=None):
