@@ -177,7 +177,7 @@ def _download_item(source_item, encoded_filepath):
     source, key = _get_source_and_key(source_item, encoded_filepath, is_folder=False)
     if not source.key_exists(key):
         raise NotFound('File %s not found' % encoded_filepath)
-    temp_file, _ = source.get_temp_file(key)
+    temp_file, _ = source.get_path_and_byte_seq(key)
     mime_type = MimeTypes().guess_type(key.value)[0]
     response = make_response(send_file(temp_file, mimetype=mime_type))
     response.headers["Content-Disposition"] = \
