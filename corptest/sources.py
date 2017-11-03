@@ -225,6 +225,7 @@ class AS3Bucket(SourceBase):
     """A Source based on an Amazon S3 bucket."""
     FOLDER_REGEX = re.compile('.*/$')
     S3_RESOURCE = None
+    SHA1 = 'SHA1'
     ETAG = 'ETag'
 
     __KEYS = [ETAG, SourceBase.EXT]
@@ -312,15 +313,9 @@ class AS3Bucket(SourceBase):
             raise ValueError("Argument key must be a file key.")
         logging.info("Obtaining meta for key: %s", key)
         logging.info("Obtaining meta for key.value: %s", key.value)
-        result = self._get_object_result(key.value)
-        augmented_key = SourceKey(key.value, False, result.get('ContentLength'),
-                                  result.get('LastModified'))
-        augmented_key.metadata.update(self.get_s3_metadata_from_result(key, result))
-        for md_key, md_value in result['Metadata']:
-            augmented_key.metadata[md_key] = md_value
-        sha1 = Sha1Lookup.get_sha1(augmented_key.metadata[self.ETAG])
-        full_path, sha1 = self.get_path_and_byte_seq(augmented_key, sha1)
-        augmented_key.metadata['SHA1'] = sha1
+        augmented_key = self._get_augmented_key(key)
+        full_path, sha1 = self.get_path_and_byte_seq(augmented_key,
+                                                     augmented_key.metadata[self.SHA1])
         for tool_release in FormatToolRelease.get_enabled():
             logging.debug("Checking %s", tool_release.format_tool.name)
             tool = get_format_tool_instance(tool_release.format_tool)
@@ -350,6 +345,17 @@ class AS3Bucket(SourceBase):
         s3_client = client('s3')
         return s3_client.get_object(Bucket=self.bucket.location, Key=key_value)
 
+    def _get_augmented_key(self, key):
+        result = self._get_object_result(key.value)
+        augmented_key = SourceKey(key.value, False, result.get('ContentLength'),
+                                  result.get('LastModified'))
+        augmented_key.metadata.update(self.get_s3_metadata_from_result(key, result))
+        for md_key, md_value in result['Metadata']:
+            augmented_key.metadata[md_key] = md_value
+        sha1 = Sha1Lookup.get_sha1(augmented_key.metadata[self.ETAG])
+        augmented_key.metadata[self.SHA1] = sha1
+        return augmented_key
+
     @classmethod
     def get_s3_metadata_from_result(cls, key, result):
         """Get the S3 Metadata types for a key."""
@@ -367,8 +373,9 @@ class AS3Bucket(SourceBase):
         if not key or key.is_folder:
             # File keys only please
             raise ValueError("Argument key must be a file key.")
+        augmented_key = self._get_augmented_key(key)
         if sha1 is None:
-            sha1 = Sha1Lookup.get_sha1(key.metadata[self.ETAG])
+            sha1 = Sha1Lookup.get_sha1(augmented_key.metadata[self.ETAG])
         # Check if we know the SHA1, if we do and the Blobstore has a copy use that
         if sha1 and BLOBSTORE.has_copy(sha1):
             logging.info('SHA1 %s is cached in local BlobStore, using as temp', sha1)
