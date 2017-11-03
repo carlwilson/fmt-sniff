@@ -40,7 +40,7 @@ class AS3BucketTestCase(unittest.TestCase):
     """ Test cases for the AS3BucketTestCase class and methods. """
     def test_bucket_name_not_exist(self):
         """ Test case for bucket name. """
-        bucket_source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], 'nosuchbucket')
+        bucket_source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], 'nokjhsdfhsuchbucket')
         with self.assertRaises(ValueError) as _:
             AS3Bucket(bucket_source)
 
@@ -61,7 +61,7 @@ class AS3BucketTestCase(unittest.TestCase):
                         '{} should be < {}'.format(count_root, count_unsorted))
         self.assertTrue(SourceKey(os.path.join(prefix, '10.9774/')
                                  ) in listed_folders)
-        self.assertTrue(SourceKey(os.path.join(prefix, '10.9753/')
+        self.assertTrue(SourceKey(os.path.join(prefix, '10.9734/')
                                  ) in listed_folders)
         self.assertFalse(SourceKey(os.path.join(prefix, 'GLEAF.2350.2014.00007',
                                                 '10-9774-GLEAF-2350-2014-00007.json'),
@@ -80,7 +80,7 @@ class AS3BucketTestCase(unittest.TestCase):
         for key in bucket.list_folders(filter_key=filter_key, recurse=True):
             count_recurse += 1
             listed_folders.add(key)
-        self.assertTrue(count_recurse == count_flat,
+        self.assertTrue(count_recurse >= count_flat,
                         '{} should be == {}'.format(count_recurse, count_flat))
         self.assertTrue(SourceKey(os.path.join("unsorted", '10.9774', 'GLEAF.2350.2014.00007/')
                                  ) in listed_folders)
