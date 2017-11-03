@@ -31,10 +31,10 @@ from botocore import exceptions
 from boto3 import resource
 
 from corptest import APP, __version__
-from corptest.blobstore import BlobStore, ByteSequence
-from corptest.corpora import CorpusItem, Corpus
-from corptest.utilities import ObjectJsonEncoder, create_dirs, Extension
-from corptest.const import EPILOG, JISC_BUCKET
+from .blobstore import BlobStore, ByteSequence
+from .corpora import CorpusItem, Corpus
+from .utilities import ObjectJsonEncoder, create_dirs, Extension
+from .const import EPILOG, JISC_BUCKET
 
 RDSS_ROOT = APP.config.get('RDSS_ROOT')
 S3_META = os.path.join(RDSS_ROOT, 's3')

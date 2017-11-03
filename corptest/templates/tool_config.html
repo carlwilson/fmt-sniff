@@ -1,0 +1,19 @@
+{% extends "page.html" %}
+{% block title %}Tools{% endblock %}
+{% block page_content %}
+  <h2>Manage Format Identification Tools</h2>
+  <div class="list-group">
+    {%- for tool in tools %}
+      {{ tool_item(tool) }}
+    {% endfor -%}
+  </div>
+{% endblock page_content %}
+
+
+{% macro tool_item(tool) %}
+      <a href="/tools/{{ tool.id }}/" class="list-group-item">
+        <h3 class="list-group-item-heading">{{ tool.format_tool.name }}</h3>
+        <p class="list-group-item-text">{{ tool.format_tool.description }}</p>
+        <p class="list-group-item-text">{{ tool.version if tool.version else 'Not Installed' }}</p>
+      </a>
+{% endmacro -%}

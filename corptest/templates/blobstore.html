@@ -1,0 +1,16 @@
+{% extends "page.html" %}
+{% block title %}Blobstore Stats{% endblock %}
+{% block page_content %}
+  <h2>Internal Blob cache</h2>
+  <p class="lead">Basic statistics showing cached blobstore figures for Blobstore at {{ blobstore.root }}.</p>
+  <table class="table table-striped">
+    <tr>
+      <th>Blob Count</th>
+      <td>{{ blobstore.blob_count }}</td>
+    </tr>
+    <tr>
+      <th>Size</th>
+      <td>{{ blobstore.size }}</td>
+    </tr>
+  </table>
+{% endblock page_content %}

@@ -14,10 +14,9 @@ import collections
 import json
 import os.path
 
-from corptest import APP
-from corptest.blobstore import BlobStore
-from corptest.formats import FormatTool, MagicType, MimeType, ToolResult, PronomId
-from corptest.utilities import ObjectJsonEncoder, create_dirs
+from corptest import APP # pylint: disable-msg=W0403
+from .formats import ToolResult
+from .utilities import ObjectJsonEncoder, create_dirs
 
 RDSS_ROOT = APP.config.get('RDSS_ROOT')
 RESULTS_ROOT = os.path.join(RDSS_ROOT, 'results')
@@ -100,18 +99,18 @@ class ResultRegistry(object):
         """ Returns the persistent JSON metadata file path. """
         return RESULTS_ROOT + cls.__name__ + '.json'
 
-def main():
-    """
-    Main method entry point.
-    """
-    PronomId.initialise()
-
-    tool_registry = ToolRegistry([FormatTool("file", "5.25"), FormatTool("tika", "1.14"),
-                                  FormatTool("droid", "6.3"), FormatTool("fido", "1.3.5"),
-                                  FormatTool("python-magic", "0.4.12")])
-
-    blobstore = BlobStore(BLOB_STORE_ROOT)
-    ResultRegistry.initialise(persist=True)
+# def main():
+#     """
+#     Main method entry point.
+#     """
+#     PronomId.initialise()
+#
+#     tool_registry = ToolRegistry([FormatTool("file", "5.25"), FormatTool("tika", "1.14"),
+#                                   FormatTool("droid", "6.3"), FormatTool("fido", "1.3.5"),
+#                                   FormatTool("python-magic", "0.4.12")])
+#
+#     blobstore = BlobStore(BLOB_STORE_ROOT)
+#     ResultRegistry.initialise(persist=True)
 
     # item_count = 0
     # byte_count = 0
@@ -142,31 +141,31 @@ def main():
     #     ResultRegistry.add_result(sha_1, "droid", droid_result)
     #
     # ResultRegistry.persist()
-    ele_count = 0
-    total_eles = blobstore.blob_count
-    PronomId.initialise()
-    for key in blobstore.blobs.keys():
-        ele_count += 1
-        print(('Identifying blob {0:d} of {1:d}\r').format(ele_count, total_eles),)
-        blob = blobstore.get_blob(key)
-        sha_1 = blob.get_sha1()
-        path = blobstore.get_blob_path(key)
-        mime_type = MimeType.from_file_by_magic(path)
-        magic_type = MagicType.from_file_by_magic(path)
-        py_magic_result = ToolResult(tool_registry.tool_by_name("python-magic"),
-                                     mime_type, magic_type, PronomId.get_default())
-        ResultRegistry.add_result(sha_1, "python-magic", py_magic_result)
-        fido_types = PronomId.from_file_by_fido(path)
-        if fido_types:
-            pronom_result = fido_types[0]
-            pronom_result = PronomId.get_pronom_type(pronom_result.puid)
-            mime_type = MimeType.get_default()
-            if not pronom_result is None and not pronom_result.mime is None:
-                mime_type = MimeType.from_mime_string(pronom_result.mime)
-            fido_result = ToolResult(tool_registry.tool_by_name("fido"), mime_type,
-                                     MagicType.get_default(), pronom_result)
-            ResultRegistry.add_result(sha_1, "fido-nocont", fido_result)
-    ResultRegistry.persist()
-
-if __name__ == "__main__":
-    main()
+#     ele_count = 0
+#     total_eles = blobstore.blob_count
+#     PronomId.initialise()
+#     for key in blobstore.blobs.keys():
+#         ele_count += 1
+#         print(('Identifying blob {0:d} of {1:d}\r').format(ele_count, total_eles),)
+#         blob = blobstore.get_blob(key)
+#         sha_1 = blob.get_sha1()
+#         path = blobstore.get_blob_path(key)
+#         mime_type = MimeType.from_file_by_magic(path)
+#         magic_type = MagicType.from_file_by_magic(path)
+#         py_magic_result = ToolResult(tool_registry.tool_by_name("python-magic"),
+#                                      mime_type, magic_type, PronomId.get_default())
+#         ResultRegistry.add_result(sha_1, "python-magic", py_magic_result)
+#         fido_types = PronomId.from_file_by_fido(path)
+#         if fido_types:
+#             pronom_result = fido_types[0]
+#             pronom_result = PronomId.get_pronom_type(pronom_result.puid)
+#             mime_type = MimeType.get_default()
+#             if not pronom_result is None and not pronom_result.mime is None:
+#                 mime_type = MimeType.from_mime_string(pronom_result.mime)
+#             fido_result = ToolResult(tool_registry.tool_by_name("fido"), mime_type,
+#                                      MagicType.get_default(), pronom_result)
+#             ResultRegistry.add_result(sha_1, "fido-nocont", fido_result)
+#     ResultRegistry.persist()
+#
+# if __name__ == "__main__":
+#     main()

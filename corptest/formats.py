@@ -11,50 +11,12 @@
 #
 """Classes for modelling format information"""
 import collections
-import os
-import subprocess
-
-import magic
-from fido import fido
-
-class FormatTool(object):
-    """Class to hold the details of a format identification tool."""
-    def __init__(self, name, version):
-        self.name = name
-        self.version = version
-
-    def get_name(self):
-        """Returns the recognised name of the format tool"""
-        return self.name
-
-    def get_version(self):
-        """Returns the software version of the format tool."""
-        return self.version
-
-    def __str__(self):
-        ret_val = []
-        ret_val.append("FormatTool : [name=")
-        ret_val.append(self.name)
-        ret_val.append(", version=")
-        ret_val.append(self.version)
-        ret_val.append("]")
-        return "".join(ret_val)
-
-    @classmethod
-    def json_decode(cls, obj):
-        """ Custom JSON decoder for FormatTool. """
-        cls_name = '__{}__'.format(cls.__name__)
-        if cls_name in obj:
-            tool = obj[cls_name]
-            return cls(tool['name'], tool['version'])
-        return obj
 
 class MagicType(object):
     """Class to model a "magic" type, returned from libmagic or the file
     utility
     """
     DELIM = ","
-    MAGIC_IDENT = magic.Magic()
     def __init__(self, format_name, qualifiers):
         self.format_name = format_name
         self.qualifiers = qualifiers
@@ -89,18 +51,6 @@ class MagicType(object):
         return obj
 
     @classmethod
-    def from_file_by_magic(cls, file_to_id):
-        """Returns the libmagic format id for file_to_id"""
-        magic_string = cls.MAGIC_IDENT.from_file(file_to_id)
-        return cls.from_magic_string(magic_string)
-
-    @classmethod
-    def from_file_by_file(cls, file_to_id):
-        """"Runs the file utility on an individual file and returns the MIME type."""
-        mime_result = subprocess.check_output(['file', file_to_id], universal_newlines=True)
-        return cls.from_magic_string(mime_result.split(':')[1])
-
-    @classmethod
     def from_magic_string(cls, magic_string):
         """ Creates an new instance from a raw magic string. """
         format_name = magic_string.split(cls.DELIM, 1)[0]
@@ -111,6 +61,7 @@ class MagicType(object):
 
 class PronomId(object):
     """Models PRONOM unique identifiers, or PUIDs and their attributes"""
+    from fido import fido
     FIDO = fido.Fido(quiet=True, nocontainer=True)
     PUIDS = collections.defaultdict(dict)
 
@@ -181,43 +132,10 @@ class PronomId(object):
         """ Lookup and return a PronomId by puid. """
         return cls.PUIDS.get(puid, None)
 
-    @classmethod
-    def from_file_by_fido(cls, file_to_id):
-        """Uses FIDO to identify file_to_id and returns the PronomId"""
-        ret_val = []
-        size = os.stat(file_to_id).st_size
-        fp_to_id = open(file_to_id, 'r')
-        bofbuffer, eofbuffer, _ = cls.FIDO.get_buffers(fp_to_id, size, seekable=True)
-        matches = cls.FIDO.match_formats(bofbuffer, eofbuffer)
-        for (sig, sig_name) in matches:
-            mime = sig.find('mime')
-            mime_text = ""
-            if mime is not None:
-                mime_text = mime.text
-            pronom_id = cls(cls.FIDO.get_puid(sig), sig_name, mime_text)
-            ret_val.append(pronom_id)
-        return ret_val
-
-    @classmethod
-    def from_file_by_droid(cls, file_to_id):
-        """Get PUID from file using command line DROID."""
-        command = [
-            'droid',
-            '-Nr',
-            file_to_id,
-            '-Ns',
-            '/usr/local/lib/tna-droid/DROID_SignatureFile_V88.xml',
-            '-Nc',
-            '/usr/local/lib/tna-droid/container-signature-20160927.xml'
-        ]
-        output = subprocess.check_output(command, universal_newlines=True)
-        return output[output.rindex(',')+1:]
-
 class MimeType(object):
     """Models internet MIME identifiers"""
     PARAM_DELIM = ';'
     TYPE_DELIM = '/'
-    MIME_IDENT = magic.Magic(mime=True)
 
     def __init__(self, main_type, subtype, params):
         self.type = main_type
@@ -269,12 +187,6 @@ class MimeType(object):
         return obj
 
     @classmethod
-    def from_file_by_magic(cls, file_to_id):
-        """Creates a new MimeType instance by identifying file_to_id"""
-        mime_string = cls.MIME_IDENT.from_file(file_to_id)
-        return cls.from_mime_string(mime_string)
-
-    @classmethod
     def from_mime_string(cls, mime_string):
         """ Creates a new MimeType instance parsed from mime_string. """
         main_type, subtype = cls.types_from_mime_string(mime_string)
@@ -287,12 +199,6 @@ class MimeType(object):
         """Splits the type and sub-type parts of a MIME string"""
         parts = mime_string.split(cls.PARAM_DELIM, 1)[0].split(cls.TYPE_DELIM, 1)
         return parts[0], parts[1]
-
-    @classmethod
-    def from_file_by_file(cls, file_to_id):
-        """"Runs the file utility on an individual file and returns the MIME type."""
-        mime_result = subprocess.check_output(['file', '-i', file_to_id], universal_newlines=True)
-        return cls.from_mime_string(mime_result.split(':')[1])
 
 class ToolResult(object):
     """ Class encapsulating tool results. """
