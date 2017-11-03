@@ -11,7 +11,7 @@
 
 
 {% macro tool_item(tool) %}
-      <a href="/tools/{{ tool.id }}" class="list-group-item">
+      <a href="/tools/{{ tool.id }}/" class="list-group-item">
         <h3 class="list-group-item-heading">{{ tool.format_tool.name }}</h3>
         <p class="list-group-item-text">{{ tool.format_tool.description }}</p>
         <p class="list-group-item-text">{{ tool.version if tool.version else 'Not Installed' }}</p>

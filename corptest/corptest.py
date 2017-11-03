@@ -32,7 +32,7 @@ logging.basicConfig(filename=APP.config['LOG_FILE'], level=logging.DEBUG,
                     format=APP.config['LOG_FORMAT'])
 logging.info("Started JISC RDSS Format Identification app.")
 
-from .model import init_db # pylint: disable-msg=C0413
+from .model import init_db, SCHEMES # pylint: disable-msg=C0413
 logging.debug("Configured logging.")
 logging.info("Initialising database.")
 init_db()
@@ -42,34 +42,52 @@ if not APP.config['IS_FIDO']:
 else:
     logging.info("Python %r enables inline FIDO support.", sys.version_info)
 
-from .model import AS3BucketSource, FileSystemSource, FormatTool # pylint: disable-msg=C0413
+from .model import Source, FormatTool, FormatToolRelease # pylint: disable-msg=C0413
 from .format_tools import get_format_tool_instance # pylint: disable-msg=C0413
 
 BUCKET_LIST = APP.config.get('BUCKETS', {})
 logging.info("Loading config BUCKETS to the bucket table")
 for _bucket in BUCKET_LIST:
-    if not AS3BucketSource.by_bucket_name(_bucket['location']):
-        _bucket_item = AS3BucketSource(_bucket['name'], _bucket['description'],
-                                       _bucket['location'])
-        AS3BucketSource.add(_bucket_item)
+    logging.debug("Checking bucket: %s", _bucket)
+    if not Source.by_location(_bucket['location']):
+        _source = Source(_bucket['name'], _bucket['description'],
+                         SCHEMES['AS3'], _bucket['location'])
+        logging.debug("Adding bucket source: %s", _source)
+        Source.add(_source)
+    else:
+        _source = Source.by_location(_bucket['location'])
+        logging.debug("FOUND bucket source: %s", _source)
 
 FOLDER_LIST = APP.config.get('FOLDERS', {})
 logging.info("Loading config FOLDERS the file_system table")
 for _folder in FOLDER_LIST:
-    if not FileSystemSource.by_name(_folder['name']):
-        _fs_item = FileSystemSource(_folder['name'], _folder['description'], _folder['location'])
-        FileSystemSource.add(_fs_item)
+    logging.debug("Checking folder: %s", _folder)
+    if not Source.by_location(_folder['location']):
+        _source = Source(_folder['name'], _folder['description'],
+                         SCHEMES['FILE'], _folder['location'])
+        logging.debug("Adding folder source: %s", _source)
+        Source.add(_source)
+    else:
+        _source = Source.by_location(_folder['location'])
+        logging.debug("FOUND folder source: %s", _source)
 
 TOOL_LIST = APP.config.get('TOOLS', {})
 logging.debug("Loading config TOOLS to the format_tools table")
-TOOL_REG = []
 for _tool in TOOL_LIST:
+    logging.debug("Tool from tool list: %s", _tool)
     if not FormatTool.by_name(_tool['name']):
         _tool_item = FormatTool(_tool['name'], _tool['description'], _tool['reference'])
+        logging.debug("Adding tool %s to DB", _tool_item)
         FormatTool.add(_tool_item)
-    tool = FormatTool.by_name(_tool['name'])
-    tool_version = get_format_tool_instance(tool)
-    TOOL_REG.append(tool_version)
+
+logging.debug("Setting all tools unavailable")
+FormatToolRelease.all_unavailable()
+for _tool in FormatTool.all():
+    logging.debug("Retrieved tool %s", _tool)
+    tool_release = get_format_tool_instance(_tool)
+    if tool_release:
+        logging.debug("Adding tool release %s to DB", tool_release)
+        tool_release.putdate()
 
 # Import the application routes
 logging.info("Setting up application routes")

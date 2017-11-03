@@ -31,7 +31,8 @@ class BaseConfig(object):# pylint: disable-msg=R0903
     LOG_FILE = os.path.join(LOG_ROOT, 'jisc-rdss-format.log')
     SECRET_KEY = 'a5c020ced05af9ad3aacc6bba41beb5c7b6f750b846dadad'
     RDSS_ROOT = TEMP
-    SQL_URL = 'sqlite:////tmp/test.db'
+    SQL_PATH = '/tmp/jisc-rdss-format.db'
+    SQL_URL = 'sqlite:///' + SQL_PATH
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     FOLDERS = [
         {
@@ -64,9 +65,9 @@ class BaseConfig(object):# pylint: disable-msg=R0903
             'reference' : 'https://github.com/ahupp/python-magic/'
         },
         {
-        'name' : 'Apache Tika',
-        'description' : 'A content analysis toolkit.',
-        'reference' : 'https://tika.apache.org/'
+            'name' : 'Apache Tika',
+            'description' : 'A content analysis toolkit.',
+            'reference' : 'https://tika.apache.org/'
         }
     ]
 
@@ -84,6 +85,12 @@ class DevConfig(BaseConfig):# pylint: disable-msg=R0903
         }
     ]
 
+class TestConfig(BaseConfig):# pylint: disable-msg=R0903
+    """Developer level config, with debug logging and long log format."""
+    NAME = 'Testing'
+    SQL_PATH = '/tmp/test.db'
+    SQL_URL = 'sqlite:///' + SQL_PATH
+
 class VagrantConfig(DevConfig):# pylint: disable-msg=R0903
     """Vagrant config, with debug logging and long log format."""
     NAME = 'Vagrant'
@@ -92,12 +99,15 @@ class VagrantConfig(DevConfig):# pylint: disable-msg=R0903
 CONFIGS = {
     "dev": 'corptest.config.DevConfig',
     "default": 'corptest.config.BaseConfig',
+    "test": 'corptest.config.TestConfig',
     "vagrant": 'corptest.config.VagrantConfig'
 }
 
-def configure_app(app):
+def configure_app(app, profile_name='test'):
     """Grabs the environment variable for app config or defaults to dev."""
-    config_name = os.getenv(ENV_CONF_PROFILE, 'dev')
+    if not profile_name:
+        profile_name = 'test'
+    config_name = os.getenv(ENV_CONF_PROFILE, profile_name)
     app.config.from_object(CONFIGS[config_name])
     if os.getenv(ENV_CONF_FILE):
         app.config.from_envvar(ENV_CONF_FILE)

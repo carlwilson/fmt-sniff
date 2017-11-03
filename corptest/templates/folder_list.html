@@ -1,0 +1,65 @@
+{% extends "page.html" %}
+{% block title %}Folder List{% endblock %}
+{% block page_content %}
+  <h2>{{ source_item.name }}</h2>
+  <p class="lead">
+    <a href="/source/{{ source_item.id }}/folder/">{{ source_item.name }}/</a>
+    {%- for part, part_path in filter_key.parts -%}
+    <a href="/source/{{ source_item.id }}/folder/{{ part_path }}/">{{ part }}/</a>
+    {%- endfor %}
+  </p>
+  <p class="lead">
+    Here you can browse the source folders, analyse individual files and analyse
+    this folder and its sub-folders.
+  </p>
+  <form role="form" action="/reports/" method="POST">
+    <input type="hidden" value="{{ source_item.id }}" name="source_id" />
+    <input type="hidden" value="{{ filter_key.value if filter_key.value else '' }}" name="encoded_filepath" />
+    <div class="form-group">
+      <span class="input-group-btn">
+        <button type="submit" class="btn btn-primary">
+          <span class="glyphicon glyphicon-tasks">
+          </span>
+          Analyse
+        </button>
+      </span>
+      <div class="checkbox">
+        <label>
+          <input type="checkbox" name="analyse_sub_folders"> Analyse sub-folders.
+        </label>
+      </div>
+      <p class="help">Start analysis of this folder and optionally its sub-folders.</p>
+    </div>
+  </form>
+  <table class="table table-striped">
+    <tr>
+      <th>Type</th>
+      <th>Key</th>
+      <th>Last Modified</th>
+      <th>Size</th>
+      {%- for key in metadata_keys %}
+      <th>{{ key }}</th>
+      {% endfor -%}
+    </tr>
+    {{ key_rows(source_item.id, folders) }}
+    {{ key_rows(source_item.id, files) }}
+  </table>
+{% endblock page_content %}
+
+  {% macro key_rows(source_id, keys) %}
+  {% for key in keys %}
+    {{ key_row(source_id, key) }}
+  {% endfor %}
+  {% endmacro %}
+
+  {% macro key_row(source_id, item) %}
+    <tr>
+      <td><span class="glyphicon glyphicon-{{ 'folder-open' if item.is_folder else 'file' }}" aria-hidden="true"></span></td>
+      <td><a href="/source/{{ source_id }}/{{ 'folder' if item.is_folder else 'file' }}/{{ item.value }}" >{{ item.name }}</a></td>
+      <td>{{ item.last_modified }}</td>
+      <td>{{ item.size }}</td>
+      {%- for key in metadata_keys %}
+      <td>{{ item.metadata.get(key, '') }}</td>
+      {% endfor %}
+    </tr>
+  {% endmacro -%}

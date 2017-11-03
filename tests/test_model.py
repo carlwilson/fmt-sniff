@@ -10,34 +10,45 @@
 # about the terms of this license.
 """ Tests for the classes in model.py. """
 import os.path
+from datetime import datetime
 import unittest
 
+import dateutil.parser
+
 from corptest.const import JISC_BUCKET
-from corptest.model import ByteSequence, AS3BucketSource
+from corptest.model import SCHEMES, ByteSequence, Source, FormatTool
+from corptest.model import SourceIndex, Key, DB_SESSION
 from corptest.utilities import ObjectJsonEncoder
+from corptest.format_tools import FormatToolRelease, get_format_tool_instance
+from corptest.sources import FileSystem, SourceKey
 
 from tests.const import THIS_DIR, TEST_DESCRIPTION, TEST_NAME, TEST_BUCKET_NAME
+from tests.conf_test import db, session, app# pylint: disable-msg=W0611
+
+TEST_ROOT = "__root__"
+TEST_READABLE_ROOT = os.path.join(THIS_DIR, "disk-corpus")
+TEST_BYTES_ROOT = os.path.join(THIS_DIR, "content-corpus")
 
 class AS3BucketSourceTestCase(unittest.TestCase):
     """ Test cases for the AS3BucketSource class and methods. """
     def test_null_name(self):
         """ Test case for None name case. """
         with self.assertRaises(ValueError) as _:
-            AS3BucketSource(None, TEST_DESCRIPTION, TEST_BUCKET_NAME)
+            Source(None, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
 
     def test_empty_name(self):
         """ Test case for empty name case. """
         with self.assertRaises(ValueError) as _:
-            AS3BucketSource('', TEST_DESCRIPTION, TEST_BUCKET_NAME)
+            Source('', TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
 
     def test_null_description(self):
         """ Test case for None description case. """
         with self.assertRaises(ValueError) as _:
-            AS3BucketSource(TEST_NAME, None, TEST_BUCKET_NAME)
+            Source(TEST_NAME, None, SCHEMES['AS3'], TEST_BUCKET_NAME)
 
     def test_get_details(self):
         """ Test case for ensuring details threadthrough works. """
-        bucket_source = AS3BucketSource(TEST_NAME, TEST_DESCRIPTION, TEST_BUCKET_NAME)
+        bucket_source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
         self.assertEqual(bucket_source.name, TEST_NAME, \
         'bucket_source.name should equal test instance TEST_NAME')
         self.assertEqual(bucket_source.description, TEST_DESCRIPTION, \
@@ -46,21 +57,170 @@ class AS3BucketSourceTestCase(unittest.TestCase):
     def test_empty_bucket_name(self):
         """ Test case for empty name. """
         with self.assertRaises(ValueError) as _:
-            AS3BucketSource(TEST_NAME, TEST_DESCRIPTION, '')
+            Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], '')
 
     def test_null_bucket_name(self):
         """ Test case for None name cases. """
         with self.assertRaises(ValueError) as _:
-            AS3BucketSource(TEST_NAME, TEST_DESCRIPTION, None)
+            Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], None)
 
     def test_bucket_name(self):
         """ Test case for bucket name. """
-        bucket_source = AS3BucketSource(TEST_NAME, TEST_DESCRIPTION, TEST_BUCKET_NAME)
-        self.assertEqual(bucket_source.bucket_name, TEST_BUCKET_NAME, \
+        bucket_source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
+        self.assertEqual(bucket_source.location, TEST_BUCKET_NAME, \
         'bucket_source.bucket_name should equal test instance TEST_BUCKET_NAME')
-        bucket_source = AS3BucketSource(TEST_NAME, TEST_DESCRIPTION, JISC_BUCKET)
-        self.assertEqual(bucket_source.bucket_name, JISC_BUCKET, \
+        bucket_source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], JISC_BUCKET)
+        self.assertEqual(bucket_source.location, JISC_BUCKET, \
         'bucket_source.bucket_name should equal test instance JISC_BUCKET')
+
+def test_add_source(session):# pylint: disable-msg=W0621, W0613
+    """Test Source model class persistence."""
+    base_count = Source.count()
+    bucket_source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
+    Source.add(bucket_source)
+    assert bucket_source.id > 0
+    assert Source.count() == base_count + 1
+    Source.add(bucket_source)
+    assert Source.count() == base_count + 1
+    retrieved_source = Source.by_name(TEST_NAME)
+    assert bucket_source == retrieved_source
+    for _source in Source.all():
+        if _source.id == bucket_source.id:
+            assert _source == bucket_source
+        else:
+            assert _source != bucket_source
+
+class SourceIndexTestCase(unittest.TestCase):
+    """ Test cases for the SourceIndex class and methods. """
+    def test_null_source(self):
+        """ Test case for None source case. """
+        with self.assertRaises(ValueError) as _:
+            SourceIndex(None)
+
+    def test_get_timestamp(self):
+        """ Test case for retrieveing timestamp. """
+        _source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
+        _source_index = SourceIndex(_source)
+        self.assertTrue(_source_index.timestamp < datetime.now())
+
+    def test_get_iso_timestamp(self):
+        """ Test case for retrieveing timestamp. """
+        _source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
+        _timestamp = datetime.now()
+        _source_index = SourceIndex(_source, _timestamp)
+        self.assertEqual(_source_index.timestamp, _timestamp)
+        _timestamp = dateutil.parser.parse(_source_index.iso_timestamp)
+        self.assertEqual(_source_index.timestamp, _timestamp)
+
+    def test_get_source(self):
+        """ Test case for getting index sourdce. """
+        _source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
+        _source_index = SourceIndex(_source)
+        self.assertEqual(_source_index.source, _source)
+
+def test_source_index_add(session):# pylint: disable-msg=W0621, W0613
+    """Test SourceIndex model class persistence."""
+    index_count = SourceIndex.count()
+    _source = Source.by_name(TEST_NAME)
+    if not _source:
+        _source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
+        _source.put()
+    assert _source.id > 0
+    _source_index = SourceIndex(_source)
+    _source_index.put()
+    assert _source_index.id > 0
+    assert SourceIndex.count() > index_count
+    _retrieved_index = SourceIndex.by_id(_source_index.id)
+    assert _source_index == _retrieved_index
+    _source = Source(TEST_NAME + " test", TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
+    _source_index = SourceIndex(_source)
+    _source_index.put()
+    assert _source_index != _retrieved_index
+    _index_count = len(SourceIndex.all())
+    assert _index_count > 0
+
+class KeyTestCase(unittest.TestCase):
+    """ Test cases for the Key class and methods. """
+    def setUp(self):
+        """ Set up default instance """
+        self.default_source = Source(TEST_NAME + " test",
+                                     TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
+        self.def_index = SourceIndex(self.default_source)
+
+    def test_null_source_index(self):
+        """ Test case for None SourceIndex case. """
+        with self.assertRaises(ValueError) as _:
+            Key(None, 'test.dat', 1)
+
+    def test_null_path(self):
+        """ Test case for null path case. """
+        with self.assertRaises(ValueError) as _:
+            Key(self.def_index, None, 1)
+
+    def test_empty_path(self):
+        """ Test case for null path case. """
+        with self.assertRaises(ValueError) as _:
+            Key(self.def_index, '', 1)
+
+    def test_null_size(self):
+        """ Test case for null Size case. """
+        with self.assertRaises(ValueError) as _:
+            Key(self.def_index, 'test.dat', None)
+
+    def test_less_than_zero(self):
+        """ Test case for null Size case. """
+        Key(self.def_index, 'test.dat', 0)
+        with self.assertRaises(ValueError) as _:
+            Key(self.def_index, 'test.dat', -1)
+
+    def test_get_source_index(self):
+        """ Test case for retrieving source index. """
+        _key = Key(self.def_index, 'test.dat', 0)
+        assert _key.source_index == self.def_index
+
+def test_add_files(session):# pylint: disable-msg=W0621, W0613
+    """ Set up default instance """
+    corp_file_count = file_count(TEST_READABLE_ROOT)
+    file_system_source = Source("Readable Test", TEST_DESCRIPTION, SCHEMES['FILE'],
+                                TEST_READABLE_ROOT)
+    file_system_index = SourceIndex(file_system_source, datetime.now())
+    file_system_index.put()
+    file_system = FileSystem(file_system_source)
+    for key in file_system.all_file_keys():
+        _source_key = Key(file_system_index, key.value, int(key.size),
+                          dateutil.parser.parse(key.last_modified))
+        _source_key.put()
+    DB_SESSION.commit()
+
+    assert Key.count() == corp_file_count
+    for key in Key.all():
+        file_key = SourceKey(key.path, False, key.size, key.last_modified)
+        assert key.last_modified == dateutil.parser.parse(file_key.last_modified)
+        retrieved_key = Key.by_id(key.id)
+        assert retrieved_key == key
+
+    file_system_index_two = SourceIndex(file_system_source, datetime.now())
+    file_system_index_two.put()
+    for key in file_system.all_file_keys():
+        _source_key = Key(file_system_index_two, key.value, int(key.size),
+                          dateutil.parser.parse(key.last_modified))
+        _source_key.put()
+        DB_SESSION.commit()
+    assert Key.count() == (2 * corp_file_count)
+
+def file_count(folder):
+    "count the number of files in a directory"
+    count = 0
+
+    for filename in os.listdir(folder):
+        path = os.path.join(folder, filename)
+
+        if os.path.isfile(path):
+            count += 1
+        elif os.path.isdir(path):
+            count += file_count(path)
+
+    return count
 
 class ByteSequenceTestCase(unittest.TestCase):
     """ Test cases for the ByteSequence class and methods. """
@@ -128,3 +288,47 @@ class ByteSequenceTestCase(unittest.TestCase):
         test_byte_seq = ByteSequence.json_decode(json_string)
         self.assertNotEqual(test_byte_seq, self.def_inst,
                             'Test from JSON should be equal to default instance')
+
+def test_add_bytesequence(session):# pylint: disable-msg=W0621, W0613
+    """ Set up default instance """
+    corp_file_count = file_count(TEST_BYTES_ROOT)
+    file_system_source = Source("BS Test", TEST_DESCRIPTION, SCHEMES['FILE'],
+                                TEST_BYTES_ROOT)
+    file_system_index = SourceIndex(file_system_source)
+    file_system_index.put()
+    file_system = FileSystem(file_system_source)
+    for key in file_system.all_file_keys():
+        assert key.size != 0
+        assert not key.metadata['SHA1']
+        _aug_key = file_system.get_file_metadata(key)
+        assert _aug_key.metadata['SHA1'] != ByteSequence.EMPTY_SHA1
+        _bytes = ByteSequence(_aug_key.metadata['SHA1'], int(key.size))
+        _bytes.put()
+    _byte_count = len(ByteSequence.all())
+    assert _byte_count == corp_file_count
+
+def test_format_tool_release(session):# pylint: disable-msg=W0621, W0613
+    """Test FormatToolRelease model class persistence."""
+    tool_count = FormatTool.count()
+    assert tool_count > 0
+    tool_release_count = FormatToolRelease.count()
+    assert tool_release_count > 0
+    FormatToolRelease.all_unavailable()
+    available_tools = len(FormatToolRelease.get_available())
+    assert available_tools == 0
+    FormatToolRelease.all_available()
+    available_tools = len(FormatToolRelease.get_available())
+    assert available_tools == tool_release_count
+    for _tool in FormatTool.all():
+        tool_release = get_format_tool_instance(_tool)
+        if tool_release:
+            assert not tool_release.format_tool_release.id
+            tool_release.putdate()
+            assert tool_release.format_tool_release.id > 0
+    for _tool in FormatToolRelease.all():
+        _tool_check = FormatToolRelease.by_id(_tool.id)
+        assert _tool == _tool_check
+        _tool_check = FormatToolRelease.by_version(_tool.version)
+        assert _tool == _tool_check
+        _tool_check = FormatToolRelease.by_tool_and_version(_tool.format_tool, _tool.version)
+        assert _tool == _tool_check
