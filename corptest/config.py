@@ -31,7 +31,7 @@ class BaseConfig(object):# pylint: disable-msg=R0903
     LOG_FILE = os.path.join(LOG_ROOT, 'jisc-rdss-format.log')
     SECRET_KEY = 'a5c020ced05af9ad3aacc6bba41beb5c7b6f750b846dadad'
     RDSS_ROOT = TEMP
-    SQL_PATH = '/tmp/jisc-rdss-format.db'
+    SQL_PATH = os.path.join(TEMP, 'jisc-rdss-format.db')
     SQL_URL = 'sqlite:///' + SQL_PATH
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     FOLDERS = [
@@ -88,7 +88,7 @@ class DevConfig(BaseConfig):# pylint: disable-msg=R0903
 class TestConfig(BaseConfig):# pylint: disable-msg=R0903
     """Developer level config, with debug logging and long log format."""
     NAME = 'Testing'
-    SQL_PATH = '/tmp/test.db'
+    SQL_PATH = os.path.join(TEMP, 'test.db')
     SQL_URL = 'sqlite:///' + SQL_PATH
 
 class VagrantConfig(DevConfig):# pylint: disable-msg=R0903
