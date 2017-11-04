@@ -233,6 +233,7 @@ class AS3Bucket(SourceBase):
         if not bucket:
             raise ValueError("Argument bucket can not be None.")
         bucket_exists = self.validate_bucket(bucket.location)
+        print "bucket_exists = " + str(bucket_exists)
         if not bucket_exists:
             raise ValueError('No AS3 bucket called {} found.'.format(bucket.location))
         self.__bucket = bucket
@@ -314,8 +315,8 @@ class AS3Bucket(SourceBase):
         logging.info("Obtaining meta for key: %s", key)
         logging.info("Obtaining meta for key.value: %s", key.value)
         augmented_key = self._get_augmented_key(key)
-        full_path, sha1 = self.get_path_and_byte_seq(augmented_key,
-                                                     augmented_key.metadata[self.SHA1])
+        full_path, _ = self.get_path_and_byte_seq(augmented_key,
+                                                  augmented_key.metadata[self.SHA1])
         for tool_release in FormatToolRelease.get_enabled():
             logging.debug("Checking %s", tool_release.format_tool.name)
             tool = get_format_tool_instance(tool_release.format_tool)
