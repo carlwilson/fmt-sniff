@@ -2,7 +2,7 @@ Research Data Format Identification
 ===================================
 *Web front end for file format identification and analysis*
 
-[![Build Status](https://travis-ci.org/carlwilson/fmt-sniff.svg?branch=master)](https://travis-ci.org/carlwilson/fmt-sniff "Travis-CI integration build")
+[![Build Status](https://travis-ci.org/carlwilson/fmt-sniff.svg?branch=integration)](https://travis-ci.org/carlwilson/fmt-sniff "Travis-CI integration build")
 [![CodeCov Coverage](https://img.shields.io/codecov/c/github/carlwilson/fmt-sniff.svg)](https://codecov.io/gh/carlwilson/fmt-sniff/ "CodeCov test coverage figure")
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/ab34b42c50954e4192987e060321ea17)](https://www.codacy.com/app/openpreserve/fmt-sniff?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=carlwilson/fmt-sniff&amp;utm_campaign=Badge_Grade)
 [![Codacy Badge](https://api.codacy.com/project/badge/Coverage/ab34b42c50954e4192987e060321ea17)](https://www.codacy.com/app/openpreserve/fmt-sniff?utm_source=github.com&utm_medium=referral&utm_content=carlwilson/fmt-sniff&utm_campaign=Badge_Coverage)
@@ -87,6 +87,75 @@ want to configure it. Most of the tasks will be OK but you may want to setup the
 virtualenv differently.
 
 ### Configuration
+The application has built in application profiles that can be augmented and over-ridden by a user configuration file. Most users will initially want to add local file system folders and Amazon S3 buckets to sources for analysis.
+
+#### Adding file system folders and buckets
+A quick way to do this is to use the example configuration file that comes with the application. If you set the environment variables up properly before running the application then you'll be able to edit the `conf/example.conf file to add these. They'll get picked up the next time the application is started.
+
+##### Editing `conf/example.conf` to add sources
+The provided example configuration file looks something like this:
+```"python"
+FOLDERS = [
+  {
+    'name' : 'Example File Source',
+    'description' : 'Example file based source using the temp directory on *nix.',
+    'location' : '/tmp'
+  }
+]
+BUCKETS = [
+  {
+    'name' : 'JISC Test Bucket',
+    'description' : 'JISC Research Data Shared Service test Amazon S3 bucket.',
+    'location' : 'testdata.researchdata.alpha.jisc.ac.uk'
+  }
+]
+```
+If I wanted to add my home folder I'd edit the configuration file to look like this:
+```"python"
+FOLDERS = [
+  {
+    'name' : 'Example File Source',
+    'description' : 'Example file based source using the temp directory on *nix.',
+    'location' : '/tmp'
+  },
+  {
+    'name' : 'My home folder',
+    'description' : 'My home directory.',
+    'location' : '/home/username'
+  }
+]
+BUCKETS = [
+  {
+    'name' : 'JISC Test Bucket',
+    'description' : 'JISC Research Data Shared Service test Amazon S3 bucket.',
+    'location' : 'testdata.researchdata.alpha.jisc.ac.uk'
+  }
+]
+```
+**Please Note:** The addition of a comma to the preceding folder entry that already existed. The next time you start the application you'll see your new file system source.
+
+To add another S3 Bucket simply add the entry to the list in the same manner, e.g.:
+```"python"
+FOLDERS = [
+  {
+    'name' : 'Example File Source',
+    'description' : 'Example file based source using the temp directory on *nix.',
+    'location' : '/tmp'
+  }
+]
+BUCKETS = [
+  {
+    'name' : 'JISC Test Bucket',
+    'description' : 'JISC Research Data Shared Service test Amazon S3 bucket.',
+    'location' : 'testdata.researchdata.alpha.jisc.ac.uk'
+  },
+  {
+    'name' : 'My S3 Bucket',
+    'description' : 'This is how you add an additional S3 bucket.',
+    'location' : 'my.unique.s3.bucket.name'
+  }
+]
+```
 #### Amazon S3 credentials
 If you want to use an S3 Bucket you'll need to set up the region and credentials
 for the bucket you want to use.

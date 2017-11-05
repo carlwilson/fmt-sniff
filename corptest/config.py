@@ -19,6 +19,7 @@ from .const import ENV_CONF_PROFILE, ENV_CONF_FILE, JISC_BUCKET
 HOST = 'localhost'
 
 TEMP = tempfile.gettempdir()
+HOME = os.path.expanduser('~')
 LOG_ROOT = TEMP
 class BaseConfig(object):# pylint: disable-msg=R0903
     """Base / default config, no debug logging and short log format."""
@@ -77,6 +78,18 @@ class DevConfig(BaseConfig):# pylint: disable-msg=R0903
     DEBUG = True
     TESTING = True
     LOG_FORMAT = '[%(levelname)-8s %(filename)-15s:%(lineno)-5d %(funcName)-30s] %(message)s'
+    FOLDERS = [
+        {
+            'name' : 'Temp File System',
+            'description' : 'Example file based source using the temp directory.',
+            'location' : TEMP
+        },
+        {
+            'name' : 'Home directory',
+            'description' : 'The home folder of the user running this application.',
+            'location' : HOME
+        }
+    ]
     BUCKETS = [
         {
             'name' : 'JISC Sample Bucket',
