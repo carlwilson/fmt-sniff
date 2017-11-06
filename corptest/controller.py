@@ -96,9 +96,11 @@ def new_report():
 def report_detail(report_id):
     """Show the details of a report."""
     source_index = SourceIndex.by_id(report_id)
+    size = sizeof_fmt(source_index.size) if source_index.size else sizeof_fmt(0)
+    file_count = source_index.key_count if source_index.key_count else 0
     return render_template('report_details.html', report=source_index,
-                           file_count=source_index.key_count,
-                           size=sizeof_fmt(source_index.size),
+                           file_count=file_count,
+                           size=size,
                            props=KeyProperties.get_properties_for_index(report_id))
 
 @APP.route("/reports/<int:report_id>/prop/<int:prop_id>")
@@ -188,4 +190,4 @@ def _download_item(source_item, encoded_filepath):
     return response
 
 if __name__ == "__main__":
-    APP.run()
+    APP.run(threaded=True)
