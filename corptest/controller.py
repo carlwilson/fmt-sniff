@@ -63,13 +63,6 @@ def blobstore():
     """Brief blobstore statistics"""
     return render_template('blobstore.html', blobstore=BLOBSTORE)
 
-@APP.route("/tools/<int:tool_id>/", methods=['GET'])
-def show_tool(tool_id):
-    """Application tools configuration"""
-    tool = FormatToolRelease.by_id(tool_id)
-    logging.debug("Found tool %s", tool)
-    return render_template('tool.html', tool=tool)
-
 @APP.route("/tools/<int:tool_id>/", methods=['POST'])
 def toggle_tool_enabed(tool_id):
     """POST method to toggle a tool on and off."""

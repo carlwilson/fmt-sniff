@@ -8,12 +8,28 @@
     {% endfor -%}
   </div>
 {% endblock page_content %}
-
+{% block page_javascript %}
+  <script>
+    {%- for tool in tools %}
+    $(function() {
+      $('#tool-toggle-{{ tool.id }}').change(function() {
+        $.post( window.location.href + {{ tool.id }} + '/');
+      })
+    })
+    {% endfor -%}
+  </script>
+{% endblock page_javascript %}
 
 {% macro tool_item(tool) %}
-      <a href="/tools/{{ tool.id }}/" class="list-group-item">
+      <li class="list-group-item">
         <h3 class="list-group-item-heading">{{ tool.format_tool.name }}</h3>
+        <h4 class="list-group-item-heading"><span class="label {{ 'label-primary' if tool.version else 'label-danger' }}">{{ 'v' + tool.version if tool.version else 'Not Installed' }}</span></h4>
+        <div class="checkbox">
+          <label>
+            <input id="tool-toggle-{{ tool.id }}" type="checkbox" {{ 'checked ' if tool.enabled else '' }}data-toggle="toggle"  data-size="small" data-on="Enabled" data-off="Disabled" data-onstyle="success" >
+          </label>
+        </div>
         <p class="list-group-item-text">{{ tool.format_tool.description }}</p>
-        <p class="list-group-item-text">{{ tool.version if tool.version else 'Not Installed' }}</p>
-      </a>
+        <p class="list-group-item-text">For more information see <a href="{{ tool.format_tool.reference }}">{{ tool.format_tool.reference }}</a></p>
+      </li>
 {% endmacro -%}
