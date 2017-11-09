@@ -25,6 +25,14 @@ class ObjectJsonEncoder(json.JSONEncoder):
             return {'__datetime__': o.replace(microsecond=0).isoformat()}
         return {'__{}__'.format(o.__class__.__name__): o.__dict__}
 
+class PrettyJsonEncoder(json.JSONEncoder):
+    """ Object JSON serialiser. """
+    def default(self, o): # pylint: disable=E0202
+        """ Custom Object JSON serialisation. """
+        if isinstance(o, datetime):
+            return o.replace(microsecond=0).isoformat()
+        return {'{}'.format(o.__class__.__name__): o.__dict__}
+
 def only_files(directory):
     """ Returns only the files in a directory. """
     onlyfiles = [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]

@@ -11,6 +11,7 @@
 #
 """ Flask application routes for JISC RDSS format application. """
 from datetime import datetime
+from json import dumps
 import logging
 from mimetypes import MimeTypes
 try:
@@ -20,7 +21,8 @@ except ImportError:
 
 import dateutil.parser
 
-from flask import render_template, send_file, jsonify, request, make_response
+from flask import render_template, send_file, request, make_response
+from flask_negotiate import produces
 from werkzeug.exceptions import BadRequest, NotFound
 
 from .corptest import APP, __version__
@@ -28,7 +30,7 @@ from .database import DB_SESSION
 from .model import SCHEMES, Source, FormatToolRelease, SourceIndex, Key
 from .model import KeyProperties, Property
 from .sources import SourceKey, FileSystem, AS3Bucket, BLOBSTORE
-from .utilities import sizeof_fmt
+from .utilities import sizeof_fmt, ObjectJsonEncoder, PrettyJsonEncoder
 ROUTES = True
 
 @APP.route("/")
@@ -53,6 +55,13 @@ def download_fs(source_id, encoded_filepath):
     """Download a file from a source."""
     return _download_item(Source.by_id(source_id), encoded_filepath)
 
+@APP.route("/api/analyse/<source_id>/<path:encoded_filepath>/")
+@produces('application/json')
+def file_report(source_id, encoded_filepath):
+    """Download a file from a source."""
+    enhanced_key = _get_enhanced_key(Source.by_id(source_id), encoded_filepath)
+    return dumps(enhanced_key, cls=PrettyJsonEncoder)
+
 @APP.route("/tools/")
 def tools():
     """Application tools listing"""
@@ -68,7 +77,7 @@ def toggle_tool_enabed(tool_id):
     """POST method to toggle a tool on and off."""
     tool = FormatToolRelease.by_id(tool_id)
     tool.set_enabled(not tool.enabled)
-    return jsonify(tool.enabled)
+    return dumps(tool.enabled, cls=ObjectJsonEncoder)
 
 @APP.route("/reports/")
 def list_reports():
@@ -154,12 +163,15 @@ def _add_index(source_item, encoded_filepath, analyse_sub_folders):
     return list_reports()
 
 def _file_details(source_item, encoded_filepath):
+    enhanced_key = _get_enhanced_key(source_item, encoded_filepath)
+    return render_template('file_details.html', source_item=source_item,
+                           enhanced_key=enhanced_key)
+
+def _get_enhanced_key(source_item, encoded_filepath):
     source, key = _get_source_and_key(source_item, encoded_filepath, is_folder=False)
     if not source.key_exists(key):
         raise NotFound('File %s not found' % encoded_filepath)
-    enhanced_key = source.get_file_metadata(key)
-    return render_template('file_details.html', source_item=source_item,
-                           enhanced_key=enhanced_key)
+    return source.get_file_metadata(key)
 
 def _get_source_and_key(source_item, encoded_filepath, is_folder=True):
     source = AS3Bucket(source_item) \

@@ -35,7 +35,8 @@ INSTALL_REQUIRES = [
     'python-magic == ' + find_version('__python_magic_version__', 'corptest', 'corptest.py'),
     'lxml == 3.7.3',
     'boto3 == 1.4.4',
-    'tzlocal',
+    'Flask-Negotiate == 0.1.0',
+    'tzlocal == 1.4',
 ]
 
 SETUP_REQUIRES = [
