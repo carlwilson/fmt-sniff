@@ -72,8 +72,7 @@ def _pdf_file_report(enhanced_key):
     with tempfile.NamedTemporaryFile(delete=False) as temp:
         item_pdf_report(enhanced_key, temp.name)
         dest_name = temp.name
-        dest = open(dest_name, 'r')
-        response = make_response(send_file(dest, mimetype='application/pdf'))
+        response = make_response(send_file(dest_name, mimetype='application/pdf'))
         response.headers["Content-Disposition"] = \
             "attachment; " \
             "filename*=UTF-8''{quoted_filename}".format(

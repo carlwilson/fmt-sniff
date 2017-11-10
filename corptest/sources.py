@@ -247,7 +247,6 @@ class AS3Bucket(SourceBase):
         if not bucket:
             raise ValueError("Argument bucket can not be None.")
         bucket_exists = self.validate_bucket(bucket.location)
-        print "bucket_exists = " + str(bucket_exists)
         if not bucket_exists:
             raise ValueError('No AS3 bucket called {} found.'.format(bucket.location))
         self.__bucket = bucket
