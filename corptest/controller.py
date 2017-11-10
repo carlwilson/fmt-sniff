@@ -14,6 +14,7 @@ from datetime import datetime
 from json import dumps
 import logging
 from mimetypes import MimeTypes
+import tempfile
 try:
     from urllib.parse import unquote as unquote, quote as quote
 except ImportError:
@@ -29,6 +30,7 @@ from .corptest import APP, __version__
 from .database import DB_SESSION
 from .model import SCHEMES, Source, FormatToolRelease, SourceIndex, Key
 from .model import KeyProperties, Property
+from .reporter import item_pdf_report
 from .sources import SourceKey, FileSystem, AS3Bucket, BLOBSTORE
 from .utilities import sizeof_fmt, ObjectJsonEncoder, PrettyJsonEncoder
 ROUTES = True
@@ -56,11 +58,28 @@ def download_fs(source_id, encoded_filepath):
     return _download_item(Source.by_id(source_id), encoded_filepath)
 
 @APP.route("/api/analyse/<source_id>/<path:encoded_filepath>/")
-@produces('application/json')
-def file_report(source_id, encoded_filepath):
+@produces('application/json', 'application/pdf')
+def json_file_report(source_id, encoded_filepath):
     """Download a file from a source."""
     enhanced_key = _get_enhanced_key(Source.by_id(source_id), encoded_filepath)
-    return dumps(enhanced_key, cls=PrettyJsonEncoder)
+    if request_wants_json():
+        return dumps(enhanced_key.metadata, cls=PrettyJsonEncoder)
+    return _pdf_file_report(enhanced_key)
+
+def _pdf_file_report(enhanced_key):
+    """Download a file from a source."""
+    dest_name = ''
+    with tempfile.NamedTemporaryFile(delete=False) as temp:
+        item_pdf_report(enhanced_key, temp.name)
+        dest_name = temp.name
+        dest = open(dest_name, 'r')
+        response = make_response(send_file(dest, mimetype='application/pdf'))
+        response.headers["Content-Disposition"] = \
+            "attachment; " \
+            "filename*=UTF-8''{quoted_filename}".format(
+                quoted_filename=quote(enhanced_key.name.encode('utf8'))
+                )
+        return response
 
 @APP.route("/tools/")
 def tools():
@@ -193,6 +212,13 @@ def _download_item(source_item, encoded_filepath):
             quoted_filename=quote(key.name.encode('utf8'))
             )
     return response
+
+def request_wants_json():
+    best = request.accept_mimetypes \
+        .best_match(['application/json', 'application/pdf'])
+    return best == 'application/json' and \
+        request.accept_mimetypes[best] > \
+        request.accept_mimetypes['application/pdf']
 
 if __name__ == "__main__":
     APP.run(threaded=True)

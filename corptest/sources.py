@@ -14,7 +14,9 @@ Classes that encapsulate different sources of data to be identified.
 """
 import abc
 import collections
+import copy
 from datetime import datetime
+from json import dumps
 import logging
 import os.path
 from os import access, R_OK, stat
@@ -35,7 +37,7 @@ from tzlocal import get_localzone
 from .corptest import APP
 from .blobstore import Sha1Lookup, BlobStore
 from .model import FormatToolRelease, Property, PropertyValue, KeyProperties, ByteSequence
-from .utilities import sha1_path, timestamp_fmt, Extension
+from .utilities import sha1_path, timestamp_fmt, Extension, PrettyJsonEncoder
 from .format_tools import get_format_tool_instance
 
 RDSS_ROOT = APP.config.get('RDSS_ROOT')
@@ -140,6 +142,18 @@ class SourceKey(object):
             ret_val.append("]")
 
         return "".join(ret_val)
+
+    def to_dict(self):
+        """Create a dictionary copy of the object."""
+        md_copy = copy.copy(self.__metadata)
+        md_copy.update({"path" : self.value})
+        md_copy.update({"size" : self.size})
+        md_copy.update({"modified" : self.last_modified})
+        return md_copy
+
+    def to_json(self):
+        """Create a user friendly JSON copy of the object."""
+        return dumps(self.to_dict(), cls=PrettyJsonEncoder)
 
 class SourceBase(object):
     """Abstract base class for Source classes."""
