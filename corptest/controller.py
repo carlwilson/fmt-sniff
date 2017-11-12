@@ -21,7 +21,7 @@ except ImportError:
     from urllib import unquote as unquote, quote as quote
 
 import dateutil.parser
-
+from dicttoxml import dicttoxml
 from flask import render_template, send_file, request, make_response
 from flask_negotiate import produces
 from werkzeug.exceptions import BadRequest, NotFound
@@ -58,13 +58,31 @@ def download_fs(source_id, encoded_filepath):
     return _download_item(Source.by_id(source_id), encoded_filepath)
 
 @APP.route("/api/analyse/<source_id>/<path:encoded_filepath>/")
-@produces('application/json', 'application/pdf')
+@produces('application/json', 'text/xml', 'application/pdf')
 def json_file_report(source_id, encoded_filepath):
     """Download a file from a source."""
     enhanced_key = _get_enhanced_key(Source.by_id(source_id), encoded_filepath)
-    if request_wants_json():
-        return dumps(enhanced_key.metadata, cls=PrettyJsonEncoder)
+    if _request_wants_json():
+        return _json_file_report(enhanced_key)
+    elif _request_wants_xml():
+        return _xml_file_report(enhanced_key)
     return _pdf_file_report(enhanced_key)
+
+def _json_file_report(enhanced_key):
+    response = APP.response_class(
+        response=dumps(enhanced_key.metadata, cls=PrettyJsonEncoder),
+        status=200,
+        mimetype='application/json'
+    )
+    return response
+
+def _xml_file_report(enhanced_key):
+    response = APP.response_class(
+        response=dicttoxml(enhanced_key.metadata),
+        status=200,
+        mimetype='text/xml'
+    )
+    return response
 
 def _pdf_file_report(enhanced_key):
     """Download a file from a source."""
@@ -212,10 +230,17 @@ def _download_item(source_item, encoded_filepath):
             )
     return response
 
-def request_wants_json():
+def _request_wants_json():
     best = request.accept_mimetypes \
         .best_match(['application/json', 'application/pdf'])
     return best == 'application/json' and \
+        request.accept_mimetypes[best] > \
+        request.accept_mimetypes['application/pdf']
+
+def _request_wants_xml():
+    best = request.accept_mimetypes \
+        .best_match(['text/xml', 'application/pdf'])
+    return best == 'text/xml' and \
         request.accept_mimetypes[best] > \
         request.accept_mimetypes['application/pdf']
 

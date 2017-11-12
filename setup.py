@@ -37,6 +37,7 @@ INSTALL_REQUIRES = [
     'boto3 == 1.4.4',
     'Flask-Negotiate == 0.1.0',
     'tzlocal == 1.4',
+    'dicttoxml == 1.7.4',
     'fpdf == 1.7.2',
 ]
 
