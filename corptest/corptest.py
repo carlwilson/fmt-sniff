@@ -32,7 +32,7 @@ logging.basicConfig(filename=APP.config['LOG_FILE'], level=logging.DEBUG,
                     format=APP.config['LOG_FORMAT'])
 logging.info("Started JISC RDSS Format Identification app.")
 
-from .model import init_db, SCHEMES # pylint: disable-msg=C0413
+from .model_sources import init_db, SCHEMES # pylint: disable-msg=C0413
 logging.debug("Configured logging.")
 logging.info("Initialising database.")
 init_db()
@@ -42,7 +42,7 @@ if not APP.config['IS_FIDO']:
 else:
     logging.info("Python %r enables inline FIDO support.", sys.version_info)
 
-from .model import Source, FormatTool, FormatToolRelease # pylint: disable-msg=C0413
+from .model_sources import Source, FormatTool, FormatToolRelease # pylint: disable-msg=C0413
 from .format_tools import get_format_tool_instance # pylint: disable-msg=C0413
 
 BUCKET_LIST = APP.config.get('BUCKETS', {})

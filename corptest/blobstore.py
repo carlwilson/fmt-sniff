@@ -18,7 +18,7 @@ import os.path
 from .utilities import check_param_not_none, sha1_path, sha1_copy_by_path
 from .utilities import only_files, create_dirs
 from .corptest import APP
-from .model import ByteSequence
+from .model_sources import ByteSequence
 
 RDSS_ROOT = APP.config.get('RDSS_ROOT')
 

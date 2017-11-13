@@ -28,8 +28,8 @@ from werkzeug.exceptions import BadRequest, NotFound
 
 from .corptest import APP, __version__
 from .database import DB_SESSION
-from .model import SCHEMES, Source, FormatToolRelease, SourceIndex, Key
-from .model import KeyProperty, Property
+from .model_sources import SCHEMES, Source, FormatToolRelease, SourceIndex, Key
+from .model_properties import KeyProperty, Property
 from .reporter import item_pdf_report
 from .sources import SourceKey, FileSystem, AS3Bucket, BLOBSTORE
 from .utilities import sizeof_fmt, ObjectJsonEncoder, PrettyJsonEncoder
@@ -78,7 +78,7 @@ def _json_file_report(enhanced_key):
 
 def _xml_file_report(enhanced_key):
     response = APP.response_class(
-        response=dicttoxml(enhanced_key),
+        response=dicttoxml(enhanced_key.metadata),
         status=200,
         mimetype='text/xml'
     )

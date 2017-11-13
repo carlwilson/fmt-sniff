@@ -14,9 +14,7 @@ Classes that encapsulate different sources of data to be identified.
 """
 import abc
 import collections
-import copy
 from datetime import datetime
-from json import dumps
 import logging
 import os.path
 from os import access, R_OK, stat
@@ -36,8 +34,9 @@ from tzlocal import get_localzone
 
 from .corptest import APP
 from .blobstore import Sha1Lookup, BlobStore
-from .model import FormatToolRelease, Property, PropertyValue, KeyProperty, ByteSequence
-from .utilities import sha1_path, timestamp_fmt, Extension, PrettyJsonEncoder
+from .model_sources import FormatToolRelease, ByteSequence
+from .model_properties import Property, PropertyValue, KeyProperty
+from .utilities import sha1_path, timestamp_fmt, Extension
 from .format_tools import get_format_tool_instance
 
 RDSS_ROOT = APP.config.get('RDSS_ROOT')
@@ -56,7 +55,6 @@ class SourceKey(object):
             raise ValueError("Argument size can not be None.")
         if size < 0:
             raise ValueError("Argument size can not be less than zero")
-        logging.debug("Name %s size %d", value, size)
         self.__value = value
         self.__is_folder = is_folder
         self.__size = size

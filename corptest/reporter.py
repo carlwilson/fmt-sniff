@@ -36,6 +36,7 @@ class PDF(FPDF):
         self.cell(0, 10, 'Page ' + str(self.page_no()) + '/{nb}', 0, 0, 'C')
 
 def item_pdf_report(item, report_path):
+    """Generates a PDF report for an item."""
     pdf = PDF()
     pdf.add_page()
     pdf.set_font('Arial', 'B', 16)

@@ -20,7 +20,7 @@ from fido import fido
 
 from .corptest import APP, __opf_fido_version__, __python_magic_version__
 from .formats import MagicType, MimeType, PronomId
-from .model import FormatToolRelease
+from .model_sources import FormatToolRelease
 from .utilities import check_param_not_none
 
 MIME_IDENT = magic.Magic(mime=True)
