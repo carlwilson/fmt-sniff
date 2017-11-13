@@ -21,7 +21,7 @@ sudo wget http://www.nationalarchives.gov.uk/documents/container-signature-20160
 # Create the handy application works for Apache Tika
 sudo mkdir /usr/local/lib/apache-tika
 cd /usr/local/lib/apache-tika
-sudo wget http://mirror.ox.ac.uk/sites/rsync.apache.org/tika/tika-app-1.14.jar
+sudo wget http://mirrors.ukfast.co.uk/sites/ftp.apache.org/tika/tika-app-1.16.jar
 sudo cp /vagrant/scripts/tika.sh ./
 sudo chmod +x tika.sh
 sudo ln -s /usr/local/lib/apache-tika/tika.sh /usr/local/bin/tika
