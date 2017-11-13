@@ -13,6 +13,7 @@
 from datetime import datetime
 import errno
 import os.path
+
 from sqlalchemy import and_, Column, DateTime, Integer, String, ForeignKey
 from sqlalchemy import UniqueConstraint, Boolean, func
 from sqlalchemy.orm import relationship
@@ -158,7 +159,7 @@ class SourceIndex(BASE):
         if self.source.scheme == SCHEMES['FILE']:
             return False
         return Key.query.filter(Key.source_index_id == self.id,
-                             Key.byte_sequence_id == None).count() > 0
+                                Key.byte_sequence_id == None).count() > 0
 
     def put(self):
         """ Add the SourceIndex to the database."""
@@ -488,7 +489,7 @@ class PropertyValue(BASE):
             ret_val.put()
         return ret_val
 
-class KeyProperties(BASE):
+class KeyProperty(BASE):
     """Properties assigned to SourceKeys."""
     __tablename__ = 'key_properties'
 
@@ -512,20 +513,20 @@ class KeyProperties(BASE):
 
 
     def put(self):
-        """Add this ByteSequence instance to the database."""
+        """Add this KeyProperty instance to the database."""
         return _add(self)
 
     def __key(self):
-        return (self.key, self.prop)
+        return (self.key, self.prop, self.prop_val)
 
     def __eq__(self, other):
-        """ Define an equality test for ByteSequence """
+        """ Define an equality test for KeyProperty """
         if isinstance(other, self.__class__):
             return self.__key() == other.__key()
         return False
 
     def __ne__(self, other):
-        """ Define an inequality test for ByteSequence """
+        """ Define an inequality test for KeyProperty """
         return not self.__eq__(other)
 
     def __hash__(self):
@@ -536,7 +537,7 @@ class KeyProperties(BASE):
 
     def __rep__(self):
         ret_val = []
-        ret_val.append("ByteSequence : [key=")
+        ret_val.append("KeyProperty : [key=")
         ret_val.append(self.key)
         ret_val.append(", prop=")
         ret_val.append(self.prop)
@@ -547,57 +548,57 @@ class KeyProperties(BASE):
 
     @staticmethod
     def count():
-        """Returns the number of KeyProperties instances in the database."""
-        return KeyProperties.query.count()
+        """Returns the number of KeyProperty instances in the database."""
+        return KeyProperty.query.count()
 
     @staticmethod
     def all():
-        """Convenience method, returns all of the ByteSequence instances."""
-        return KeyProperties.query.order_by(KeyProperties.prop_id).all()
+        """Convenience method, returns all of the KeyProperty instances."""
+        return KeyProperty.query.order_by(KeyProperty.prop_id).all()
 
     @staticmethod
     def by_id(id):# pylint: disable-msg=W0622,C0103
-        """Query for KeyProperties with matching id."""
+        """Query for KeyProperty with matching id."""
         check_param_not_none(id, "id")
-        return KeyProperties.query.filter(KeyProperties.id == id).first()
+        return KeyProperty.query.filter(KeyProperty.id == id).first()
 
     @staticmethod
     def by_prop_id(id):# pylint: disable-msg=W0622,C0103
-        """Query for KeyProperties with matching id."""
+        """Query for KeyProperty with matching id."""
         check_param_not_none(id, "id")
-        return KeyProperties.query.filter(KeyProperties.prop_id == id).all()
+        return KeyProperty.query.filter(KeyProperty.prop_id == id).all()
 
     @staticmethod
     def by_key_id(id):# pylint: disable-msg=W0622,C0103
-        """Query for KeyProperties with matching id."""
+        """Query for KeyProperty with matching id."""
         check_param_not_none(id, "id")
-        return KeyProperties.query.filter(KeyProperties.key_id == id).all()
+        return KeyProperty.query.filter(KeyProperty.key_id == id).all()
 
     @staticmethod
     def by_key_and_prop_id(key_id, prop_id):# pylint: disable-msg=W0622,C0103
-        """Query for KeyProperties with matching id."""
+        """Query for KeyProperty with matching id."""
         check_param_not_none(id, "id")
-        return KeyProperties.query.filter(KeyProperties.prop_id == prop_id,
-                                          KeyProperties.key_id == key_id).first()
+        return KeyProperty.query.filter(KeyProperty.prop_id == prop_id,
+                                        KeyProperty.key_id == key_id).first()
 
     @staticmethod
     def get_properties_for_index(source_index_id):
-        """Returns the total size in bytes of all files in the index."""
+        """Returns the total numbers of properties of all files in the index."""
         return DB_SESSION.query(Property).distinct(Property.id, Property.namespace,
                                                    Property.name).\
                                 group_by(Property.id, Property.namespace, Property.name).\
-                                join(KeyProperties).join(Key).\
+                                join(KeyProperty).join(Key).\
                                 filter(Key.source_index_id == source_index_id).all()
 
     @staticmethod
     def get_property_values_for_index(source_index_id, prop_id):
         """Returns the total size in bytes of all files in the index."""
         return DB_SESSION.query(PropertyValue.value,
-                                func.count(KeyProperties.id).label('prop_count')).\
+                                func.count(KeyProperty.id).label('prop_count')).\
                                 distinct(PropertyValue.value).\
                                 group_by(PropertyValue.id, PropertyValue.value).\
-                                join(KeyProperties).\
-                                filter(KeyProperties.prop_id == prop_id).join(Key).\
+                                join(KeyProperty).\
+                                filter(KeyProperty.prop_id == prop_id).join(Key).\
                                 filter(Key.source_index_id == source_index_id).all()
 
 
@@ -606,7 +607,7 @@ class KeyProperties(BASE):
         """Create or update the KeyProperty."""
         ret_val = cls.by_key_and_prop_id(key.id, prop.id)
         if ret_val is None:
-            ret_val = KeyProperties(key, prop, prop_val)
+            ret_val = KeyProperty(key, prop, prop_val)
             ret_val.put()
         return ret_val
 
@@ -731,6 +732,128 @@ class ByteSequence(BASE):
         except ValueError:
             return False
         return True
+
+class ByteSequenceProperty(BASE):
+    """Properties assigned to ByteSequences."""
+    __tablename__ = 'byte_sequence_properties'
+
+    id = Column(Integer, primary_key=True)# pylint: disable-msg=C0103
+    byte_sequence_id = Column(Integer, ForeignKey('byte_sequence.id'), nullable=False)
+    prop_id = Column(Integer, ForeignKey('property.id'), nullable=False)
+    prop_val_id = Column(Integer, ForeignKey('property_value.id'), nullable=False)
+
+    key = relationship('ByteSequence')
+    prop = relationship('Property')
+    prop_val = relationship('PropertyValue')
+    __table_args__ = (UniqueConstraint('byte_sequence_id', 'prop_id', name='uix_bs_property'),)
+
+    def __init__(self, byte_sequence, prop, prop_val):
+        check_param_not_none(byte_sequence, "byte_sequence")
+        check_param_not_none(prop, "prop")
+        check_param_not_none(prop_val, "prop_val")
+        self.byte_sequence = byte_sequence
+        self.prop = prop
+        self.prop_val = prop_val
+
+
+    def put(self):
+        """Add this ByteSequenceProperty instance to the database."""
+        return _add(self)
+
+    def __key(self):
+        return (self.byte_sequence, self.prop, self.prop_val)
+
+    def __eq__(self, other):
+        """ Define an equality test for ByteSequenceProperty """
+        if isinstance(other, self.__class__):
+            return self.__key() == other.__key()
+        return False
+
+    def __ne__(self, other):
+        """ Define an inequality test for ByteSequenceProperty """
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash(self.__key())
+
+    def __str__(self):
+        return self.__rep__()
+
+    def __rep__(self):
+        ret_val = []
+        ret_val.append("ByteSequenceProperty : [byte_sequence=")
+        ret_val.append(self.byte_sequence)
+        ret_val.append(", prop=")
+        ret_val.append(self.prop)
+        ret_val.append(", prop_val=")
+        ret_val.append(self.prop_val)
+        ret_val.append("]")
+        return "".join(ret_val)
+
+    @staticmethod
+    def count():
+        """Returns the number of ByteSequenceProperty instances in the database."""
+        return ByteSequenceProperty.query.count()
+
+    @staticmethod
+    def all():
+        """Convenience method, returns all of the ByteSequenceProperty instances."""
+        return ByteSequenceProperty.query.order_by(ByteSequenceProperty.prop_id).all()
+
+    @staticmethod
+    def by_id(id):# pylint: disable-msg=W0622,C0103
+        """Query for ByteSequenceProperty with matching id."""
+        check_param_not_none(id, "id")
+        return ByteSequenceProperty.query.filter(ByteSequenceProperty.id == id).first()
+
+    @staticmethod
+    def by_prop_id(id):# pylint: disable-msg=W0622,C0103
+        """Query for ByteSequenceProperty with matching id."""
+        check_param_not_none(id, "id")
+        return ByteSequenceProperty.query.filter(ByteSequenceProperty.prop_id == id).all()
+
+    @staticmethod
+    def by_byte_sequence_id(id):# pylint: disable-msg=W0622,C0103
+        """Query for ByteSequenceProperty with matching id."""
+        check_param_not_none(id, "id")
+        return ByteSequenceProperty.query.filter(ByteSequenceProperty.byte_sequence_id == id).all()
+
+    @staticmethod
+    def by_key_and_byte_sequence_id(byte_sequence_id, prop_id):# pylint: disable-msg=W0622,C0103
+        """Query for ByteSequenceProperty with matching id."""
+        check_param_not_none(id, "id")
+        return ByteSequenceProperty.query.filter(ByteSequenceProperty.prop_id == prop_id,
+                                                 ByteSequenceProperty.byte_sequence_id \
+                                                 == byte_sequence_id).first()
+
+    @staticmethod
+    def get_properties_for_index(source_index_id):
+        """Returns the total numbers of properties of all files in the index."""
+        return DB_SESSION.query(Property).distinct(Property.id, Property.namespace,
+                                                   Property.name).\
+                                group_by(Property.id, Property.namespace, Property.name).\
+                                join(ByteSequenceProperty).join(ByteSequence).\
+                                filter(Key.source_index_id == source_index_id).all()
+
+    @staticmethod
+    def get_property_values_for_index(source_index_id, prop_id):
+        """Returns the total size in bytes of all files in the index."""
+        return DB_SESSION.query(PropertyValue.value,
+                                func.count(ByteSequenceProperty.id).label('prop_count')).\
+                                distinct(PropertyValue.value).\
+                                group_by(PropertyValue.id, PropertyValue.value).\
+                                join(ByteSequenceProperty).\
+                                filter(ByteSequenceProperty.prop_id == prop_id).join(ByteSequence).\
+                                filter(Key.source_index_id == source_index_id).all()
+
+    @classmethod
+    def putdate(cls, byte_sequence, prop, prop_val):
+        """Create or update the ByteSequenceProperty."""
+        ret_val = cls.by_key_and_prop_id(byte_sequence.id, prop.id)
+        if ret_val is None:
+            ret_val = ByteSequenceProperty(byte_sequence, prop, prop_val)
+            ret_val.put()
+        return ret_val
 
 class FormatTool(BASE):
     """Class to hold the details of a format identification tool."""

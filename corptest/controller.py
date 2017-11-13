@@ -29,7 +29,7 @@ from werkzeug.exceptions import BadRequest, NotFound
 from .corptest import APP, __version__
 from .database import DB_SESSION
 from .model import SCHEMES, Source, FormatToolRelease, SourceIndex, Key
-from .model import KeyProperties, Property
+from .model import KeyProperty, Property
 from .reporter import item_pdf_report
 from .sources import SourceKey, FileSystem, AS3Bucket, BLOBSTORE
 from .utilities import sizeof_fmt, ObjectJsonEncoder, PrettyJsonEncoder
@@ -78,7 +78,7 @@ def _json_file_report(enhanced_key):
 
 def _xml_file_report(enhanced_key):
     response = APP.response_class(
-        response=dicttoxml(enhanced_key.metadata),
+        response=dicttoxml(enhanced_key),
         status=200,
         mimetype='text/xml'
     )
@@ -139,7 +139,7 @@ def report_detail(report_id):
     return render_template('report_details.html', report=source_index,
                            file_count=file_count,
                            size=size,
-                           props=KeyProperties.get_properties_for_index(report_id))
+                           props=KeyProperty.get_properties_for_index(report_id))
 
 @APP.route("/reports/<int:report_id>/prop/<int:prop_id>")
 def report_properties(report_id, prop_id):
@@ -149,7 +149,7 @@ def report_properties(report_id, prop_id):
                            file_count=source_index.key_count,
                            size=sizeof_fmt(source_index.size),
                            prop=Property.by_id(prop_id),
-                           prop_values=KeyProperties\
+                           prop_values=KeyProperty\
                                .get_property_values_for_index(report_id, prop_id))
 
 @APP.route("/about/")

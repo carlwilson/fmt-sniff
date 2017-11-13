@@ -13,6 +13,7 @@
 from fpdf import FPDF
 
 class PDF(FPDF):
+    """PDF report generator with header and footer."""
     def header(self):
         # Logo
         # self.image('logo_pb.png', 10, 8, 33)
