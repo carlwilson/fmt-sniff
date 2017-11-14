@@ -528,7 +528,7 @@ class FormatToolRelease(BASE):
     version = Column(String(50), nullable=False)
     available = Column(Boolean, nullable=False)
     enabled = Column(Boolean, nullable=False)
-    UniqueConstraint('format_tool_id', 'version', name='uix__tool_version')
+    __table_args__ = (UniqueConstraint('format_tool_id', 'version', name='uix_tool_version'),)
 
     def __init__(self, format_tool, version, available=True, enabled=True):
         check_param_not_none(format_tool, "format_tool")
@@ -661,10 +661,6 @@ class FormatToolRelease(BASE):
         """Retrieve all enabled format tools."""
         return FormatToolRelease.query.filter(
             FormatToolRelease.enabled == True).all()# pylint: disable-msg=C0121
-
-def init_db():
-    """Initialise the database."""
-    BASE.metadata.create_all(bind=ENGINE)
 
 def _add(obj):
     """Add an object instance to the database."""

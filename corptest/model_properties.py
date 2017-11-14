@@ -14,7 +14,7 @@ from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy import UniqueConstraint, func
 from sqlalchemy.orm import relationship
 
-from .database import BASE, DB_SESSION
+from .database import BASE, DB_SESSION, ENGINE
 from .model_sources import Key, ByteSequence
 from .model_sources import _add
 from .utilities import check_param_not_none
@@ -125,14 +125,14 @@ class PropertyValue(BASE):
     __tablename__ = 'property_value'
 
     id = Column(Integer, primary_key=True)# pylint: disable-msg=C0103
-    value = Column(String(512), nullable=False, unique=True)
+    value = Column(String(1024), nullable=False, unique=True)
 
     def __init__(self, value):
         value = value if value else ''
-        self.value = str(value)
+        self.value = str(value).strip()
 
     def put(self):
-        """Add this ByteSequence instance to the database."""
+        """Add this Property instance to the database."""
         return _add(self)
 
     def __key(self):
@@ -441,3 +441,7 @@ class ByteSequenceProperty(BASE):
             ret_val = ByteSequenceProperty(byte_sequence, prop, prop_val)
             ret_val.put()
         return ret_val
+
+def init_db():
+    """Initialise the database."""
+    BASE.metadata.create_all(bind=ENGINE)

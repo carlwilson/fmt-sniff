@@ -26,6 +26,12 @@ class PDF(FPDF):
         # Line break
         self.ln(20)
 
+    def cell_pair_line(self, key, value):
+        """ Gen a standard PDF report line."""
+        self.cell(50, 10, str(key) + ': ')
+        self.cell(40, 10, str(value))
+        self.ln(10)
+
     # Page footer
     def footer(self):
         # Position at 1.5 cm from bottom
@@ -35,14 +41,15 @@ class PDF(FPDF):
         # Page number
         self.cell(0, 10, 'Page ' + str(self.page_no()) + '/{nb}', 0, 0, 'C')
 
-def item_pdf_report(item, report_path):
+def item_pdf_report(key, properties, report_path):
     """Generates a PDF report for an item."""
     pdf = PDF()
     pdf.add_page()
     pdf.set_font('Arial', 'B', 16)
-    _dict = item.to_dict()
-    for key in _dict:
-        pdf.cell(50, 10, key + ': ')
-        pdf.cell(40, 10, str(_dict[key]))
-        pdf.ln(10)
+    pdf.cell_pair_line('Name', key.name)
+    pdf.cell_pair_line('Path', key.value)
+    pdf.cell_pair_line('Size', key.size)
+    pdf.cell_pair_line('Last modified', key.last_modified)
+    for prop in properties:
+        pdf.cell_pair_line(prop, properties[prop])
     pdf.output(report_path, 'F')

@@ -1,11 +1,11 @@
 {% extends "page.html" %}
 {% block title %}Folder List{% endblock %}
 {% block page_content %}
-  <h2>{{ source_item.name }}</h2>
+  <h2>{{ source.name }}</h2>
   <p class="lead">
-    <a href="/source/{{ source_item.id }}/folder/">{{ source_item.name }}/</a>
+    <a href="/source/{{ source.id }}/folder/">{{ source.name }}/</a>
     {%- for part, part_path in filter_key.parts -%}
-    <a href="/source/{{ source_item.id }}/folder/{{ part_path }}/">{{ part }}/</a>
+    <a href="/source/{{ source.id }}/folder/{{ part_path }}/">{{ part }}/</a>
     {%- endfor %}
   </p>
   <p class="lead">
@@ -13,7 +13,7 @@
     this folder and its sub-folders.
   </p>
   <form role="form" action="/reports/" method="POST">
-    <input type="hidden" value="{{ source_item.id }}" name="source_id" />
+    <input type="hidden" value="{{ source.id }}" name="source_id" />
     <input type="hidden" value="{{ filter_key.value if filter_key.value else '' }}" name="encoded_filepath" />
     <div class="form-group">
       <span class="input-group-btn">
@@ -34,15 +34,16 @@
   <table class="table table-striped">
     <tr>
       <th>Type</th>
-      <th>Key</th>
-      <th>Last Modified</th>
+      <th>Name</th>
+      <th>Ext</th>
+      <th>Modified</th>
       <th>Size</th>
-      {%- for key in metadata_keys %}
-      <th>{{ key }}</th>
+      {%- for prop in properties %}
+      <th>{{ prop }}</th>
       {% endfor -%}
     </tr>
-    {{ key_rows(source_item.id, folders) }}
-    {{ key_rows(source_item.id, files) }}
+    {{ key_rows(source.id, folders) }}
+    {{ key_rows(source.id, files) }}
   </table>
 {% endblock page_content %}
 
@@ -56,10 +57,11 @@
     <tr>
       <td><span class="glyphicon glyphicon-{{ 'folder-open' if item.is_folder else 'file' }}" aria-hidden="true"></span></td>
       <td><a href="/source/{{ source_id }}/{{ 'folder' if item.is_folder else 'file' }}/{{ item.value }}" >{{ item.name }}</a></td>
+      <td>{{ item.extension }}</td>
       <td>{{ item.last_modified }}</td>
       <td>{{ item.size }}</td>
-      {%- for key in metadata_keys %}
-      <td>{{ item.metadata.get(key, '') }}</td>
+      {%- for prop in properties %}
+      <td>{{ item.properties.get(prop, '') }}</td>
       {% endfor %}
     </tr>
   {% endmacro -%}

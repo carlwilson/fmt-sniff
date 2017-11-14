@@ -195,5 +195,9 @@ class Extension(object):
     @classmethod
     def from_file_name(cls, file_name):
         """ Creates a new extension instance by parsing file_name. """
-        _, ext = os.path.splitext(file_name)
-        return cls(ext[1:])
+        return cls(cls.parse_from_file_name(file_name))
+
+    @staticmethod
+    def parse_from_file_name(file_name):
+        """Parses a string extension from a file name. """
+        return os.path.splitext(file_name)[1][1:]
