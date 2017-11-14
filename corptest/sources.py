@@ -34,6 +34,7 @@ from tzlocal import get_localzone
 
 from .corptest import APP
 from .blobstore import Sha1Lookup, BlobStore
+from .format_tools import FormatToolRelease, get_format_tool_instance
 from .model_sources import ByteSequence
 from .model_properties import Property, PropertyValue
 from .utilities import sha1_path, timestamp_fmt, Extension
@@ -110,13 +111,19 @@ class SourceKey(object):
             yield part, '/'.join([part_path, part]) if part_path else part
             part_path = '/'.join([part_path, part]) if part_path else part
 
-    def add_property(self, prop, value):
+    def add_properties(self, prop_dict):
+        """Add the key value pairs in prop_dict to this."""
+        if prop_dict is None:
+            raise ValueError("Argument prop_dict can not be None.")
+        self.__properties.update(prop_dict)
+
+    def add_property(self, key, value):
         """Add the Property to_append to this keys list of properties."""
-        if prop is None:
-            raise ValueError("Argument prop can not be None.")
+        if key is None:
+            raise ValueError("Argument key can not be None.")
         if value is None:
             raise ValueError("Argument value can not be None.")
-        self.__properties[prop] = value
+        self.__properties[key] = value
 
     def __key(self):
         return (self.value, self.is_folder)
@@ -155,6 +162,7 @@ class SourceKey(object):
 
 PYTHON_NAMESPACE = 'os.python.org'
 class SourceBase(object):
+    """Base class for different sources."""
     __metaclass__ = abc.ABCMeta
     PYTHON_NAMESPACE = PYTHON_NAMESPACE
 
@@ -176,6 +184,11 @@ class SourceBase(object):
     @abc.abstractmethod
     def key_exists(self, key): # pragma: no cover
         """Check to see if a key exists, returns true if it does, false otherwise."""
+        return
+
+    @abc.abstractmethod
+    def get_key(self, path): # pragma: no cover
+        """ Get the basic key details for a path."""
         return
 
     @abc.abstractmethod
@@ -284,6 +297,15 @@ class AS3Bucket(SourceBase):
                 return False
         return True
 
+    def get_key(self, path): # pragma: no cover
+        """ Get the basic key details for a path."""
+        result = self._get_object_result(path)
+        key = SourceKey(path, False, result.get('ContentLength'),
+                        result.get('LastModified'))
+        properties = self._get_s3_properties_from_result(key, result)
+        key.add_properties(properties)
+        return key
+
     def all_file_keys(self):
         bucket = self.S3_RESOURCE.Bucket(self.bucket.location)
         for obj_summary in bucket.objects.all():
@@ -329,24 +351,26 @@ class AS3Bucket(SourceBase):
         if not key or key.is_folder:
             raise ValueError("Argument key must be a file key.")
         logging.info("Obtaining meta for key: %s, value: %s", key, key.value)
-        # props = self._get_s3_properties(key)
-        # full_path, _ = self.get_path_and_byte_seq(key,
-        #                                           key.add_property(self.SHA1))
-        # for tool_release in FormatToolRelease.get_enabled():
-        #     logging.debug("Checking %s", tool_release.format_tool.name)
-        #     tool = get_format_tool_instance(tool_release.format_tool)
-        #     if tool.version:
-        #         logging.debug("Invoking %s", tool.format_tool_release.format_tool.name)
-        #         metadata = tool.identify(full_path)
-        #         if metadata:
-        #             augmented_key.metadata.update(metadata)
-        # return augmented_key
+        props = self.get_key_properties(key)
+        full_path, _ = self.get_path_and_byte_seq(key,
+                                                  key.add_property('SHA1'))
+        for tool_release in FormatToolRelease.get_enabled():
+            logging.debug("Checking %s", tool_release.format_tool.name)
+            tool = get_format_tool_instance(tool_release.format_tool)
+            if tool.version:
+                logging.debug("Invoking %s", tool.format_tool_release.format_tool.name)
+                metadata = tool.identify(full_path)
+                if metadata:
+                    props.update(metadata)
+        return props
 
     def _get_object_result(self, key_value):
         s3_client = client('s3')
         return s3_client.get_object(Bucket=self.bucket.location, Key=key_value)
 
     def get_key_properties(self, key):
+        if key.is_folder:
+            raise ValueError("Argument key %s can't be a folder" % key.value)
         result = self._get_object_result(key.value)
         props = self._get_s3_properties_from_result(key, result)
         for md_key, md_value in result['Metadata']:
@@ -435,7 +459,8 @@ class FileSystem(SourceBase):
         if not file_system:
             raise ValueError("Argument file_system can not be None.")
         if not os.path.isdir(file_system.location) or not access(file_system.location, R_OK):
-            raise ValueError("Argument file_system.location %s must be an existing dir" % file_system.location)
+            raise ValueError("Argument file_system.location %s must be an existing dir" % \
+                             file_system.location)
         self.__file_system = file_system
 
     @property
@@ -446,6 +471,16 @@ class FileSystem(SourceBase):
     def file_system(self):
         """Return the file system model entitiy for this corpus."""
         return self.__file_system
+
+    def get_key(self, path): # pragma: no cover
+        """ Get the basic key details for a path."""
+        result = stat(os.path.join(self.file_system.location, path))
+        key = SourceKey(path, False,
+                        int(result.st_size),
+                        datetime.fromtimestamp(result.st_mtime, self.TIME_ZONE))
+        properties = self.get_fs_metadata_from_result(key, result)
+        key.add_properties(properties)
+        return key
 
     def key_exists(self, key): # pragma: no cover
         check_val = key.value if key else ''
@@ -495,22 +530,20 @@ class FileSystem(SourceBase):
             raise ValueError("Argument key must be a file key.")
         full_path = os.path.join(self.file_system.location, key.value)
         result = stat(full_path)
-        augmented_key = SourceKey(key.value, False, result.st_size,
-                                  datetime.fromtimestamp(result.st_mtime,
-                                                         self.TIME_ZONE))
-        # augmented_key.metadata.update(self.get_fs_metadata_from_result(key, result))
-        # sha1 = sha1_path(full_path)
-        # augmented_key.metadata['SHA1'] = sha1 if sha1 else ''
-        #
-        # for tool_release in FormatToolRelease.get_enabled():
-        #     tool = get_format_tool_instance(tool_release.format_tool)
-        #     logging.debug("Checking %s", tool.format_tool_release.format_tool.name)
-        #     if tool.version:
-        #         logging.debug("Invoking %s", tool.format_tool_release.format_tool.name)
-        #         metadata = tool.identify(full_path)
-        #         if metadata:
-        #             augmented_key.metadata.update(metadata)
-        return augmented_key
+        props = collections.defaultdict()
+        props.update(self.get_fs_metadata_from_result(key, result))
+        sha1 = sha1_path(full_path)
+        props['SHA1'] = sha1 if sha1 else ''
+
+        for tool_release in FormatToolRelease.get_enabled():
+            tool = get_format_tool_instance(tool_release.format_tool)
+            logging.debug("Checking %s", tool.format_tool_release.format_tool.name)
+            if tool.version:
+                logging.debug("Invoking %s", tool.format_tool_release.format_tool.name)
+                metadata = tool.identify(full_path)
+                if metadata:
+                    props.update(metadata)
+        return props
 
     @classmethod
     def get_fs_metadata_from_result(cls, key, result):

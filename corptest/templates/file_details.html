@@ -15,12 +15,12 @@
       <th>Last Modified</th>
       <td>{{ key.last_modified }}</td>
     </tr>
-    {%- for key, value in properties.items() %}
+    {%- for key, value in key.properties.items() %}
     <tr>
       <th>{{ key }}</th>
       <td>{{ value }}</td>
-      {% endfor -%}
     </tr>
+    {% endfor -%}
   </table>
   <p>
     <a class="btn btn-primary btn-lg" onclick="get_report({{ source.id }}, '{{ key.value }}', 'application/json', 'json', 'text');" >JSON</a>
@@ -34,7 +34,7 @@
 function get_report(source_id, key_value, content_type, ext, type) {
   var url = "/api/analyse/".concat(source_id + '/').concat(key_value);
   $.ajax({
-    accepts:{text:'application/json', binary: content_type, xml: 'application/xml'},
+    accepts:{text:'application/json', binary: content_type, xml: 'text/xml'},
     url:url,
     processData:false,
     dataType:type,

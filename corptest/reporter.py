@@ -41,7 +41,7 @@ class PDF(FPDF):
         # Page number
         self.cell(0, 10, 'Page ' + str(self.page_no()) + '/{nb}', 0, 0, 'C')
 
-def item_pdf_report(key, properties, report_path):
+def item_pdf_report(key, report_path):
     """Generates a PDF report for an item."""
     pdf = PDF()
     pdf.add_page()
@@ -50,6 +50,6 @@ def item_pdf_report(key, properties, report_path):
     pdf.cell_pair_line('Path', key.value)
     pdf.cell_pair_line('Size', key.size)
     pdf.cell_pair_line('Last modified', key.last_modified)
-    for prop in properties:
-        pdf.cell_pair_line(prop, properties[prop])
+    for prop in key.properties:
+        pdf.cell_pair_line(prop, key.properties[prop])
     pdf.output(report_path, 'F')

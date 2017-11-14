@@ -22,7 +22,7 @@ except ImportError:
 
 import dateutil.parser
 import dicttoxml
-from flask import render_template, send_file, request, make_response, Response
+from flask import render_template, send_file, request, make_response
 from flask_negotiate import produces
 from werkzeug.exceptions import BadRequest, NotFound
 
@@ -35,9 +35,9 @@ from .sources import SourceKey, FileSystem, AS3Bucket, BLOBSTORE
 from .utilities import sizeof_fmt, ObjectJsonEncoder, PrettyJsonEncoder
 ROUTES = True
 
-JSON_MIME='application/json'
-PDF_MIME='application/pdf'
-XML_MIME='text/xml'
+JSON_MIME = 'application/json'
+PDF_MIME = 'application/pdf'
+XML_MIME = 'text/xml'
 @APP.route("/")
 def home():
     """Application home page."""
@@ -65,25 +65,26 @@ def download_fs(source_id, encoded_filepath):
 def json_file_report(source_id, encoded_filepath):
     """Download a file from a source."""
     key, properties = _get_key_properties(Source.by_id(source_id), encoded_filepath)
+    key.add_properties(properties)
     if _request_wants_json():
         logging.debug("JSON file report for %s", key.value)
-        return _json_file_report(key, properties)
+        return _json_file_report(key)
     elif _request_wants_xml():
         logging.debug("XML file report for %s", key.value)
-        return _xml_file_report(key, properties)
+        return _xml_file_report(key)
     logging.debug("PDF file report for %s", key.value)
-    return _pdf_file_report(key, properties)
+    return _pdf_file_report(key)
 
-def _json_file_report(key, properties):
+def _json_file_report(key):
     response = APP.response_class(
-        response=dumps(properties, cls=PrettyJsonEncoder),
+        response=dumps(key, cls=PrettyJsonEncoder),
         status=200,
         mimetype=JSON_MIME
     )
     return response
 
-def _xml_file_report(key, properties):
-    xml = dicttoxml.dicttoxml(properties)
+def _xml_file_report(key):
+    xml = dicttoxml.dicttoxml(key.properties)
     response = APP.response_class(
         response=xml,
         status=200,
@@ -91,11 +92,11 @@ def _xml_file_report(key, properties):
     )
     return response
 
-def _pdf_file_report(key, properties):
+def _pdf_file_report(key):
     """Download a file from a source."""
     dest_name = ''
     with tempfile.NamedTemporaryFile(delete=False) as temp:
-        item_pdf_report(key, properties, temp.name)
+        item_pdf_report(key, temp.name)
         dest_name = temp.name
         response = make_response(send_file(dest_name, mimetype=PDF_MIME))
         response.headers["Content-Disposition"] = \
@@ -205,9 +206,14 @@ def _add_index(source, encoded_filepath, analyse_sub_folders):
     return list_reports()
 
 def _file_details(source, encoded_filepath):
-    key, properties = _get_key_properties(source, encoded_filepath)
+    _fs, _key = _get_fs_and_key(source, encoded_filepath, is_folder=False)
+    if not _fs.key_exists(_key):
+        raise NotFound('File %s not found' % encoded_filepath)
+    key = _fs.get_key(unquote(encoded_filepath))
+    bs_props = _fs.get_byte_sequence_properties(key)
+    key.add_properties(bs_props)
     return render_template('file_details.html', source=source,
-                           key=key, properties=properties)
+                           key=key)
 
 def _get_key_properties(source, encoded_filepath):
     _fs, key = _get_fs_and_key(source, encoded_filepath, is_folder=False)

@@ -18,7 +18,7 @@ from sqlalchemy import and_, Column, DateTime, Integer, String, ForeignKey
 from sqlalchemy import UniqueConstraint, Boolean, func
 from sqlalchemy.orm import relationship
 
-from .database import BASE, DB_SESSION, ENGINE
+from .database import BASE, DB_SESSION
 from .utilities import check_param_not_none, sha1_path, sha1_string, timestamp_fmt
 SCHEMES = {
     'AS3': "as3",
