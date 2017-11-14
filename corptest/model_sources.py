@@ -517,6 +517,18 @@ class FormatTool(BASE):
         check_param_not_none(format_tool, "format_tool")
         _add(format_tool)
 
+    @classmethod
+    def putdate(cls, name, description, reference):
+        """Add a FormatTool instance to the table."""
+        check_param_not_none(name, "name")
+        check_param_not_none(description, "description")
+        check_param_not_none(reference, "reference")
+        ret_val = FormatTool.by_name(name)
+        if ret_val is None:
+            ret_val = cls(name, description, reference)
+            cls.add(ret_val)
+        return ret_val
+
 class FormatToolRelease(BASE):
     """An individual release of a particular format tool."""
     __tablename__ = 'format_tool_release'
@@ -532,7 +544,9 @@ class FormatToolRelease(BASE):
 
     def __init__(self, format_tool, version, available=True, enabled=True):
         check_param_not_none(format_tool, "format_tool")
-        check_param_not_none(version, "version")
+        check_param_not_none(available, "available")
+        check_param_not_none(format_tool, "format_tool")
+        check_param_not_none(enabled, "enabled")
         self.format_tool = format_tool
         self.version = version
         self.available = available
@@ -620,14 +634,17 @@ class FormatToolRelease(BASE):
         check_param_not_none(format_tool_release, "format_tool_release")
         _add(format_tool_release)
 
-    @staticmethod
-    def putdate(to_put):
+    @classmethod
+    def putdate(cls, format_tool, version, available=True, enabled=True):
         """Add a FormatToolRelease instance to the table."""
-        check_param_not_none(to_put, "to_put")
-        ret_val = FormatToolRelease.by_tool_and_version(to_put.format_tool, to_put.version)
+        check_param_not_none(format_tool, "format_tool")
+        check_param_not_none(available, "available")
+        check_param_not_none(format_tool, "format_tool")
+        check_param_not_none(enabled, "enabled")
+        ret_val = FormatToolRelease.by_tool_and_version(format_tool, version)
         if ret_val is None:
-            _add(to_put)
-            ret_val = to_put
+            ret_val = cls(format_tool, version, available, enabled)
+            _add(ret_val)
         return ret_val
 
     @staticmethod

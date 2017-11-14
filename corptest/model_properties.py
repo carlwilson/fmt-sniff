@@ -310,7 +310,6 @@ class KeyProperty(BASE):
                                 filter(KeyProperty.prop_id == prop_id).join(Key).\
                                 filter(Key.source_index_id == source_index_id).all()
 
-
     @classmethod
     def putdate(cls, key, prop, prop_val):
         """Create or update the KeyProperty."""

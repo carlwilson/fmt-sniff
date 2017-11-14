@@ -29,7 +29,7 @@ from werkzeug.exceptions import BadRequest, NotFound
 from .corptest import APP, __version__
 from .database import DB_SESSION
 from .model_sources import SCHEMES, Source, FormatToolRelease, SourceIndex, Key
-from .model_properties import KeyProperty, Property
+from .model_properties import KeyProperty, Property, PropertyValue
 from .reporter import item_pdf_report
 from .sources import SourceKey, FileSystem, AS3Bucket, BLOBSTORE
 from .utilities import sizeof_fmt, ObjectJsonEncoder, PrettyJsonEncoder
@@ -62,10 +62,14 @@ def download_fs(source_id, encoded_filepath):
 
 @APP.route("/api/analyse/<source_id>/<path:encoded_filepath>/")
 @produces(JSON_MIME, XML_MIME, PDF_MIME)
-def json_file_report(source_id, encoded_filepath):
+def file_report(source_id, encoded_filepath):
     """Download a file from a source."""
-    key, properties = _get_key_properties(Source.by_id(source_id), encoded_filepath)
-    key.add_properties(properties)
+    _fs, _key = _get_fs_and_key(Source.by_id(source_id), encoded_filepath, is_folder=False)
+    if not _fs.key_exists(_key):
+        raise NotFound('File %s not found' % encoded_filepath)
+    key = _fs.get_key(unquote(encoded_filepath))
+    _bs, bs_props = _fs.get_byte_sequence_properties(key)
+    key.add_properties(bs_props)
     if _request_wants_json():
         logging.debug("JSON file report for %s", key.value)
         return _json_file_report(key)
@@ -202,15 +206,23 @@ def _add_index(source, encoded_filepath, analyse_sub_folders):
         key = Key(_index, source_key.value, source_key.size,
                   dateutil.parser.parse(source_key.last_modified), byte_sequence=None)
         key.put()
-        _fs.get_key_properties(source_key)
+        full_source_key = _fs.get_key(source_key.value)
+        _add_key_properties(_fs, key, full_source_key.properties)
+        _bs, bs_props = _fs.get_byte_sequence_properties(full_source_key)
     return list_reports()
+
+def _add_key_properties(fs_source, key, properties):
+    for prop_name in properties:
+        db_prop = Property.putdate(fs_source.namespace, prop_name)
+        db_prop_val = PropertyValue.putdate(properties[prop_name])
+        KeyProperty.putdate(key, db_prop, db_prop_val)
 
 def _file_details(source, encoded_filepath):
     _fs, _key = _get_fs_and_key(source, encoded_filepath, is_folder=False)
     if not _fs.key_exists(_key):
         raise NotFound('File %s not found' % encoded_filepath)
     key = _fs.get_key(unquote(encoded_filepath))
-    bs_props = _fs.get_byte_sequence_properties(key)
+    _bs, bs_props = _fs.get_byte_sequence_properties(key)
     key.add_properties(bs_props)
     return render_template('file_details.html', source=source,
                            key=key)

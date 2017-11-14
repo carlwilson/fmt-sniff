@@ -362,7 +362,7 @@ class AS3Bucket(SourceBase):
                 metadata = tool.identify(full_path)
                 if metadata:
                     props.update(metadata)
-        return props
+        return _bs, props
 
     def _get_object_result(self, key_value):
         s3_client = client('s3')
@@ -528,7 +528,8 @@ class FileSystem(SourceBase):
     def get_byte_sequence_properties(self, key):
         if not key or key.is_folder:
             raise ValueError("Argument key must be a file key.")
-        full_path = os.path.join(self.file_system.location, key.value)
+        path, _bs = self.get_path_and_byte_seq(key)
+        full_path = os.path.join(self.file_system.location, path)
         result = stat(full_path)
         props = collections.defaultdict()
         props.update(self.get_fs_metadata_from_result(key, result))
@@ -543,7 +544,7 @@ class FileSystem(SourceBase):
                 metadata = tool.identify(full_path)
                 if metadata:
                     props.update(metadata)
-        return props
+        return _bs, props
 
     @classmethod
     def get_fs_metadata_from_result(cls, key, result):
