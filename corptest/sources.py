@@ -352,8 +352,8 @@ class AS3Bucket(SourceBase):
             raise ValueError("Argument key must be a file key.")
         logging.info("Obtaining meta for key: %s, value: %s", key, key.value)
         props = self.get_key_properties(key)
-        full_path, _ = self.get_path_and_byte_seq(key,
-                                                  key.add_property('SHA1'))
+        full_path, _bs = self.get_path_and_byte_seq(key)
+        props['SHA1'] = _bs.sha1
         for tool_release in FormatToolRelease.get_enabled():
             logging.debug("Checking %s", tool_release.format_tool.name)
             tool = get_format_tool_instance(tool_release.format_tool)

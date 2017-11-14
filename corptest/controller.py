@@ -202,7 +202,7 @@ def _add_index(source, encoded_filepath, analyse_sub_folders):
         key = Key(_index, source_key.value, source_key.size,
                   dateutil.parser.parse(source_key.last_modified), byte_sequence=None)
         key.put()
-        _fs.get_key_properties(source_key, key)
+        _fs.get_key_properties(source_key)
     return list_reports()
 
 def _file_details(source, encoded_filepath):
