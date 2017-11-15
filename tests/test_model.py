@@ -299,9 +299,9 @@ def test_add_bytesequence(session):# pylint: disable-msg=W0621, W0613
     file_system = FileSystem(file_system_source)
     for key in file_system.all_file_keys():
         assert key.size != 0
-        _, _aug_key = file_system.get_byte_sequence_properties(key)
-        assert _aug_key['SHA1'] != ByteSequence.EMPTY_SHA1
-        _bytes = ByteSequence(_aug_key['SHA1'], int(key.size))
+        _bs, _aug_key = file_system.get_byte_sequence_properties(key)
+        assert _bs.sha1 != ByteSequence.EMPTY_SHA1
+        _bytes = ByteSequence(_bs.sha1, int(key.size))
     _byte_count = len(ByteSequence.all())
     assert _byte_count == corp_file_count
 
