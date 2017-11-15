@@ -328,7 +328,7 @@ class ByteSequenceProperty(BASE):
     prop_id = Column(Integer, ForeignKey('property.id'), nullable=False)
     prop_val_id = Column(Integer, ForeignKey('property_value.id'), nullable=False)
 
-    key = relationship('ByteSequence')
+    byte_sequence = relationship('ByteSequence')
     prop = relationship('Property')
     prop_val = relationship('PropertyValue')
     __table_args__ = (UniqueConstraint('byte_sequence_id', 'prop_id', name='uix_bs_property'),)

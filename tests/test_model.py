@@ -16,8 +16,8 @@ import unittest
 import dateutil.parser
 
 from corptest.const import JISC_BUCKET
-from corptest.model import SCHEMES, ByteSequence, Source, FormatTool
-from corptest.model import SourceIndex, Key, DB_SESSION
+from corptest.model_sources import SCHEMES, ByteSequence, Source, FormatTool
+from corptest.model_sources import SourceIndex, Key, DB_SESSION
 from corptest.utilities import ObjectJsonEncoder
 from corptest.format_tools import FormatToolRelease, get_format_tool_instance
 from corptest.sources import FileSystem, SourceKey
@@ -299,11 +299,9 @@ def test_add_bytesequence(session):# pylint: disable-msg=W0621, W0613
     file_system = FileSystem(file_system_source)
     for key in file_system.all_file_keys():
         assert key.size != 0
-        assert not key.metadata['SHA1']
-        _aug_key = file_system.get_file_metadata(key)
-        assert _aug_key.metadata['SHA1'] != ByteSequence.EMPTY_SHA1
-        _bytes = ByteSequence(_aug_key.metadata['SHA1'], int(key.size))
-        _bytes.put()
+        _, _aug_key = file_system.get_byte_sequence_properties(key)
+        assert _aug_key['SHA1'] != ByteSequence.EMPTY_SHA1
+        _bytes = ByteSequence(_aug_key['SHA1'], int(key.size))
     _byte_count = len(ByteSequence.all())
     assert _byte_count == corp_file_count
 
@@ -322,8 +320,6 @@ def test_format_tool_release(session):# pylint: disable-msg=W0621, W0613
     for _tool in FormatTool.all():
         tool_release = get_format_tool_instance(_tool)
         if tool_release:
-            assert not tool_release.format_tool_release.id
-            tool_release.putdate()
             assert tool_release.format_tool_release.id > 0
     for _tool in FormatToolRelease.all():
         _tool_check = FormatToolRelease.by_id(_tool.id)
