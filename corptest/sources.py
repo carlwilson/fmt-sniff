@@ -351,9 +351,8 @@ class AS3Bucket(SourceBase):
         if not key or key.is_folder:
             raise ValueError("Argument key must be a file key.")
         logging.info("Obtaining meta for key: %s, value: %s", key, key.value)
-        props = self.get_key_properties(key)
+        props = collections.defaultdict()
         full_path, _bs = self.get_path_and_byte_seq(key)
-        props['SHA1'] = _bs.sha1
         for tool_release in FormatToolRelease.get_enabled():
             logging.debug("Checking %s", tool_release.format_tool.name)
             tool = get_format_tool_instance(tool_release.format_tool)
@@ -361,7 +360,7 @@ class AS3Bucket(SourceBase):
                 logging.debug("Invoking %s", tool.format_tool_release.format_tool.name)
                 metadata = tool.identify(full_path)
                 if metadata:
-                    props.update(metadata)
+                    props[tool.NAMESPACE](metadata)
         return _bs, props
 
     def _get_object_result(self, key_value):
@@ -532,9 +531,7 @@ class FileSystem(SourceBase):
         full_path = os.path.join(self.file_system.location, path)
         result = stat(full_path)
         props = collections.defaultdict()
-        props.update(self.get_fs_metadata_from_result(key, result))
-        sha1 = sha1_path(full_path)
-        props['SHA1'] = sha1 if sha1 else ''
+        props[SourceBase.PYTHON_NAMESPACE] = (self.get_fs_metadata_from_result(key, result))
 
         for tool_release in FormatToolRelease.get_enabled():
             tool = get_format_tool_instance(tool_release.format_tool)
@@ -543,7 +540,7 @@ class FileSystem(SourceBase):
                 logging.debug("Invoking %s", tool.format_tool_release.format_tool.name)
                 metadata = tool.identify(full_path)
                 if metadata:
-                    props.update(metadata)
+                    props[tool.NAMESPACE] = metadata
         return _bs, props
 
     @classmethod

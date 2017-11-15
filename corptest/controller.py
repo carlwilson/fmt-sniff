@@ -29,7 +29,7 @@ from werkzeug.exceptions import BadRequest, NotFound
 from .corptest import APP, __version__
 from .database import DB_SESSION
 from .model_sources import SCHEMES, Source, FormatToolRelease, SourceIndex, Key
-from .model_properties import KeyProperty, Property, PropertyValue
+from .model_properties import KeyProperty, Property, PropertyValue,ByteSequenceProperty
 from .reporter import item_pdf_report
 from .sources import SourceKey, FileSystem, AS3Bucket, BLOBSTORE
 from .utilities import sizeof_fmt, ObjectJsonEncoder, PrettyJsonEncoder
@@ -69,7 +69,8 @@ def file_report(source_id, encoded_filepath):
         raise NotFound('File %s not found' % encoded_filepath)
     key = _fs.get_key(unquote(encoded_filepath))
     _bs, bs_props = _fs.get_byte_sequence_properties(key)
-    key.add_properties(bs_props)
+    for namespace in bs_props:
+        key.add_properties(bs_props[namespace])
     if _request_wants_json():
         logging.debug("JSON file report for %s", key.value)
         return _json_file_report(key)
@@ -151,18 +152,23 @@ def report_detail(report_id):
     return render_template('report_details.html', report=source_index,
                            file_count=file_count,
                            size=size,
-                           props=KeyProperty.get_properties_for_index(report_id))
+                           key_props=KeyProperty.get_properties_for_index(report_id),
+                           bs_props=ByteSequenceProperty.get_properties_for_index(report_id))
 
 @APP.route("/reports/<int:report_id>/prop/<int:prop_id>")
 def report_properties(report_id, prop_id):
     """Show the details of a report."""
     source_index = SourceIndex.by_id(report_id)
+    prop_values = KeyProperty\
+        .get_property_values_for_index(report_id, prop_id)
+    if not prop_values:
+        prop_values = ByteSequenceProperty\
+            .get_property_values_for_index(report_id, prop_id)
     return render_template('report_property.html', report=source_index,
                            file_count=source_index.key_count,
                            size=sizeof_fmt(source_index.size),
                            prop=Property.by_id(prop_id),
-                           prop_values=KeyProperty\
-                               .get_property_values_for_index(report_id, prop_id))
+                           prop_values=prop_values)
 
 @APP.route("/about/")
 def about():
@@ -209,6 +215,7 @@ def _add_index(source, encoded_filepath, analyse_sub_folders):
         full_source_key = _fs.get_key(source_key.value)
         _add_key_properties(_fs, key, full_source_key.properties)
         _bs, bs_props = _fs.get_byte_sequence_properties(full_source_key)
+        _add_byte_sequence_properties(_bs, bs_props)
     return list_reports()
 
 def _add_key_properties(fs_source, key, properties):
@@ -217,13 +224,22 @@ def _add_key_properties(fs_source, key, properties):
         db_prop_val = PropertyValue.putdate(properties[prop_name])
         KeyProperty.putdate(key, db_prop, db_prop_val)
 
+def _add_byte_sequence_properties(byte_sequence, properties):
+    for namespace in properties:
+        logging.debug("ByteSequence property namespace: %s", namespace)
+        for prop_name in properties[namespace]:
+            db_prop = Property.putdate(namespace, prop_name)
+            db_prop_val = PropertyValue.putdate(properties[namespace][prop_name])
+            ByteSequenceProperty.putdate(byte_sequence, db_prop, db_prop_val)
+
 def _file_details(source, encoded_filepath):
     _fs, _key = _get_fs_and_key(source, encoded_filepath, is_folder=False)
     if not _fs.key_exists(_key):
         raise NotFound('File %s not found' % encoded_filepath)
     key = _fs.get_key(unquote(encoded_filepath))
     _bs, bs_props = _fs.get_byte_sequence_properties(key)
-    key.add_properties(bs_props)
+    for namespace in bs_props:
+        key.add_properties(bs_props[namespace])
     return render_template('file_details.html', source=source,
                            key=key)
 

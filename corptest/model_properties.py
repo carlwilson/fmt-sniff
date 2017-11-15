@@ -10,6 +10,8 @@
 # about the terms of this license.
 #
 """SQL Alchemy database model classes."""
+import logging
+
 from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy import UniqueConstraint, func
 from sqlalchemy.orm import relationship
@@ -192,10 +194,13 @@ class PropertyValue(BASE):
     @classmethod
     def putdate(cls, value):
         """Create or update the Property."""
+        value = str(value).strip()
+        logging.debug("Checking value: %s", value)
         ret_val = cls.by_value(value)
+        logging.debug("Returned value: %s", ret_val)
         if ret_val is None:
             ret_val = PropertyValue(value)
-            ret_val.put()
+            cls.add(ret_val)
         return ret_val
 
 class KeyProperty(BASE):
@@ -435,7 +440,7 @@ class ByteSequenceProperty(BASE):
     @classmethod
     def putdate(cls, byte_sequence, prop, prop_val):
         """Create or update the ByteSequenceProperty."""
-        ret_val = cls.by_key_and_prop_id(byte_sequence.id, prop.id)
+        ret_val = cls.by_key_and_byte_sequence_id(byte_sequence.id, prop.id)
         if ret_val is None:
             ret_val = ByteSequenceProperty(byte_sequence, prop, prop_val)
             ret_val.put()

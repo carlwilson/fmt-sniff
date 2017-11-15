@@ -9,7 +9,8 @@
       <th>namespace</th>
       <th>name</th>
     </tr>
-  {{ prop_rows(report.id, props) }}
+    {{ prop_rows(report.id, key_props) }}
+    {{ prop_rows(report.id, bs_props) }}
 </table>
 {% endblock page_content %}
 
