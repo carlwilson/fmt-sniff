@@ -360,7 +360,7 @@ class AS3Bucket(SourceBase):
                 logging.debug("Invoking %s", tool.format_tool_release.format_tool.name)
                 metadata = tool.identify(full_path)
                 if metadata:
-                    props[tool.NAMESPACE](metadata)
+                    props[tool.NAMESPACE] = metadata
         return _bs, props
 
     def _get_object_result(self, key_value):
