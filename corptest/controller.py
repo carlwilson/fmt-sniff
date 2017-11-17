@@ -11,26 +11,33 @@
 #
 """ Flask application routes for JISC RDSS format application. """
 from datetime import datetime
+from json import dumps
 import logging
 from mimetypes import MimeTypes
+import tempfile
 try:
     from urllib.parse import unquote as unquote, quote as quote
 except ImportError:
     from urllib import unquote as unquote, quote as quote
 
 import dateutil.parser
-
-from flask import render_template, send_file, jsonify, request, make_response
+import dicttoxml
+from flask import render_template, send_file, request, make_response
+from flask_negotiate import produces
 from werkzeug.exceptions import BadRequest, NotFound
 
 from .corptest import APP, __version__
 from .database import DB_SESSION
-from .model import SCHEMES, Source, FormatToolRelease, SourceIndex, Key
-from .model import KeyProperties, Property
+from .model_sources import SCHEMES, Source, FormatToolRelease, SourceIndex, Key
+from .model_properties import KeyProperty, Property, PropertyValue,ByteSequenceProperty
+from .reporter import item_pdf_report
 from .sources import SourceKey, FileSystem, AS3Bucket, BLOBSTORE
-from .utilities import sizeof_fmt
+from .utilities import sizeof_fmt, ObjectJsonEncoder, PrettyJsonEncoder
 ROUTES = True
 
+JSON_MIME = 'application/json'
+PDF_MIME = 'application/pdf'
+XML_MIME = 'text/xml'
 @APP.route("/")
 def home():
     """Application home page."""
@@ -53,6 +60,57 @@ def download_fs(source_id, encoded_filepath):
     """Download a file from a source."""
     return _download_item(Source.by_id(source_id), encoded_filepath)
 
+@APP.route("/api/analyse/<source_id>/<path:encoded_filepath>/")
+@produces(JSON_MIME, XML_MIME, PDF_MIME)
+def file_report(source_id, encoded_filepath):
+    """Download a file from a source."""
+    _fs, _key = _get_fs_and_key(Source.by_id(source_id), encoded_filepath, is_folder=False)
+    if not _fs.key_exists(_key):
+        raise NotFound('File %s not found' % encoded_filepath)
+    key = _fs.get_key(unquote(encoded_filepath))
+    _bs, bs_props = _fs.get_byte_sequence_properties(key)
+    for namespace in bs_props:
+        key.add_properties(bs_props[namespace])
+    if _request_wants_json():
+        logging.debug("JSON file report for %s", key.value)
+        return _json_file_report(key)
+    elif _request_wants_xml():
+        logging.debug("XML file report for %s", key.value)
+        return _xml_file_report(key)
+    logging.debug("PDF file report for %s", key.value)
+    return _pdf_file_report(key)
+
+def _json_file_report(key):
+    response = APP.response_class(
+        response=dumps(key, cls=PrettyJsonEncoder),
+        status=200,
+        mimetype=JSON_MIME
+    )
+    return response
+
+def _xml_file_report(key):
+    xml = dicttoxml.dicttoxml(key.properties)
+    response = APP.response_class(
+        response=xml,
+        status=200,
+        mimetype=XML_MIME
+    )
+    return response
+
+def _pdf_file_report(key):
+    """Download a file from a source."""
+    dest_name = ''
+    with tempfile.NamedTemporaryFile(delete=False) as temp:
+        item_pdf_report(key, temp.name)
+        dest_name = temp.name
+        response = make_response(send_file(dest_name, mimetype=PDF_MIME))
+        response.headers["Content-Disposition"] = \
+            "attachment; " \
+            "filename*=UTF-8''{quoted_filename}".format(
+                quoted_filename=quote(key.name.encode('utf8'))
+                )
+        return response
+
 @APP.route("/tools/")
 def tools():
     """Application tools listing"""
@@ -68,7 +126,7 @@ def toggle_tool_enabed(tool_id):
     """POST method to toggle a tool on and off."""
     tool = FormatToolRelease.by_id(tool_id)
     tool.set_enabled(not tool.enabled)
-    return jsonify(tool.enabled)
+    return dumps(tool.enabled, cls=ObjectJsonEncoder)
 
 @APP.route("/reports/")
 def list_reports():
@@ -94,18 +152,23 @@ def report_detail(report_id):
     return render_template('report_details.html', report=source_index,
                            file_count=file_count,
                            size=size,
-                           props=KeyProperties.get_properties_for_index(report_id))
+                           key_props=KeyProperty.get_properties_for_index(report_id),
+                           bs_props=ByteSequenceProperty.get_properties_for_index(report_id))
 
 @APP.route("/reports/<int:report_id>/prop/<int:prop_id>")
 def report_properties(report_id, prop_id):
     """Show the details of a report."""
     source_index = SourceIndex.by_id(report_id)
+    prop_values = KeyProperty\
+        .get_property_values_for_index(report_id, prop_id)
+    if not prop_values:
+        prop_values = ByteSequenceProperty\
+            .get_property_values_for_index(report_id, prop_id)
     return render_template('report_property.html', report=source_index,
                            file_count=source_index.key_count,
                            size=sizeof_fmt(source_index.size),
                            prop=Property.by_id(prop_id),
-                           prop_values=KeyProperties\
-                               .get_property_values_for_index(report_id, prop_id))
+                           prop_values=prop_values)
 
 @APP.route("/about/")
 def about():
@@ -129,50 +192,75 @@ def shutdown_session(exception=None):
         logging.warning("Shutting down database session with exception.")
     DB_SESSION.remove()
 
-def _folder_list(source_item, encoded_filepath):
-    source, filter_key = _get_source_and_key(source_item, encoded_filepath)
-    if not source.key_exists(filter_key):
+def _folder_list(source, encoded_filepath):
+    _fs, filter_key = _get_fs_and_key(source, encoded_filepath)
+    if not _fs.key_exists(filter_key):
         raise NotFound('Folder %s not found' % encoded_filepath)
-    folders = source.list_folders(filter_key=filter_key)
-    files = source.list_files(filter_key=filter_key)
-    metadata_keys = source.metadata_keys()
-    return render_template('folder_list.html', source_item=source_item, filter_key=filter_key,
-                           metadata_keys=metadata_keys, folders=folders, files=files)
+    folders = _fs.list_folders(filter_key=filter_key)
+    files = _fs.list_files(filter_key=filter_key)
+    return render_template('folder_list.html', source=source, filter_key=filter_key,
+                           properties=_fs.supported_properties, folders=folders, files=files)
 
-def _add_index(source_item, encoded_filepath, analyse_sub_folders):
-    source, filter_key = _get_source_and_key(source_item, encoded_filepath)
+def _add_index(source, encoded_filepath, analyse_sub_folders):
+    _fs, filter_key = _get_fs_and_key(source, encoded_filepath)
     filter_key = filter_key if filter_key else SourceKey('')
-    if not source.key_exists(filter_key):
+    if not _fs.key_exists(filter_key):
         raise NotFound('Folder %s not found' % encoded_filepath)
-    source_index = SourceIndex(source_item, datetime.now(), filter_key.value)
-    source_index.put()
-    for source_key in source.list_files(filter_key=filter_key, recurse=analyse_sub_folders):
-        key = Key(source_index, source_key.value, source_key.size,
+    _index = SourceIndex(source, datetime.now(), filter_key.value)
+    _index.put()
+    for source_key in _fs.list_files(filter_key=filter_key, recurse=analyse_sub_folders):
+        key = Key(_index, source_key.value, source_key.size,
                   dateutil.parser.parse(source_key.last_modified), byte_sequence=None)
         key.put()
-        source.get_key_properties(source_key, key)
+        full_source_key = _fs.get_key(source_key.value)
+        _add_key_properties(_fs, key, full_source_key.properties)
+        _bs, bs_props = _fs.get_byte_sequence_properties(full_source_key)
+        _add_byte_sequence_properties(_bs, bs_props)
     return list_reports()
 
-def _file_details(source_item, encoded_filepath):
-    source, key = _get_source_and_key(source_item, encoded_filepath, is_folder=False)
-    if not source.key_exists(key):
-        raise NotFound('File %s not found' % encoded_filepath)
-    enhanced_key = source.get_file_metadata(key)
-    return render_template('file_details.html', source_item=source_item,
-                           enhanced_key=enhanced_key)
+def _add_key_properties(fs_source, key, properties):
+    for prop_name in properties:
+        db_prop = Property.putdate(fs_source.namespace, prop_name)
+        db_prop_val = PropertyValue.putdate(properties[prop_name])
+        KeyProperty.putdate(key, db_prop, db_prop_val)
 
-def _get_source_and_key(source_item, encoded_filepath, is_folder=True):
-    source = AS3Bucket(source_item) \
-        if source_item.scheme == SCHEMES['AS3'] else FileSystem(source_item)
+def _add_byte_sequence_properties(byte_sequence, properties):
+    for namespace in properties:
+        logging.debug("ByteSequence property namespace: %s", namespace)
+        for prop_name in properties[namespace]:
+            db_prop = Property.putdate(namespace, prop_name)
+            db_prop_val = PropertyValue.putdate(properties[namespace][prop_name])
+            ByteSequenceProperty.putdate(byte_sequence, db_prop, db_prop_val)
+
+def _file_details(source, encoded_filepath):
+    _fs, _key = _get_fs_and_key(source, encoded_filepath, is_folder=False)
+    if not _fs.key_exists(_key):
+        raise NotFound('File %s not found' % encoded_filepath)
+    key = _fs.get_key(unquote(encoded_filepath))
+    _bs, bs_props = _fs.get_byte_sequence_properties(key)
+    for namespace in bs_props:
+        key.add_properties(bs_props[namespace])
+    return render_template('file_details.html', source=source,
+                           key=key)
+
+def _get_key_properties(source, encoded_filepath):
+    _fs, key = _get_fs_and_key(source, encoded_filepath, is_folder=False)
+    if not _fs.key_exists(key):
+        raise NotFound('File %s not found' % encoded_filepath)
+    return key, _fs.get_key_properties(key)
+
+def _get_fs_and_key(source, encoded_filepath, is_folder=True):
+    _fs = AS3Bucket(source) \
+        if source.scheme == SCHEMES['AS3'] else FileSystem(source)
     path = unquote(encoded_filepath)
     key = SourceKey(path, is_folder) if path else None
-    return source, key
+    return _fs, key
 
-def _download_item(source_item, encoded_filepath):
-    source, key = _get_source_and_key(source_item, encoded_filepath, is_folder=False)
-    if not source.key_exists(key):
+def _download_item(source, encoded_filepath):
+    _fs, key = _get_fs_and_key(source, encoded_filepath, is_folder=False)
+    if not _fs.key_exists(key):
         raise NotFound('File %s not found' % encoded_filepath)
-    temp_file, _ = source.get_path_and_byte_seq(key)
+    temp_file, _ = _fs.get_path_and_byte_seq(key)
     mime_type = MimeTypes().guess_type(key.value)[0]
     response = make_response(send_file(temp_file, mimetype=mime_type))
     response.headers["Content-Disposition"] = \
@@ -181,6 +269,20 @@ def _download_item(source_item, encoded_filepath):
             quoted_filename=quote(key.name.encode('utf8'))
             )
     return response
+
+def _request_wants_json():
+    best = request.accept_mimetypes \
+        .best_match([JSON_MIME, PDF_MIME])
+    return best == JSON_MIME and \
+        request.accept_mimetypes[best] > \
+        request.accept_mimetypes[PDF_MIME]
+
+def _request_wants_xml():
+    best = request.accept_mimetypes \
+        .best_match([XML_MIME, PDF_MIME])
+    return best == XML_MIME and \
+        request.accept_mimetypes[best] > \
+        request.accept_mimetypes[PDF_MIME]
 
 if __name__ == "__main__":
     APP.run(threaded=True)

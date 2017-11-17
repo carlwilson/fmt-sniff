@@ -13,7 +13,7 @@ import os.path
 import unittest
 
 from corptest.const import JISC_BUCKET
-from corptest.model import SCHEMES, Source
+from corptest.model_sources import SCHEMES, Source
 from corptest.sources import SourceKey, AS3Bucket, FileSystem
 from tests.const import THIS_DIR, TEST_DESCRIPTION, TEST_NAME
 

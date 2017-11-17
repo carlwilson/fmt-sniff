@@ -125,5 +125,5 @@ exec "$JAVACMD" $JAVA_OPTS  \
   -Dapp.repo="$REPO" \
   -Dapp.home="$BASEDIR" \
   -Dbasedir="$BASEDIR" \
-  -jar "$BASEDIR"/tika-app-1.14.jar \
+  -jar "$BASEDIR"/tika-app-1.16.jar \
   "$@"

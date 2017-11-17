@@ -20,7 +20,7 @@ from fido import fido
 
 from .corptest import APP, __opf_fido_version__, __python_magic_version__
 from .formats import MagicType, MimeType, PronomId
-from .model import FormatToolRelease
+from .model_sources import FormatToolRelease
 from .utilities import check_param_not_none
 
 MIME_IDENT = magic.Magic(mime=True)
@@ -34,14 +34,13 @@ class FineFreeFile(object):
         "mime" : ['file', '--mime']
     }
     __version = None
-
+    NAMESPACE = 'com.darwinsys.file'
     def __init__(self, format_tool):
         check_param_not_none(format_tool, "format_tool")
         FineFreeFile.__version = FineFreeFile.__version \
             if FineFreeFile.__version else self._get_version()
-        self.__format_tool_release = FormatToolRelease(format_tool, FineFreeFile.__version)
+        self.__format_tool_release = FormatToolRelease.putdate(format_tool, FineFreeFile.__version)
         self.__enabled = True
-        FormatToolRelease.putdate(self.format_tool_release)
 
     @property
     def format_tool_release(self):
@@ -119,14 +118,13 @@ class DROID(object):
                    ]
     }
     __version = None
-
+    NAMESPACE = 'uk.gov.tna.droid'
     def __init__(self, format_tool):
         check_param_not_none(format_tool, "format_tool")
         DROID.__version = DROID.__version \
             if DROID.__version else self._get_version()
-        self.__format_tool_release = FormatToolRelease(format_tool, DROID.__version)
+        self.__format_tool_release = FormatToolRelease.putdate(format_tool, DROID.__version)
         self.__enabled = True
-        FormatToolRelease.putdate(self.format_tool_release)
 
     @property
     def format_tool_release(self):
@@ -192,12 +190,12 @@ class FIDO(object):
     __executions__ = {
     }
     __version = __opf_fido_version__ if APP.config['IS_FIDO'] else None
+    NAMESPACE = 'org.openpreservation.fido'
 
     def __init__(self, format_tool):
         check_param_not_none(format_tool, "format_tool")
-        self.__format_tool_release = FormatToolRelease(format_tool, FIDO.__version)
+        self.__format_tool_release = FormatToolRelease.putdate(format_tool, FIDO.__version)
         self.__enabled = True
-        FormatToolRelease.putdate(self.format_tool_release)
 
     @property
     def format_tool_release(self):
@@ -270,12 +268,12 @@ class PythonMagic(object):
         "version" : ['droid', '-v']
     }
     __version = __python_magic_version__
+    NAMESPACE = 'os.python.org.libmagic'
 
     def __init__(self, format_tool):
         check_param_not_none(format_tool, "format_tool")
-        self.__format_tool_release = FormatToolRelease(format_tool, PythonMagic.__version)
+        self.__format_tool_release = FormatToolRelease.putdate(format_tool, PythonMagic.__version)
         self.__enabled = True
-        FormatToolRelease.putdate(self.format_tool_release)
 
     @property
     def format_tool_release(self):
@@ -337,9 +335,8 @@ class Tika(object):
         check_param_not_none(format_tool, "format_tool")
         Tika.__version = Tika.__version \
             if Tika.__version else self._get_version()
-        self.__format_tool_release = FormatToolRelease(format_tool, Tika.__version)
+        self.__format_tool_release = FormatToolRelease.putdate(format_tool, Tika.__version)
         self.__enabled = True
-        FormatToolRelease.putdate(self.format_tool_release)
 
     @property
     def format_tool_release(self):

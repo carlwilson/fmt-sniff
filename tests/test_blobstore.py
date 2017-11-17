@@ -15,7 +15,7 @@ import tempfile
 import unittest
 
 from corptest.blobstore import BlobStore
-from corptest.model import ByteSequence
+from corptest.model_sources import ByteSequence
 from tests.const import THIS_DIR, NOT_EMPTY_SHA1
 
 class BlobStoreTestCase(unittest.TestCase):

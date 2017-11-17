@@ -5,7 +5,8 @@ import pytest
 from corptest import APP
 from corptest.database import BASE, ENGINE
 
-from corptest.model import SCHEMES, init_db, DB_SESSION
+from corptest.model_sources import DB_SESSION
+from corptest.model_properties import init_db
 @pytest.fixture(scope='session')
 def app(request):
     # Establish an application context before running the tests.

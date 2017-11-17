@@ -32,7 +32,9 @@ logging.basicConfig(filename=APP.config['LOG_FILE'], level=logging.DEBUG,
                     format=APP.config['LOG_FORMAT'])
 logging.info("Started JISC RDSS Format Identification app.")
 
-from .model import init_db, SCHEMES # pylint: disable-msg=C0413
+from .model_sources import SCHEMES # pylint: disable-msg=C0413
+from .model_properties import init_db
+
 logging.debug("Configured logging.")
 logging.info("Initialising database.")
 init_db()
@@ -42,7 +44,7 @@ if not APP.config['IS_FIDO']:
 else:
     logging.info("Python %r enables inline FIDO support.", sys.version_info)
 
-from .model import Source, FormatTool, FormatToolRelease # pylint: disable-msg=C0413
+from .model_sources import Source, FormatTool, FormatToolRelease # pylint: disable-msg=C0413
 from .format_tools import get_format_tool_instance # pylint: disable-msg=C0413
 
 BUCKET_LIST = APP.config.get('BUCKETS', {})
@@ -74,20 +76,13 @@ for _folder in FOLDER_LIST:
 TOOL_LIST = APP.config.get('TOOLS', {})
 logging.debug("Loading config TOOLS to the format_tools table")
 for _tool in TOOL_LIST:
-    logging.debug("Tool from tool list: %s", _tool)
-    if not FormatTool.by_name(_tool['name']):
-        _tool_item = FormatTool(_tool['name'], _tool['description'], _tool['reference'])
-        logging.debug("Adding tool %s to DB", _tool_item)
-        FormatTool.add(_tool_item)
+    logging.debug("Registering tool: %s, from tool list.", _tool)
+    FormatTool.putdate(_tool['name'], _tool['description'], _tool['reference'])
 
 logging.debug("Setting all tools unavailable")
 FormatToolRelease.all_unavailable()
 for _tool in FormatTool.all():
-    logging.debug("Retrieved tool %s", _tool)
-    tool_release = get_format_tool_instance(_tool)
-    if tool_release:
-        logging.debug("Adding tool release %s to DB", tool_release)
-        tool_release.putdate()
+    get_format_tool_instance(_tool)
 
 # Import the application routes
 logging.info("Setting up application routes")
