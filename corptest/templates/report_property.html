@@ -1,12 +1,14 @@
 {% extends "page.html" %}
 {% block title %}Report Details{% endblock %}
 {% block page_content %}
-  <h2>Property Details for Report Property <a href="">{{ report.source.name }}</a>/<a href="/{{ report.root_key }}">{{ report.root_key }}</a></h2>
-  <p class="lead">Property namespace : {{ prop.namespace }}, name : {{ prop.name }}</p>
-  <table class="table table-striped">
+  <h1>Property Details for {{ prop.namespace }}:{{ prop.name }}</h1>
+  <p class="lead"><a href="/reports/{{ report.id }}">{{ report.source.name }}</a>://<a href="/{{ report.root_key }}">{{ report.root_key }}</a></p>
+  <p>Created at {{ report.short_iso_timestamp }}, for {{ file_count }} files totalling {{ sizeof_fmt(size) }} in size.</p>
+<table class="table table-striped">
     <tr>
-      <th>value</th>
-      <th>count</th>
+      <th>Propery Value</th>
+      <th>File Count</th>
+      <th>Size</th>
     </tr>
     {% for prop_value in prop_values %}
       {{ prop_row(prop, prop_value) }}
@@ -17,6 +19,7 @@
 {% macro prop_row(prop, prop_value) %}
   <tr>
     <td>{{ prop_value.value }}</td>
-    <td>{{ prop_value.prop_count }}</td>
+    <td>{{ prop_value.prop_count }}/{{ file_count }} [{{ percent_fmt(prop_value.prop_count, file_count) }}]</td>
+    <td>{{ sizeof_fmt(prop_value.prop_size) }}/{{ sizeof_fmt(size) }} [{{ percent_fmt(prop_value.prop_size, size) }}]</td>
   </tr>
 {% endmacro -%}

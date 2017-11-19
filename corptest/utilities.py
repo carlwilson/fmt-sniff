@@ -149,11 +149,17 @@ def sizeof_fmt(num, suffix='B'):
     """
     for unit in ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z']:
         if abs(num) < 1024.0:
-            return "%3.1f%s%s" % (num, unit, suffix)
+            return\
+                "%3.1f%s%s" % (num, unit, suffix) if unit else\
+                "%3.0f%s%s" % (num, unit, suffix)
         num /= 1024.0
     return "%.1f%s%s" % (num, 'Y', suffix)
 
-def timestamp_fmt(timestamp, show_millis=True):
+def percent_fmt(count, total):
+    """Return percentage formatted to two decimal places."""
+    return "{0:.2f}%".format(float(count) / total * 100)
+
+def timestamp_fmt(timestamp, show_millis=False):
     """ISO format for timestamps."""
     format_str = "%Y-%m-%d %H:%M:%S.%f" if show_millis else "%Y-%m-%d %H:%M:%S"
     return timestamp.strftime(format_str)

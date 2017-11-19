@@ -3,7 +3,7 @@
 {% block page_content %}
   <h2>{{ source.name }}</h2>
   <p class="lead">
-    <a href="/source/{{ source.id }}/folder/">{{ source.name }}/</a>
+    <a href="/source/{{ source.id }}/folder/">{{ source.name }}:/</a>
     {%- for part, part_path in filter_key.parts -%}
     <a href="/source/{{ source.id }}/folder/{{ part_path }}/">{{ part }}/</a>
     {%- endfor %}
@@ -59,9 +59,9 @@
       <td><a href="/source/{{ source_id }}/{{ 'folder' if item.is_folder else 'file' }}/{{ item.value }}" >{{ item.name }}</a></td>
       <td>{{ item.extension }}</td>
       <td>{{ item.last_modified }}</td>
-      <td>{{ item.size }}</td>
-      {%- for prop in properties %}
-      <td>{{ item.properties.get(prop, '') }}</td>
+      <td>{{ sizeof_fmt(item.size) }}</td>
+      {%- for key, value in properties.items() %}
+      <td>{{ item.properties.get(value, '') }}</td>
       {% endfor %}
     </tr>
   {% endmacro -%}

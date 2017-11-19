@@ -81,12 +81,12 @@ class FineFreeFile(object):
         cmd.append(path)
         magic_res = subprocess.check_output(cmd, universal_newlines=True)
         magic_type = MagicType.from_magic_string(magic_res.split(':')[1])
-        metadata['File MAGIC'] = magic_type
+        metadata['MAGIC'] = magic_type
         cmd = list(self.__executions__['mime'])
         cmd.append(path)
         mime_res = subprocess.check_output(cmd, universal_newlines=True)
         mime_type = MimeType.from_mime_string(mime_res.split(':')[1])
-        metadata['File MIME'] = \
+        metadata['MIME'] = \
             mime_type.get_short_string()
         return metadata
 
@@ -165,7 +165,7 @@ class DROID(object):
         cmd.append(path)
         cmd.extend(self.__executions__['puid_2'])
         output = subprocess.check_output(cmd, universal_newlines=True)
-        metadata['DROID PUID'] = output[output.rindex(',')+1:]
+        metadata['PUID'] = output[output.rindex(',')+1:]
         return metadata
 
     def __str__(self):
@@ -235,9 +235,9 @@ class FIDO(object):
         fido_types = self._get_fido_types(path)
         if fido_types:
             pronom_result = fido_types[0]
-            metadata['FIDO PUID'] = pronom_result.puid
-            metadata['FIDO SIG'] = pronom_result.sig
-            metadata['FIDO MIME'] = pronom_result.mime
+            metadata['PUID'] = pronom_result.puid
+            metadata['SIG'] = pronom_result.sig
+            metadata['MIME'] = pronom_result.mime
         return metadata
 
     def __str__(self):
@@ -264,9 +264,6 @@ class FIDO(object):
 
 class PythonMagic(object):
     """PythonMagic encapsulated"""
-    __executions__ = {
-        "version" : ['droid', '-v']
-    }
     __version = __python_magic_version__
     NAMESPACE = 'os.python.org.libmagic'
 
@@ -318,10 +315,10 @@ class PythonMagic(object):
         metadata = {}
         mime_string = MIME_IDENT.from_file(path)
         mime_type = MimeType.from_mime_string(mime_string)
-        metadata['lib-magic MIME'] = mime_type.get_short_string()
+        metadata['MIME'] = mime_type.get_short_string()
         magic_string = MAGIC_IDENT.from_file(path)
         magic_type = MagicType.from_magic_string(magic_string)
-        metadata['lib-magic MAGIC'] = magic_type
+        metadata['MAGIC'] = magic_type
         return metadata
 
 class Tika(object):

@@ -29,7 +29,7 @@ from werkzeug.exceptions import BadRequest, NotFound
 from .corptest import APP, __version__
 from .database import DB_SESSION
 from .model_sources import SCHEMES, Source, FormatToolRelease, SourceIndex, Key
-from .model_properties import KeyProperty, Property, PropertyValue,ByteSequenceProperty
+from .model_properties import KeyProperty, Property, PropertyValue, ByteSequenceProperty
 from .reporter import item_pdf_report
 from .sources import SourceKey, FileSystem, AS3Bucket, BLOBSTORE
 from .utilities import sizeof_fmt, ObjectJsonEncoder, PrettyJsonEncoder
@@ -69,8 +69,7 @@ def file_report(source_id, encoded_filepath):
         raise NotFound('File %s not found' % encoded_filepath)
     key = _fs.get_key(unquote(encoded_filepath))
     _bs, bs_props = _fs.get_byte_sequence_properties(key)
-    for namespace in bs_props:
-        key.add_properties(bs_props[namespace])
+    key.add_bs_properties(bs_props)
     if _request_wants_json():
         logging.debug("JSON file report for %s", key.value)
         return _json_file_report(key)
@@ -89,7 +88,7 @@ def _json_file_report(key):
     return response
 
 def _xml_file_report(key):
-    xml = dicttoxml.dicttoxml(key.properties)
+    xml = dicttoxml.dicttoxml(key.__dict__)
     response = APP.response_class(
         response=xml,
         status=200,
@@ -147,7 +146,7 @@ def new_report():
 def report_detail(report_id):
     """Show the details of a report."""
     source_index = SourceIndex.by_id(report_id)
-    size = sizeof_fmt(source_index.size) if source_index.size else sizeof_fmt(0)
+    size = source_index.size if source_index.size else 0
     file_count = source_index.key_count if source_index.key_count else 0
     return render_template('report_details.html', report=source_index,
                            file_count=file_count,
@@ -166,7 +165,7 @@ def report_properties(report_id, prop_id):
             .get_property_values_for_index(report_id, prop_id)
     return render_template('report_property.html', report=source_index,
                            file_count=source_index.key_count,
-                           size=sizeof_fmt(source_index.size),
+                           size=source_index.size,
                            prop=Property.by_id(prop_id),
                            prop_values=prop_values)
 
@@ -209,12 +208,14 @@ def _add_index(source, encoded_filepath, analyse_sub_folders):
     _index = SourceIndex(source, datetime.now(), filter_key.value)
     _index.put()
     for source_key in _fs.list_files(filter_key=filter_key, recurse=analyse_sub_folders):
-        key = Key(_index, source_key.value, source_key.size,
-                  dateutil.parser.parse(source_key.last_modified), byte_sequence=None)
-        key.put()
+        # get the full key and byte sequence properties
         full_source_key = _fs.get_key(source_key.value)
-        _add_key_properties(_fs, key, full_source_key.properties)
         _bs, bs_props = _fs.get_byte_sequence_properties(full_source_key)
+
+        key = Key(_index, source_key.value, source_key.size,
+                  dateutil.parser.parse(source_key.last_modified), byte_sequence=_bs)
+        key.put()
+        _add_key_properties(_fs, key, full_source_key.properties)
         _add_byte_sequence_properties(_bs, bs_props)
     return list_reports()
 
@@ -238,10 +239,8 @@ def _file_details(source, encoded_filepath):
         raise NotFound('File %s not found' % encoded_filepath)
     key = _fs.get_key(unquote(encoded_filepath))
     _bs, bs_props = _fs.get_byte_sequence_properties(key)
-    for namespace in bs_props:
-        key.add_properties(bs_props[namespace])
     return render_template('file_details.html', source=source,
-                           key=key)
+                           key=key, byte_sequence=_bs, bs_props=bs_props)
 
 def _get_key_properties(source, encoded_filepath):
     _fs, key = _get_fs_and_key(source, encoded_filepath, is_folder=False)
