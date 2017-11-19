@@ -135,12 +135,12 @@ class SourceIndex(BASE):
     @property
     def iso_timestamp(self):
         """ Return the ISO formatted String of the SourceIndex's timestamp. """
-        return timestamp_fmt(self.timestamp)
+        return timestamp_fmt(self.timestamp, True)
 
     @property
     def short_iso_timestamp(self):
         """ Return the ISO formatted String of the SourceIndex's timestamp. """
-        return timestamp_fmt(self.timestamp, False)
+        return timestamp_fmt(self.timestamp)
 
     @property
     def key_count(self):
