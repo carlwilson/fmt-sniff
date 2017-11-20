@@ -1,19 +1,21 @@
 {% extends "page.html" %}
-{% block title %}Files By Property{% endblock %}
+{% block title %}Files By Property Value{% endblock %}
 {% block page_content %}
-  <h2></h2>
+  <h2>Property Value Details for {{ prop.namespace }}:{{ prop.name }}=={{ prop_val.value }}</h2>
   <p class="lead">
   </p>
   <table class="table table-striped">
     <tr>
-      <th>Type</th>
       <th>Name</th>
       <th>Ext</th>
-      <th>Modified</th>
       <th>Size</th>
+      <th>DROID</th>
+      <th>FIDO</th>
+      <th>File</th>
+      <th>Lib Magic</th>
+      <th>Tika</th>
     </tr>
-    {{ key_rows(source.id, folders) }}
-    {{ key_rows(source.id, files) }}
+    {{ key_rows(report.source_id, keys) }}
   </table>
 {% endblock page_content %}
 
@@ -25,12 +27,13 @@
 
   {% macro key_row(source_id, item) %}
     <tr>
-      <td><a href="/source/{{ source_id }}/{{ 'folder' if item.is_folder else 'file' }}/{{ item.value }}" >{{ item.name }}</a></td>
+      <td><a href="/source/{{ source_id }}/file/{{ item.path }}" >{{ item.name }}</a></td>
       <td>{{ item.extension }}</td>
-      <td>{{ item.last_modified }}</td>
       <td>{{ sizeof_fmt(item.size) }}</td>
-      {%- for key, value in properties.items() %}
-      <td>{{ item.properties.get(value, '') }}</td>
-      {% endfor %}
+      <td>{{ get_property_from_bs(item.byte_sequence, 'uk.gov.tna.droid', 'PUID') }}</td>
+      <td>{{ get_property_from_bs(item.byte_sequence, 'org.openpreservation.fido', 'PUID') }}</td>
+      <td>{{ get_property_from_bs(item.byte_sequence, 'com.darwinsys.file', 'MIME') }}</td>
+      <td>{{ get_property_from_bs(item.byte_sequence, 'os.python.org.libmagic', 'MIME') }}</td>
+      <td>{{ get_property_from_bs(item.byte_sequence, 'org.apache.tika', 'MIME') }}</td>
     </tr>
   {% endmacro -%}

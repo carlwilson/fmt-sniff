@@ -323,8 +323,10 @@ class PythonMagic(object):
 
 class Tika(object):
     """Tika encapsulated"""
+    NAMESPACE = 'org.apache.tika'
     __executions__ = {
-        "version" : ['tika', '--version']
+        "version" : ['tika', '--version'],
+        "identify" : ['tika-tools']
     }
     __version = None
 
@@ -375,7 +377,12 @@ class Tika(object):
             raise ValueError("Arg path must be an exisiting file.")
         if not self.version:
             return None
-        return None
+        metadata = {}
+        cmd = list(self.__executions__['identify'])
+        cmd.append(path)
+        output = subprocess.check_output(cmd, universal_newlines=True)
+        metadata['MIME'] = output[output.rindex(':')+1:]
+        return metadata
 
     @classmethod
     def _get_version(cls):
