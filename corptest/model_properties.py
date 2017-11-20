@@ -298,8 +298,9 @@ class KeyProperty(BASE):
     @staticmethod
     def get_properties_for_index(source_index_id):
         """Returns the total numbers of properties of all files in the index."""
-        return DB_SESSION.query(Property).distinct(Property.id, Property.namespace,
-                                                   Property.name).\
+        return DB_SESSION.query(Property.id, Property.namespace, Property.name,
+                                func.count(Key.id).label('prop_count')).\
+                                distinct(Property.id, Property.namespace, Property.name).\
                                 group_by(Property.id, Property.namespace, Property.name).\
                                 join(KeyProperty).join(Key).\
                                 filter(Key.source_index_id == source_index_id).all()
@@ -308,12 +309,14 @@ class KeyProperty(BASE):
     def get_property_values_for_index(source_index_id, prop_id):
         """Returns the total size in bytes of all files in the index."""
         return DB_SESSION.query(PropertyValue.value,
-                                func.count(KeyProperty.id).label('prop_count')).\
+                                func.sum(ByteSequence.size).label('prop_size'),\
+                                func.count(Key.id).label('prop_count')).\
                                 distinct(PropertyValue.value).\
                                 group_by(PropertyValue.id, PropertyValue.value).\
                                 join(KeyProperty).\
                                 filter(KeyProperty.prop_id == prop_id).join(Key).\
-                                filter(Key.source_index_id == source_index_id).all()
+                                filter(Key.source_index_id == source_index_id).\
+                                join(ByteSequence).all()
 
     @classmethod
     def putdate(cls, key, prop, prop_val):
@@ -420,21 +423,26 @@ class ByteSequenceProperty(BASE):
     @staticmethod
     def get_properties_for_index(source_index_id):
         """Returns the total numbers of properties of all files in the index."""
-        return DB_SESSION.query(Property).distinct(Property.id, Property.namespace,
-                                                   Property.name).\
+        return DB_SESSION.query(Property.id, Property.namespace, Property.name,
+                                func.count(Key.id).label('prop_count')).\
+                                distinct(Property.id, Property.namespace, Property.name).\
                                 group_by(Property.id, Property.namespace, Property.name).\
                                 join(ByteSequenceProperty).join(ByteSequence).\
+                                join(Key).\
                                 filter(Key.source_index_id == source_index_id).all()
 
     @staticmethod
     def get_property_values_for_index(source_index_id, prop_id):
         """Returns the total size in bytes of all files in the index."""
         return DB_SESSION.query(PropertyValue.value,
-                                func.count(ByteSequenceProperty.id).label('prop_count')).\
+                                func.sum(ByteSequence.size).label('prop_size'),\
+                                func.count(Key.id).label('prop_count')).\
                                 distinct(PropertyValue.value).\
                                 group_by(PropertyValue.id, PropertyValue.value).\
                                 join(ByteSequenceProperty).\
-                                filter(ByteSequenceProperty.prop_id == prop_id).join(ByteSequence).\
+                                filter(ByteSequenceProperty.prop_id == prop_id).\
+                                join(ByteSequence).\
+                                join(Key).\
                                 filter(Key.source_index_id == source_index_id).all()
 
     @classmethod

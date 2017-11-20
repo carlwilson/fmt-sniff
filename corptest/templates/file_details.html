@@ -1,45 +1,81 @@
 {% extends "page.html" %}
 {% block title %}File Details{% endblock %}
 {% block page_content %}
-  <h2>{{ source.name }}</h2>
-  <p class="lead"><a href="/source/{{ source.id }}/folder/">{{ source.name }}</a>
+  <h1>{{ key.name }}</h1>
+  <p class="lead"><a href="/source/{{ source.id }}/folder/">{{ source.name }}:/</a>
      {%- for part, part_path in key.parts -%}
      <a href="/source/{{ source.id }}/folder/{{ part_path }}/">/{{ part }}</a>
-     {%- endfor %}</p>
-  <table class="table table-striped">
-    <tr>
-      <th>Size</th>
-      <td>{{ key.size }}</td>
-    </tr>
-    <tr>
-      <th>Last Modified</th>
-      <td>{{ key.last_modified }}</td>
-    </tr>
-    {%- for key, value in key.properties.items() %}
-    <tr>
-      <th>{{ key }}</th>
-      <td>{{ value }}</td>
-    </tr>
-    {% endfor -%}
-  </table>
+     {%- endfor %}
+  </p>
+  <div class="row">
+    <div class="col-md-6">
+      <h2>Source Properties</h2>
+      <ul class="list-group">
+        <li class="list-group-item">
+          <span class="badge">{{ key.size }}</span>
+          Size
+        </li>
+        <li class="list-group-item">
+          <span class="badge">{{ key.last_modified }}</span>
+          Last Modified
+        </li>
+        {%- for key, value in key.properties.items() %}
+        <li class="list-group-item">
+          <span class="badge">{{ value }}</span>
+          {{ key }}
+        </li>
+        {% endfor -%}
+      </ul>
+    </div>
+    <div class="col-md-6">
+      <h2>File Properties</h2>
+      <ul class="list-group">
+        <li class="list-group-item">
+          <span class="badge">{{ byte_sequence.size }}</span>
+          Size
+        </li>
+        <li class="list-group-item">
+          <span class="badge">{{ byte_sequence.sha1 }}</span>
+          SHA1
+        </li>
+        {%- for namespace in bs_props %}
+        {%- for key, value in bs_props.get(namespace).items() %}
+        <li class="list-group-item">
+          <span class="badge">{{ value }}</span>
+          {{ namespace }}:{{ key }}
+        </li>
+        {% endfor -%}
+        {% endfor -%}
+      </ul>
+    </div>
+  </div>
   <p>
-    <a class="btn btn-primary btn-lg" onclick="get_report({{ source.id }}, '{{ key.value }}', 'application/json', 'json', 'text');" >JSON</a>
-    <a class="btn btn-primary btn-lg" onclick="get_report({{ source.id }}, '{{ key.value }}', 'text/xml', 'xml', 'xml');" >XML</a>
-    <a class="btn btn-primary btn-lg" onclick="get_report({{ source.id }}, '{{ key.value }}', 'application/pdf', 'pdf', 'binary');" >PDF</a>
+    <a class="btn btn-primary btn-lg" onclick="get_report({{ source.id }}, '{{ key.value }}', 'application/json', 'json');" >JSON</a>
+    <a class="btn btn-primary btn-lg" onclick="get_report({{ source.id }}, '{{ key.value }}', 'text/xml', 'xml');" >XML</a>
+    <a class="btn btn-primary btn-lg" onclick="get_report({{ source.id }}, '{{ key.value }}', 'application/pdf', 'pdf');" >PDF</a>
   </p>
 {% endblock page_content %}
 {% block page_script %}
 <script src="{{ url_for('static', filename='js/FileSaver.js') }}" /></script>
+<script src="{{ url_for('static', filename='js/BinaryGet.js') }}" /></script>
 <script>
-function get_report(source_id, key_value, content_type, ext, type) {
+function get_report(source_id, key_value, mime_type, ext) {
   var url = "/api/analyse/".concat(source_id + '/').concat(key_value);
+  if (ext === 'pdf') {
+    get_binary_report(url, mime_type, ext);
+  } else {
+    get_text_report(url, mime_type, ext);
+  }
+}
+
+function get_text_report(url, mime_type, ext) {
   $.ajax({
-    accepts:{text:'application/json', binary: content_type, xml: 'text/xml'},
+    accepts:{text: mime_type},
     url:url,
     processData:false,
-    dataType:type,
+    dataType:'text',
     success:function(data){
-            saveAs(new Blob([data], {type: content_type}),'report.'.concat(ext));
+            saveAs(new Blob([data], {type: mime_type}),'report.'.concat(ext));
         },
     error: function(){
            // Handle errors here
@@ -47,46 +83,25 @@ function get_report(source_id, key_value, content_type, ext, type) {
   });
 }
 
-// use this transport for "binary" data type
-$.ajaxTransport("+binary", function(options, originalOptions, jqXHR){
-    // check for conditions and support for blob / arraybuffer response type
-    if (window.FormData && ((options.dataType && (options.dataType == 'binary')) || (options.data && ((window.ArrayBuffer && options.data instanceof ArrayBuffer) || (window.Blob && options.data instanceof Blob)))))
-    {
-        return {
-            // create new XMLHttpRequest
-            send: function(headers, callback){
-		// setup all variables
-                var xhr = new XMLHttpRequest(),
-		url = options.url,
-		type = options.type,
-		async = options.async || true,
-		// blob or arraybuffer. Default is blob
-		dataType = options.responseType || "blob",
-		data = options.data || null,
-		username = options.username || null,
-		password = options.password || null;
 
-                xhr.addEventListener('load', function(){
-			var data = {};
-			data[options.dataType] = xhr.response;
-			// make callback and send data
-			callback(xhr.status, xhr.statusText, data, xhr.getAllResponseHeaders());
-                });
+function get_binary_report(url, mime_type, ext) {
+  $.ajax({
+    accepts:{binary: mime_type},
+    url:url,
+    processData:false,
+    dataType:'binary',
+    success:function(data){
+            saveAs(new Blob([data], {type: mime_type}),'report.'.concat(ext));
+        },
+    error: function(){
+           // Handle errors here
+        }
+  });
+}
 
-                xhr.open(type, url, async, username, password);
-
-		// setup custom headers
-		for (var i in headers ) {
-			xhr.setRequestHeader(i, headers[i] );
-		}
-
-                xhr.responseType = dataType;
-                xhr.send(data);
-            },
-            abort: function(){
-                jqXHR.abort();
-            }
-        };
-    }
-});</script>
+$.ajaxSetup({
+    // Disable caching of AJAX responses
+    cache: false
+});
+</script>
 {% endblock page_script %}

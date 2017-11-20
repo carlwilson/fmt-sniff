@@ -46,11 +46,19 @@ Sha1Lookup.initialise()
 BLOBSTORE = BlobStore(BLOB_STORE_ROOT)
 
 class SourceKey(object):
-    """Simple class encapsulating 2 parts of a key, the value and whether it's a folder."""
-
+    """Simple class encapsulating a path and some basic properties common to most
+    sources:
+      - the key value, usually a path;
+      - whether the key resolves to a folder or file;
+      - the size in bytes of any file;
+      - the last modified date; and
+      - a collection of other properties.
+    """
     def __init__(self, value, is_folder=True, size=0, last_modified=datetime.now()):
         if value is None:
             raise ValueError("Argument value can not be None.")
+        if is_folder is None:
+            raise ValueError("Argument is_folder can not be None.")
         if size is None:
             raise ValueError("Argument size can not be None.")
         if size < 0:
@@ -116,6 +124,14 @@ class SourceKey(object):
         if prop_dict is None:
             raise ValueError("Argument prop_dict can not be None.")
         self.__properties.update(prop_dict)
+
+    def add_bs_properties(self, prop_dict):
+        """Add the key value pairs in prop_dict to this."""
+        if prop_dict is None:
+            raise ValueError("Argument prop_dict can not be None.")
+        for namespace in prop_dict:
+            for prop in prop_dict[namespace]:
+                self.add_property(prop, str(prop_dict[namespace][prop]))
 
     def add_property(self, key, value):
         """Add the Property to_append to this keys list of properties."""
@@ -216,6 +232,11 @@ class SourceBase(object):
         """ Returns a file path and ByteSequence tuple for the key. """
         return
 
+    @abc.abstractmethod
+    def get_byte_sequence_properties(self, key):
+        """For a given key returns the ByteSequence and ByteSequenceProperty tuple."""
+        return
+
     @staticmethod
     def _validate_key_and_return_prefix(filter_key):
         prefix = ''
@@ -245,6 +266,19 @@ class SourceBase(object):
             ret_val[name] = prop
         return ret_val
 
+    @staticmethod
+    def _format_properties_from_path(path):
+        props = collections.defaultdict()
+        for tool_release in FormatToolRelease.get_enabled():
+            tool = get_format_tool_instance(tool_release.format_tool)
+            logging.debug("Checking %s", tool.format_tool_release.format_tool.name)
+            if tool.version:
+                logging.debug("Invoking %s", tool.format_tool_release.format_tool.name)
+                metadata = tool.identify(path)
+                if metadata:
+                    props[tool.NAMESPACE] = metadata
+        return props
+
 class AS3Bucket(SourceBase):
     """A Source based on an Amazon S3 bucket."""
     NAMESPACE = 's3.amazon.com'
@@ -253,8 +287,7 @@ class AS3Bucket(SourceBase):
     ETAG = 'ETag'
     CONT_TYPE = 'ContentType'
     CONT_ENC = 'ContentEncoding'
-
-    __PROPERTIES = SourceBase._create_properties_from_names(set([ETAG, CONT_TYPE, CONT_ENC]),
+    __PROPERTIES = SourceBase._create_properties_from_names(set([ETAG]),
                                                             namespace=NAMESPACE)
 
     def __init__(self, bucket):
@@ -266,13 +299,13 @@ class AS3Bucket(SourceBase):
         self.__bucket = bucket
 
     @property
-    def namespace(self):
-        return self.NAMESPACE
-
-    @property
     def bucket(self):
         """Return the Amazon S3 bucket."""
         return self.__bucket
+
+    @property
+    def namespace(self):
+        return self.NAMESPACE
 
     @property
     def supported_properties(self): # pragma: no cover
@@ -350,17 +383,11 @@ class AS3Bucket(SourceBase):
     def get_byte_sequence_properties(self, key):
         if not key or key.is_folder:
             raise ValueError("Argument key must be a file key.")
-        logging.info("Obtaining meta for key: %s, value: %s", key, key.value)
+        logging.debug("Obtaining meta for key: %s, value: %s", key, key.value)
+        path, _bs = self.get_path_and_byte_seq(key)
         props = collections.defaultdict()
-        full_path, _bs = self.get_path_and_byte_seq(key)
-        for tool_release in FormatToolRelease.get_enabled():
-            logging.debug("Checking %s", tool_release.format_tool.name)
-            tool = get_format_tool_instance(tool_release.format_tool)
-            if tool.version:
-                logging.debug("Invoking %s", tool.format_tool_release.format_tool.name)
-                metadata = tool.identify(full_path)
-                if metadata:
-                    props[tool.NAMESPACE] = metadata
+        if _bs.size > 0:
+            props = super(AS3Bucket, self)._format_properties_from_path(path)
         return _bs, props
 
     def _get_object_result(self, key_value):
@@ -452,7 +479,7 @@ class FileSystem(SourceBase):
     TIME_ZONE = get_localzone()
     CREATED = 'Created'
     ACCESSED = 'LastAccessed'
-    __PROPERTIES = SourceBase._create_properties_from_names(set([CREATED, ACCESSED]))
+    __PROPERTIES = SourceBase._create_properties_from_names(set([]))
 
     def __init__(self, file_system):
         if not file_system:
@@ -463,13 +490,22 @@ class FileSystem(SourceBase):
         self.__file_system = file_system
 
     @property
+    def file_system(self):
+        """Return the file system model entitiy for this corpus."""
+        return self.__file_system
+
+    @property
     def namespace(self):
         return super(FileSystem, self).PYTHON_NAMESPACE
 
     @property
-    def file_system(self):
-        """Return the file system model entitiy for this corpus."""
-        return self.__file_system
+    def supported_properties(self): # pragma: no cover
+        return self.__PROPERTIES
+
+    def key_exists(self, key): # pragma: no cover
+        check_val = key.value if key else ''
+        full_path = os.path.join(self.file_system.location, check_val)
+        return os.path.exists(full_path)
 
     def get_key(self, path): # pragma: no cover
         """ Get the basic key details for a path."""
@@ -480,15 +516,6 @@ class FileSystem(SourceBase):
         properties = self.get_fs_metadata_from_result(key, result)
         key.add_properties(properties)
         return key
-
-    def key_exists(self, key): # pragma: no cover
-        check_val = key.value if key else ''
-        full_path = os.path.join(self.file_system.location, check_val)
-        return os.path.exists(full_path)
-
-    @property
-    def supported_properties(self): # pragma: no cover
-        return self.__PROPERTIES
 
     def all_file_keys(self):
         return self.list_files(recurse=True)
@@ -527,20 +554,11 @@ class FileSystem(SourceBase):
     def get_byte_sequence_properties(self, key):
         if not key or key.is_folder:
             raise ValueError("Argument key must be a file key.")
+        logging.debug("Obtaining meta for key: %s, value: %s", key, key.value)
         path, _bs = self.get_path_and_byte_seq(key)
-        full_path = os.path.join(self.file_system.location, path)
-        result = stat(full_path)
         props = collections.defaultdict()
-        props[SourceBase.PYTHON_NAMESPACE] = (self.get_fs_metadata_from_result(key, result))
-
-        for tool_release in FormatToolRelease.get_enabled():
-            tool = get_format_tool_instance(tool_release.format_tool)
-            logging.debug("Checking %s", tool.format_tool_release.format_tool.name)
-            if tool.version:
-                logging.debug("Invoking %s", tool.format_tool_release.format_tool.name)
-                metadata = tool.identify(full_path)
-                if metadata:
-                    props[tool.NAMESPACE] = metadata
+        if _bs.size > 0:
+            props = super(FileSystem, self)._format_properties_from_path(path)
         return _bs, props
 
     @classmethod
@@ -569,7 +587,6 @@ class FileSystem(SourceBase):
         if not key or key.is_folder:
             raise ValueError("Argument key must be a file key.")
         file_path = os.path.join(self.file_system.location, key.value)
-
         sha1 = sha1_path(file_path) if os.access(file_path, R_OK) else ByteSequence.EMPTY_SHA1
         byte_seq = ByteSequence.by_sha1(sha1)
         if byte_seq is None:

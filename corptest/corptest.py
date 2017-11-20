@@ -24,16 +24,19 @@ from flask import Flask
 APP = Flask(__name__)
 
 from .config import configure_app # pylint: disable-msg=C0413
-
+from .utilities import sizeof_fmt, percent_fmt # pylint: disable-msg=C0413
 # Get the appropriate config
 configure_app(APP)
+APP.jinja_env.globals.update(sizeof_fmt=sizeof_fmt) # pylint: disable-msg=E1101
+APP.jinja_env.globals.update(percent_fmt=percent_fmt) # pylint: disable-msg=E1101
+
 # Configure logging across all modules
 logging.basicConfig(filename=APP.config['LOG_FILE'], level=logging.DEBUG,
                     format=APP.config['LOG_FORMAT'])
 logging.info("Started JISC RDSS Format Identification app.")
 
 from .model_sources import SCHEMES # pylint: disable-msg=C0413
-from .model_properties import init_db
+from .model_properties import init_db # pylint: disable-msg=C0413
 
 logging.debug("Configured logging.")
 logging.info("Initialising database.")

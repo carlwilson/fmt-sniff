@@ -1,0 +1,36 @@
+{% extends "page.html" %}
+{% block title %}Files By Property{% endblock %}
+{% block page_content %}
+  <h2></h2>
+  <p class="lead">
+  </p>
+  <table class="table table-striped">
+    <tr>
+      <th>Type</th>
+      <th>Name</th>
+      <th>Ext</th>
+      <th>Modified</th>
+      <th>Size</th>
+    </tr>
+    {{ key_rows(source.id, folders) }}
+    {{ key_rows(source.id, files) }}
+  </table>
+{% endblock page_content %}
+
+  {% macro key_rows(source_id, keys) %}
+  {% for key in keys %}
+    {{ key_row(source_id, key) }}
+  {% endfor %}
+  {% endmacro %}
+
+  {% macro key_row(source_id, item) %}
+    <tr>
+      <td><a href="/source/{{ source_id }}/{{ 'folder' if item.is_folder else 'file' }}/{{ item.value }}" >{{ item.name }}</a></td>
+      <td>{{ item.extension }}</td>
+      <td>{{ item.last_modified }}</td>
+      <td>{{ sizeof_fmt(item.size) }}</td>
+      {%- for key, value in properties.items() %}
+      <td>{{ item.properties.get(value, '') }}</td>
+      {% endfor %}
+    </tr>
+  {% endmacro -%}

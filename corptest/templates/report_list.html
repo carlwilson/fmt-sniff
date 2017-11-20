@@ -9,7 +9,6 @@
       <th>Created</th>
       <th>Files</th>
       <th>Size</th>
-      <th>To Download</th>
     </tr>
     {{ key_rows(reports) }}
   </table>
@@ -27,7 +26,6 @@
       <td>{{ report.root_key }}</td>
       <td>{{ report.short_iso_timestamp }}</td>
       <td>{{ report.key_count }}</td>
-      <td>{{ report.size if report.size else 0 }}</td>
-      <td>{{ report.to_download }}</td>
+      <td>{{ sizeof_fmt(report.size) if report.size else 0 }}</td>
     </tr>
   {% endmacro -%}
