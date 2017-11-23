@@ -308,7 +308,7 @@ class KeyProperty(BASE):
     @staticmethod
     def get_property_values_for_index(source_index_id, prop_id):
         """Returns the total size in bytes of all files in the index."""
-        return DB_SESSION.query(PropertyValue.value,
+        return DB_SESSION.query(PropertyValue.value, PropertyValue.id,
                                 func.sum(ByteSequence.size).label('prop_size'),\
                                 func.count(Key.id).label('prop_count')).\
                                 distinct(PropertyValue.value).\
@@ -317,6 +317,14 @@ class KeyProperty(BASE):
                                 filter(KeyProperty.prop_id == prop_id).join(Key).\
                                 filter(Key.source_index_id == source_index_id).\
                                 join(ByteSequence).all()
+
+    @staticmethod
+    def get_keys_for_property_value(source_index_id, prop_val_id):
+        """Returns all of the Keys with a particular property value from a particular
+        source index."""
+        return DB_SESSION.query(Key).join(KeyProperty).\
+                                filter(KeyProperty.prop_val_id == prop_val_id).\
+                                filter(Key.source_index_id == source_index_id).all()
 
     @classmethod
     def putdate(cls, key, prop, prop_val):
@@ -339,6 +347,7 @@ class ByteSequenceProperty(BASE):
     byte_sequence = relationship('ByteSequence')
     prop = relationship('Property')
     prop_val = relationship('PropertyValue')
+
     __table_args__ = (UniqueConstraint('byte_sequence_id', 'prop_id', name='uix_bs_property'),)
 
     def __init__(self, byte_sequence, prop, prop_val):
@@ -434,7 +443,7 @@ class ByteSequenceProperty(BASE):
     @staticmethod
     def get_property_values_for_index(source_index_id, prop_id):
         """Returns the total size in bytes of all files in the index."""
-        return DB_SESSION.query(PropertyValue.value,
+        return DB_SESSION.query(PropertyValue.value, PropertyValue.id,
                                 func.sum(ByteSequence.size).label('prop_size'),\
                                 func.count(Key.id).label('prop_count')).\
                                 distinct(PropertyValue.value).\
@@ -443,6 +452,14 @@ class ByteSequenceProperty(BASE):
                                 filter(ByteSequenceProperty.prop_id == prop_id).\
                                 join(ByteSequence).\
                                 join(Key).\
+                                filter(Key.source_index_id == source_index_id).all()
+
+    @staticmethod
+    def get_keys_for_property_value(source_index_id, prop_val_id):
+        """Returns all of the Keys with a particular property value from a particular
+        source index."""
+        return DB_SESSION.query(Key).join(ByteSequence).join(ByteSequenceProperty).\
+                                filter(ByteSequenceProperty.prop_val_id == prop_val_id).\
                                 filter(Key.source_index_id == source_index_id).all()
 
     @classmethod

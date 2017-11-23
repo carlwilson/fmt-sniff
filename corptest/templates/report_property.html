@@ -6,7 +6,7 @@
   <p>Created at {{ report.short_iso_timestamp }}, for {{ file_count }} files totalling {{ sizeof_fmt(size) }} in size.</p>
 <table class="table table-striped">
     <tr>
-      <th>Propery Value</th>
+      <th>Property Value</th>
       <th>File Count</th>
       <th>Size</th>
     </tr>
@@ -18,7 +18,7 @@
 
 {% macro prop_row(prop, prop_value) %}
   <tr>
-    <td>{{ prop_value.value }}</td>
+    <td><a href="/reports/{{ report.id }}/prop/{{ prop.id }}/propval/{{ prop_value.id }}">{{ prop_value.value }}</a></td>
     <td>{{ prop_value.prop_count }}/{{ file_count }} [{{ percent_fmt(prop_value.prop_count, file_count) }}]</td>
     <td>{{ sizeof_fmt(prop_value.prop_size) }}/{{ sizeof_fmt(size) }} [{{ percent_fmt(prop_value.prop_size, size) }}]</td>
   </tr>

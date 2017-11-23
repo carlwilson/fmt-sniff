@@ -22,7 +22,7 @@ except ImportError:
 
 import dateutil.parser
 import dicttoxml
-from flask import render_template, send_file, request, make_response
+from flask import render_template, send_file, request, make_response, abort
 from flask_negotiate import produces
 from werkzeug.exceptions import BadRequest, NotFound
 
@@ -32,7 +32,7 @@ from .model_sources import SCHEMES, Source, FormatToolRelease, SourceIndex, Key
 from .model_properties import KeyProperty, Property, PropertyValue, ByteSequenceProperty
 from .reporter import item_pdf_report
 from .sources import SourceKey, FileSystem, AS3Bucket, BLOBSTORE
-from .utilities import sizeof_fmt, ObjectJsonEncoder, PrettyJsonEncoder
+from .utilities import ObjectJsonEncoder, PrettyJsonEncoder
 ROUTES = True
 
 JSON_MIME = 'application/json'
@@ -154,6 +154,24 @@ def report_detail(report_id):
                            key_props=KeyProperty.get_properties_for_index(report_id),
                            bs_props=ByteSequenceProperty.get_properties_for_index(report_id))
 
+@APP.route("/reports/<int:report_id>/prop/<int:prop_id>/propval/<int:prop_val_id>")
+def report_key_by_prop(report_id, prop_id, prop_val_id):
+    """Show the details of a report."""
+    source_index = SourceIndex.by_id(report_id)
+    keys = KeyProperty\
+        .get_keys_for_property_value(report_id, prop_val_id)
+    logging.debug("Got %d Key properties", len(keys))
+    if not keys:
+        keys = ByteSequenceProperty\
+            .get_keys_for_property_value(report_id, prop_val_id)
+        logging.debug("Got %d Byte properties", len(keys))
+    return render_template('files_by_prop.html', report=source_index,
+                           file_count=source_index.key_count,
+                           size=source_index.size,
+                           keys=keys,
+                           prop=Property.by_id(prop_id),
+                           prop_val=PropertyValue.by_id(prop_val_id))
+
 @APP.route("/reports/<int:report_id>/prop/<int:prop_id>")
 def report_properties(report_id, prop_id):
     """Show the details of a report."""
@@ -249,8 +267,11 @@ def _get_key_properties(source, encoded_filepath):
     return key, _fs.get_key_properties(key)
 
 def _get_fs_and_key(source, encoded_filepath, is_folder=True):
-    _fs = AS3Bucket(source) \
-        if source.scheme == SCHEMES['AS3'] else FileSystem(source)
+    try:
+        _fs = AS3Bucket(source) \
+            if source.scheme == SCHEMES['AS3'] else FileSystem(source)
+    except ValueError:
+        abort(404)
     path = unquote(encoded_filepath)
     key = SourceKey(path, is_folder) if path else None
     return _fs, key

@@ -19,7 +19,8 @@ from sqlalchemy import UniqueConstraint, Boolean, func
 from sqlalchemy.orm import relationship
 
 from .database import BASE, DB_SESSION
-from .utilities import check_param_not_none, sha1_path, sha1_string, timestamp_fmt
+from .utilities import check_param_not_none, sha1_path, sha1_string
+from .utilities import Extension, timestamp_fmt
 SCHEMES = {
     'AS3': "as3",
     'FILE': "file"
@@ -247,6 +248,11 @@ class Key(BASE):
         parts = self.path.split('/')
         return parts[-2] if self.path.endswith('/') else parts[-1]
 
+    @property
+    def extension(self):
+        """Return the name of the item without the path."""
+        return Extension.parse_from_file_name(self.path)
+
     def __key(self):
         return (self.source_index, self.path, self.size, self.last_modified)
 
@@ -316,6 +322,8 @@ class ByteSequence(BASE):
     id = Column(Integer, primary_key=True)# pylint: disable-msg=C0103
     sha1 = Column(String(40), unique=True, nullable=False)
     size = Column(Integer, nullable=False)
+
+    properties = relationship('ByteSequenceProperty')
 
     EMPTY_SHA1 = 'da39a3ee5e6b4b0d3255bfef95601890afd80709'
 
@@ -430,6 +438,15 @@ class ByteSequence(BASE):
         except ValueError:
             return False
         return True
+
+def get_property_from_bs(byte_seq, namespace, prop_name):
+    """Given a byte sequence, namespace and property name returns the value."""
+    for prop in byte_seq.properties:
+        if prop.prop.namespace == namespace:
+            if prop.prop.name == prop_name:
+                return prop.prop_val.value
+    return ''
+
 
 class FormatTool(BASE):
     """Class to hold the details of a format identification tool."""

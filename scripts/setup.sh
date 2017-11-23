@@ -26,5 +26,10 @@ sudo cp /vagrant/scripts/tika.sh ./
 sudo chmod +x tika.sh
 sudo ln -s /usr/local/lib/apache-tika/tika.sh /usr/local/bin/tika
 
+sudo wget http://resources.openpreservation.org/tika-tools.jar
+sudo cp /vagrant/scripts/tika-tools.sh ./
+sudo chmod +x tika-tools.sh
+sudo ln -s /usr/local/lib/apache-tika/tika-tools.sh /usr/local/bin/tika-tools
+
 # Create virtual env for project and install requirements
 sudo -u ubuntu -H bash /vagrant/scripts/setup_venv.sh
