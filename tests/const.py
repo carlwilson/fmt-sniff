@@ -14,6 +14,7 @@ import os
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 NOT_EMPTY_SHA1 = '0ae15d17576dc5a36ef2b933c303a1e214f57bee'
+TEST_NAMESPACE = "test.namespace"
 TEST_NAME = "Name"
 TEST_DESCRIPTION = "Description"
 TEST_BUCKET_NAME = "bucket"

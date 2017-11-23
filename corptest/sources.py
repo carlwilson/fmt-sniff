@@ -68,6 +68,7 @@ class SourceKey(object):
         self.__size = size
         self.__last_modified = last_modified
         self.__properties = collections.defaultdict()
+        self.__bs = ByteSequence()
 
     @property
     def value(self):
@@ -107,6 +108,11 @@ class SourceKey(object):
         return self.__properties
 
     @property
+    def byte_sequence(self):
+        """Get the key's byte sequence."""
+        return self.__bs
+
+    @property
     def last_modified(self):
         """ Return the last modified date as a String. """
         return timestamp_fmt(self.__last_modified) if not self.is_folder else 'n/a'
@@ -124,6 +130,10 @@ class SourceKey(object):
         if prop_dict is None:
             raise ValueError("Argument prop_dict can not be None.")
         self.__properties.update(prop_dict)
+
+    def add_byte_sequence(self, byte_sequence):
+        """Add a byte_sequence to a key."""
+        self.__bs = byte_sequence
 
     def add_bs_properties(self, prop_dict):
         """Add the key value pairs in prop_dict to this."""
@@ -176,11 +186,9 @@ class SourceKey(object):
 
         return "".join(ret_val)
 
-PYTHON_NAMESPACE = 'os.python.org'
 class SourceBase(object):
     """Base class for different sources."""
     __metaclass__ = abc.ABCMeta
-    PYTHON_NAMESPACE = PYTHON_NAMESPACE
 
     @abc.abstractmethod
     def namespace(self): # pragma: no cover
@@ -259,10 +267,10 @@ class SourceBase(object):
         return ret_val
 
     @staticmethod
-    def _create_properties_from_names(names, namespace=PYTHON_NAMESPACE):
+    def _create_properties_from_names(names):
         ret_val = collections.defaultdict()
         for name in names:
-            prop = Property(namespace, name)
+            prop = Property(name)
             ret_val[name] = prop
         return ret_val
 
@@ -276,19 +284,18 @@ class SourceBase(object):
                 logging.debug("Invoking %s", tool.format_tool_release.format_tool.name)
                 metadata = tool.identify(path)
                 if metadata:
-                    props[tool.NAMESPACE] = metadata
+                    props[tool_release] = metadata
         return props
 
 class AS3Bucket(SourceBase):
     """A Source based on an Amazon S3 bucket."""
-    NAMESPACE = 's3.amazon.com'
+    NAMESPACE = 'com.amazon.s3'
     FOLDER_REGEX = re.compile('.*/$')
     S3_RESOURCE = None
     ETAG = 'ETag'
     CONT_TYPE = 'ContentType'
     CONT_ENC = 'ContentEncoding'
-    __PROPERTIES = SourceBase._create_properties_from_names(set([ETAG]),
-                                                            namespace=NAMESPACE)
+    __PROPERTIES = SourceBase._create_properties_from_names(set([ETAG]))
 
     def __init__(self, bucket):
         if not bucket:
@@ -476,6 +483,7 @@ class AS3Bucket(SourceBase):
 
 class FileSystem(SourceBase):
     """A source based on a file system"""
+    NAMESPACE = 'org.python.os'
     TIME_ZONE = get_localzone()
     CREATED = 'Created'
     ACCESSED = 'LastAccessed'
@@ -496,7 +504,7 @@ class FileSystem(SourceBase):
 
     @property
     def namespace(self):
-        return super(FileSystem, self).PYTHON_NAMESPACE
+        return self.NAMESPACE
 
     @property
     def supported_properties(self): # pragma: no cover

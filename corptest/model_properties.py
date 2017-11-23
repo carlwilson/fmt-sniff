@@ -25,16 +25,11 @@ class Property(BASE):
     __tablename__ = 'property'
 
     id = Column(Integer, primary_key=True)# pylint: disable-msg=C0103
-    namespace = Column(String(255), nullable=False)
-    name = Column(String(100), nullable=False)
+    name = Column(String(100), unique=True, nullable=False)
     description = Column(String(255))
 
-    __table_args__ = (UniqueConstraint('namespace', 'name', name='uix_property_name'),)
-
-    def __init__(self, namespace, name, description=None):
-        check_param_not_none(namespace, "namespace")
+    def __init__(self, name, description=None):
         check_param_not_none(name, "name")
-        self.namespace = namespace
         self.name = name
         self.description = description
 
@@ -43,7 +38,7 @@ class Property(BASE):
         return _add(self)
 
     def __key(self):
-        return (self.namespace, self.name)
+        return self.name
 
     def __eq__(self, other):
         """ Define an equality test for ByteSequence """
@@ -63,54 +58,39 @@ class Property(BASE):
 
     def __rep__(self):
         ret_val = []
-        ret_val.append("Property : [namespace=")
-        ret_val.append(self.namespace)
-        ret_val.append(", name=")
+        ret_val.append("Property : [name=")
         ret_val.append(self.name)
         ret_val.append("]")
         return "".join(ret_val)
 
     @staticmethod
     def count():
-        """Returns the number of ByteSequence instances in the database."""
+        """Returns the number of Property instances in the database."""
         return Property.query.count()
 
     @staticmethod
     def all():
-        """Convenience method, returns all of the ByteSequence instances."""
-        return Property.query.order_by(Property.namespace, Property.name).all()
+        """Convenience method, returns all of the Property instances."""
+        return Property.query.order_by(Property.name).all()
 
     @staticmethod
     def by_id(id):# pylint: disable-msg=W0622,C0103
-        """Query for ByteSequence with matching id."""
+        """Query for Property with matching id."""
         check_param_not_none(id, "id")
         return Property.query.filter(Property.id == id).first()
 
     @staticmethod
     def by_name(name):# pylint: disable-msg=W0622,C0103
-        """Query for ByteSequence with matching id."""
+        """Query for Property with matching id."""
         check_param_not_none(name, "name")
-        return Property.query.filter(Property.name == name).all()
-
-    @staticmethod
-    def by_namespace(namespace):# pylint: disable-msg=W0622,C0103
-        """Query for ByteSequence with matching id."""
-        check_param_not_none(namespace, "namespace")
-        return Property.query.filter(Property.namespace == namespace).all()
-
-    @staticmethod
-    def by_namespace_and_name(namespace, name):# pylint: disable-msg=W0622,C0103
-        """Query for ByteSequence with matching id."""
-        check_param_not_none(name, "name")
-        check_param_not_none(namespace, "namespace")
-        return Property.query.filter(Property.namespace == namespace, Property.name == name).first()
+        return Property.query.filter(Property.name == name).first()
 
     @classmethod
-    def putdate(cls, namespace, name, description=None):
+    def putdate(cls, name, description=None):
         """Create or update the Property."""
-        ret_val = cls.by_namespace_and_name(namespace, name)
+        ret_val = cls.by_name(name)
         if ret_val is None:
-            ret_val = Property(namespace, name, description)
+            ret_val = Property(name, description)
         elif description and description != ret_val.description:
             ret_val.description = description
         ret_val.put()
@@ -225,6 +205,14 @@ class KeyProperty(BASE):
         self.prop = prop
         self.prop_val = prop_val
 
+    @property
+    def qualified_name(self):
+        """Return the qualified name of the property value with namespace."""
+        ret_val = []
+        ret_val.append(self.key.source_index.source.namespace)
+        ret_val.append(':')
+        ret_val.append(self.prop.name)
+        return "".join(ret_val)
 
     def put(self):
         """Add this KeyProperty instance to the database."""
@@ -298,10 +286,10 @@ class KeyProperty(BASE):
     @staticmethod
     def get_properties_for_index(source_index_id):
         """Returns the total numbers of properties of all files in the index."""
-        return DB_SESSION.query(Property.id, Property.namespace, Property.name,
+        return DB_SESSION.query(Property.id, Property.name,
                                 func.count(Key.id).label('prop_count')).\
-                                distinct(Property.id, Property.namespace, Property.name).\
-                                group_by(Property.id, Property.namespace, Property.name).\
+                                distinct(Property.id, Property.name).\
+                                group_by(Property.id, Property.name).\
                                 join(KeyProperty).join(Key).\
                                 filter(Key.source_index_id == source_index_id).all()
 
@@ -341,23 +329,36 @@ class ByteSequenceProperty(BASE):
 
     id = Column(Integer, primary_key=True)# pylint: disable-msg=C0103
     byte_sequence_id = Column(Integer, ForeignKey('byte_sequence.id'), nullable=False)
+    format_tool_release_id = Column(Integer, ForeignKey('format_tool_release.id'), nullable=False)
     prop_id = Column(Integer, ForeignKey('property.id'), nullable=False)
     prop_val_id = Column(Integer, ForeignKey('property_value.id'), nullable=False)
 
     byte_sequence = relationship('ByteSequence')
+    format_tool_release = relationship('FormatToolRelease')
     prop = relationship('Property')
     prop_val = relationship('PropertyValue')
 
-    __table_args__ = (UniqueConstraint('byte_sequence_id', 'prop_id', name='uix_bs_property'),)
+    __table_args__ = (UniqueConstraint('byte_sequence_id', 'format_tool_release_id',
+                                       'prop_id', name='uix_bs_property'),)
 
-    def __init__(self, byte_sequence, prop, prop_val):
+    def __init__(self, byte_sequence, format_tool_release, prop, prop_val):
         check_param_not_none(byte_sequence, "byte_sequence")
+        check_param_not_none(format_tool_release, "format_tool_release")
         check_param_not_none(prop, "prop")
         check_param_not_none(prop_val, "prop_val")
         self.byte_sequence = byte_sequence
+        self.format_tool_release = format_tool_release
         self.prop = prop
         self.prop_val = prop_val
 
+    @property
+    def qualified_name(self):
+        """Return the qualified name of the property value with namespace."""
+        ret_val = []
+        ret_val.append(self.format_tool_release.format_tool.namespace)
+        ret_val.append(':')
+        ret_val.append(self.prop.name)
+        return "".join(ret_val)
 
     def put(self):
         """Add this ByteSequenceProperty instance to the database."""
@@ -432,10 +433,10 @@ class ByteSequenceProperty(BASE):
     @staticmethod
     def get_properties_for_index(source_index_id):
         """Returns the total numbers of properties of all files in the index."""
-        return DB_SESSION.query(Property.id, Property.namespace, Property.name,
+        return DB_SESSION.query(Property.id, Property.name,
                                 func.count(Key.id).label('prop_count')).\
-                                distinct(Property.id, Property.namespace, Property.name).\
-                                group_by(Property.id, Property.namespace, Property.name).\
+                                distinct(Property.id, Property.name).\
+                                group_by(Property.id, Property.name).\
                                 join(ByteSequenceProperty).join(ByteSequence).\
                                 join(Key).\
                                 filter(Key.source_index_id == source_index_id).all()
@@ -463,11 +464,11 @@ class ByteSequenceProperty(BASE):
                                 filter(Key.source_index_id == source_index_id).all()
 
     @classmethod
-    def putdate(cls, byte_sequence, prop, prop_val):
+    def putdate(cls, byte_sequence, format_tool, prop, prop_val):
         """Create or update the ByteSequenceProperty."""
         ret_val = cls.by_key_and_byte_sequence_id(byte_sequence.id, prop.id)
         if ret_val is None:
-            ret_val = ByteSequenceProperty(byte_sequence, prop, prop_val)
+            ret_val = ByteSequenceProperty(byte_sequence, format_tool, prop, prop_val)
             ret_val.put()
         return ret_val
 

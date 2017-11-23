@@ -12,7 +12,62 @@
     {{ prop_rows(report.id, key_props) }}
     {{ prop_rows(report.id, bs_props) }}
 </table>
+<p>
+  <a class="btn btn-primary btn-lg" onclick="get_report({{ report.id }}, 'application/json', 'json');" >JSON</a>
+  <a class="btn btn-primary btn-lg" onclick="get_report({{ report.id }}, 'text/xml', 'xml');" >XML</a>
+  <a class="btn btn-primary btn-lg" onclick="get_report({{ report.id }}, 'application/pdf', 'pdf');" >PDF</a>
+</p>
 {% endblock page_content %}
+{% block page_script %}
+<script src="{{ url_for('static', filename='js/FileSaver.js') }}" /></script>
+<script src="{{ url_for('static', filename='js/BinaryGet.js') }}" /></script>
+<script>
+function get_report(report_id, mime_type, ext) {
+  var url = "/api/report/".concat(report_id);
+  if (ext === 'pdf') {
+    get_binary_report(url, mime_type, ext);
+  } else {
+    get_text_report(url, mime_type, ext);
+  }
+}
+
+function get_text_report(url, mime_type, ext) {
+  $.ajax({
+    accepts:{text: mime_type},
+    url:url,
+    processData:false,
+    dataType:'text',
+    success:function(data){
+            saveAs(new Blob([data], {type: mime_type}),'full_report.'.concat(ext));
+        },
+    error: function(){
+           // Handle errors here
+        }
+  });
+}
+
+
+function get_binary_report(url, mime_type, ext) {
+  $.ajax({
+    accepts:{binary: mime_type},
+    url:url,
+    processData:false,
+    dataType:'binary',
+    success:function(data){
+            saveAs(new Blob([data], {type: mime_type}),'full_report.'.concat(ext));
+        },
+    error: function(){
+           // Handle errors here
+        }
+  });
+}
+
+$.ajaxSetup({
+    // Disable caching of AJAX responses
+    cache: false
+});
+</script>
+{% endblock page_script %}
 
 {% macro prop_rows(report_id, props) %}
 {% for prop in props %}
@@ -22,7 +77,7 @@
 
 {% macro prop_row(report_id, prop) %}
   <tr>
-    <td><a href="prop/{{ prop.id }}" >{{ prop.namespace }}:{{ prop.name }}</a></td>
+    <td><a href="prop/{{ prop.id }}" >{{ prop.name }}</a></td>
     <td>{{ prop.prop_count }}/{{ file_count }} [{{ percent_fmt(prop.prop_count, file_count) }}]</td>
   </tr>
 {% endmacro -%}

@@ -34,7 +34,6 @@ class FineFreeFile(object):
         "mime" : ['file', '--mime']
     }
     __version = None
-    NAMESPACE = 'com.darwinsys.file'
     def __init__(self, format_tool):
         check_param_not_none(format_tool, "format_tool")
         FineFreeFile.__version = FineFreeFile.__version \
@@ -118,7 +117,7 @@ class DROID(object):
                    ]
     }
     __version = None
-    NAMESPACE = 'uk.gov.tna.droid'
+
     def __init__(self, format_tool):
         check_param_not_none(format_tool, "format_tool")
         DROID.__version = DROID.__version \
@@ -190,7 +189,6 @@ class FIDO(object):
     __executions__ = {
     }
     __version = __opf_fido_version__ if APP.config['IS_FIDO'] else None
-    NAMESPACE = 'org.openpreservation.fido'
 
     def __init__(self, format_tool):
         check_param_not_none(format_tool, "format_tool")
@@ -265,7 +263,6 @@ class FIDO(object):
 class PythonMagic(object):
     """PythonMagic encapsulated"""
     __version = __python_magic_version__
-    NAMESPACE = 'os.python.org.libmagic'
 
     def __init__(self, format_tool):
         check_param_not_none(format_tool, "format_tool")
@@ -323,7 +320,6 @@ class PythonMagic(object):
 
 class Tika(object):
     """Tika encapsulated"""
-    NAMESPACE = 'org.apache.tika'
     __executions__ = {
         "version" : ['tika', '--version'],
         "identify" : ['tika-tools']

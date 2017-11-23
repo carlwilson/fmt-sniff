@@ -44,6 +44,7 @@ class BaseConfig(object):# pylint: disable-msg=R0903
     ]
     TOOLS = [
         {
+            'namespace' : 'uk.gov.nationalarchives',
             'name' : 'DROID',
             'description' : 'Digital Record and Object Identication',
             'reference' :
@@ -51,22 +52,26 @@ class BaseConfig(object):# pylint: disable-msg=R0903
                      'manage-information/preserving-digital-records/droid/'])
         },
         {
+            'namespace' : 'org.openpreservation',
             'name' : 'FIDO',
             'description' : 'Format Identification for Digital Objects',
             'reference' : 'http://openpreservation.org/technology/products/fido/'
         },
         {
+            'namespace' : 'com.darwinsys',
             'name' : 'File',
             'description' : 'The fine free file command.',
             'reference' : 'https://www.darwinsys.com/file/'
         },
         {
+            'namespace' : 'org.python',
             'name' : 'python-magic',
             'description' : 'Python wrapping of the libmagic library.',
             'reference' : 'https://github.com/ahupp/python-magic/'
         },
         {
-            'name' : 'Apache Tika',
+            'namespace' : 'org.apache',
+            'name' : 'Tika',
             'description' : 'A content analysis toolkit.',
             'reference' : 'https://tika.apache.org/'
         }

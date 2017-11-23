@@ -30,23 +30,28 @@ class Source(BASE):
     __tablename__ = 'source'
 
     id = Column(Integer, primary_key=True) # pylint: disable-msg=C0103
-    name = Column(String(256), unique=True, nullable=False)
+    namespace = Column(String(255), nullable=False)
+    name = Column(String(256), nullable=False)
     description = Column("description", String(512))
     scheme = Column(String(10), nullable=False)
     location = Column(String(1024), nullable=False)
 
-    def __init__(self, name, description, scheme, location):
+    __table_args__ = (UniqueConstraint('namespace', 'name', name='uix_tool_name'),)
+
+    def __init__(self, namespace, name, description, scheme, location):
+        check_param_not_none(namespace, "namespace")
         check_param_not_none(name, "name")
         check_param_not_none(description, "description")
         check_param_not_none(scheme, "scheme")
         check_param_not_none(location, "location")
+        self.namespace = namespace
         self.name = name
         self.description = description
         self.scheme = scheme
         self.location = location
 
     def __key(self):
-        return (self.name, self.description, self.location)
+        return (self.namespace, self.name, self.location)
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -61,7 +66,9 @@ class Source(BASE):
 
     def __rep__(self): # pragma: no cover
         ret_val = []
-        ret_val.append("corptest.model.Source : [name=")
+        ret_val.append("corptest.model.Source : [namespace=")
+        ret_val.append(self.namespace)
+        ret_val.append(", name=")
         ret_val.append(self.name)
         ret_val.append(", description=")
         ret_val.append(str(self.description))
@@ -96,6 +103,13 @@ class Source(BASE):
         """Query for Source with matching name."""
         check_param_not_none(name, "name")
         return Source.query.filter(Source.name == name).first()
+
+    @staticmethod
+    def by_namespace_and_name(namespace, name):
+        """Query for Source with matching namespace and name."""
+        check_param_not_none(name, "name")
+        return Source.query.filter(and_(Source.namespace == namespace,
+                                        Source.name == name)).first()
 
     @staticmethod
     def by_scheme(scheme):
@@ -453,15 +467,20 @@ class FormatTool(BASE):
     __tablename__ = 'format_tool'
 
     id = Column(Integer, primary_key=True)# pylint: disable-msg=C0103
-    name = Column(String(100), unique=True, nullable=False)
+    namespace = Column(String(255), nullable=False)
+    name = Column(String(100), nullable=False)
     description = Column(String(100))
     reference = Column(String(512), unique=True)
     versions = relationship("FormatToolRelease", back_populates='format_tool')
 
-    def __init__(self, name, description, reference):
+    __table_args__ = (UniqueConstraint('namespace', 'name', name='uix_tool_name'),)
+
+    def __init__(self, namespace, name, description, reference):
+        check_param_not_none(namespace, "namespace")
         check_param_not_none(name, "name")
         check_param_not_none(description, "description")
         check_param_not_none(reference, "reference")
+        self.namespace = namespace
         self.name = name
         self.description = description
         self.reference = reference
@@ -471,7 +490,7 @@ class FormatTool(BASE):
         return _add(self)
 
     def __key(self):
-        return (self.name, self.reference)
+        return (self.namespace, self.name, self.reference)
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -491,6 +510,8 @@ class FormatTool(BASE):
         ret_val = []
         ret_val.append("FormatTool : [id =")
         ret_val.append(str(self.id))
+        ret_val.append(", namespace =")
+        ret_val.append(self.namespace)
         ret_val.append(", name =")
         ret_val.append(self.name)
         ret_val.append(", description =")
@@ -517,6 +538,13 @@ class FormatTool(BASE):
         return FormatTool.query.filter(FormatTool.name == name).first()
 
     @staticmethod
+    def by_namespace_and_name(namespace, name):
+        """Query for FormatTool with matching name."""
+        check_param_not_none(name, "name")
+        return FormatTool.query.filter(and_(FormatTool.name == name,
+                                            FormatTool.namespace == namespace)).first()
+
+    @staticmethod
     def by_reference(reference):
         """Query for FormatTool with matching URL refernce."""
         check_param_not_none(reference, "nareferenceme")
@@ -535,14 +563,14 @@ class FormatTool(BASE):
         _add(format_tool)
 
     @classmethod
-    def putdate(cls, name, description, reference):
+    def putdate(cls, namespace, name, description, reference):
         """Add a FormatTool instance to the table."""
         check_param_not_none(name, "name")
         check_param_not_none(description, "description")
         check_param_not_none(reference, "reference")
         ret_val = FormatTool.by_name(name)
         if ret_val is None:
-            ret_val = cls(name, description, reference)
+            ret_val = cls(namespace, name, description, reference)
             cls.add(ret_val)
         return ret_val
 
