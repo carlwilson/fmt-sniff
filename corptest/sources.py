@@ -462,12 +462,18 @@ class AS3Bucket(SourceBase):
 
         try:
             cls.S3_RESOURCE.meta.client.head_bucket(Bucket=bucket_name)
-        except exceptions.ClientError as boto_excep:
+        except exceptions.ClientError as boto_client_excep:
             # If a client error is thrown, then check that it was a 404 error.
             # If it was a 404 error, then the bucket does not exist.
-            error_code = int(boto_excep.response['Error']['Code'])
+            error_code = int(boto_client_excep.response['Error']['Code'])
             if error_code == 404:
                 exists = False
+            else:
+                raise boto_client_excep
+        except exceptions.NoCredentialsError as boto_s3_creds_excep:
+            # If a boto-authentication exception is thrown then log it here
+            logging.exception("No S3 credentials found in user home directory.")
+            raise boto_s3_creds_excep
         return exists
 
     def __rep__(self): # pragma: no cover

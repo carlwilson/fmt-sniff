@@ -12,6 +12,7 @@
 """SQL Alchemy database model classes."""
 from datetime import datetime
 import errno
+import logging
 import os.path
 
 from sqlalchemy import and_, Column, DateTime, Integer, String, ForeignKey
@@ -456,8 +457,11 @@ class ByteSequence(BASE):
 def get_property_from_bs(byte_seq, namespace, prop_name):
     """Given a byte sequence, namespace and property name returns the value."""
     for prop in byte_seq.properties:
-        if prop.prop.namespace == namespace:
+        logging.debug("Checking prop.namespace %s against %s.", prop.namespace, namespace)
+        if prop.namespace == namespace:
+            logging.debug("Checking prop.name %s against %s.", prop.name, prop_name)
             if prop.prop.name == prop_name:
+                logging.debug("Returning %s", prop.prop_val.value)
                 return prop.prop_val.value
     return ''
 

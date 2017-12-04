@@ -20,11 +20,12 @@ try:
 except ImportError:
     from urllib import unquote as unquote, quote as quote
 
+from botocore import exceptions
 import dateutil.parser
 import dicttoxml
-from flask import render_template, send_file, request, make_response, abort
+from flask import render_template, send_file, request, make_response
 from flask_negotiate import produces
-from werkzeug.exceptions import BadRequest, NotFound
+from werkzeug.exceptions import BadRequest, NotFound, Unauthorized
 
 from .corptest import APP, __version__
 from .database import DB_SESSION
@@ -48,25 +49,38 @@ def home():
 @APP.route('/source/<int:source_id>/folder/<path:encoded_filepath>/')
 def list_folder(source_id, encoded_filepath):
     """Display the contents of a source folder."""
-    return _folder_list(Source.by_id(source_id), encoded_filepath)
+    try:
+        return _folder_list(Source.by_id(source_id), encoded_filepath)
+    except exceptions.NoCredentialsError:
+        raise Unauthorized('No S3 credentials found.')
 
 @APP.route("/source/<int:source_id>/file/<path:encoded_filepath>/")
 def details_fs(source_id, encoded_filepath):
     """Display details of a source file."""
-    return _file_details(Source.by_id(source_id), encoded_filepath)
+    try:
+        return _file_details(Source.by_id(source_id), encoded_filepath)
+    except exceptions.NoCredentialsError:
+        raise Unauthorized('No S3 credentials found.')
 
 @APP.route("/download/source/<source_id>/<path:encoded_filepath>/")
 def download_fs(source_id, encoded_filepath):
     """Download a file from a source."""
-    return _download_item(Source.by_id(source_id), encoded_filepath)
+    try:
+        return _download_item(Source.by_id(source_id), encoded_filepath)
+    except exceptions.NoCredentialsError:
+        raise Unauthorized('No S3 credentials found.')
 
 @APP.route("/api/analyse/<source_id>/<path:encoded_filepath>/")
 @produces(JSON_MIME, XML_MIME, PDF_MIME)
 def file_report(source_id, encoded_filepath):
     """Download a file from a source."""
-    _fs, _key = _get_fs_and_key(Source.by_id(source_id), encoded_filepath, is_folder=False)
-    if not _fs.key_exists(_key):
-        raise NotFound('File %s not found' % encoded_filepath)
+    try:
+        _fs, _key = _get_fs_and_key(Source.by_id(source_id), encoded_filepath, is_folder=False)
+        if not _fs.key_exists(_key):
+            raise NotFound('File %s not found' % encoded_filepath)
+    except exceptions.NoCredentialsError:
+        raise Unauthorized('No S3 credentials found.')
+
     key = _fs.get_key(unquote(encoded_filepath))
     _bs, bs_props = _fs.get_byte_sequence_properties(key)
     _add_byte_sequence_properties(_bs, bs_props)
@@ -114,6 +128,7 @@ def _pdf_file_report(key):
 @APP.route("/api/report/<report_id>/")
 @produces(JSON_MIME, XML_MIME, PDF_MIME)
 def full_report(report_id):
+    """Download a full file system analysis report."""
     report = SourceIndex.by_id(report_id)
     if _request_wants_json():
         logging.debug("JSON file report for %s:%s", report.source.name, report.root_key)
@@ -248,6 +263,11 @@ def not_found_handler(not_found):
     """Basic not found request handler."""
     return render_template('404.html', not_found=not_found)
 
+@APP.errorhandler(Unauthorized)
+def unauth_handler(unauthorized):
+    """Basic not found request handler."""
+    return render_template('401.html', unauthorized=unauthorized)
+
 @APP.teardown_appcontext
 def shutdown_session(exception=None):
     """Tear down the database session."""
@@ -317,7 +337,7 @@ def _get_fs_and_key(source, encoded_filepath, is_folder=True):
         _fs = AS3Bucket(source) \
             if source.scheme == SCHEMES['AS3'] else FileSystem(source)
     except ValueError:
-        abort(404)
+        raise NotFound('Could not find item %s in source %s' % encoded_filepath, source.name)
     path = unquote(encoded_filepath)
     key = SourceKey(path, is_folder) if path else None
     return _fs, key
