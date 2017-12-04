@@ -29,8 +29,8 @@ import tempfile
 
 from botocore import exceptions
 from boto3 import client, resource
-
 from tzlocal import get_localzone
+from werkzeug.exceptions import Forbidden
 
 from .corptest import APP
 from .blobstore import Sha1Lookup, BlobStore
@@ -468,6 +468,8 @@ class AS3Bucket(SourceBase):
             error_code = int(boto_client_excep.response['Error']['Code'])
             if error_code == 404:
                 exists = False
+            elif error_code == 403:
+                raise Forbidden
             else:
                 raise boto_client_excep
         except exceptions.NoCredentialsError as boto_s3_creds_excep:

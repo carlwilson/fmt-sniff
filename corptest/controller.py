@@ -25,7 +25,7 @@ import dateutil.parser
 import dicttoxml
 from flask import render_template, send_file, request, make_response
 from flask_negotiate import produces
-from werkzeug.exceptions import BadRequest, NotFound, Unauthorized
+from werkzeug.exceptions import BadRequest, Forbidden, NotFound, Unauthorized
 
 from .corptest import APP, __version__
 from .database import DB_SESSION
@@ -256,17 +256,40 @@ def about():
 @APP.errorhandler(BadRequest)
 def bad_request_handler(bad_request):
     """Basic bad request handler."""
-    return "bad request %s" % bad_request
+    return render_template('except.html',
+                           http_excep=bad_request,
+                           message='bad request {}'.format(str(bad_request)),
+                           http_code=403,
+                           http_error="Bad Request")
 
 @APP.errorhandler(NotFound)
 def not_found_handler(not_found):
     """Basic not found request handler."""
-    return render_template('404.html', not_found=not_found)
+    return render_template('except.html',
+                           http_excep=not_found,
+                           message='Not found at this address.....',
+                           http_code=404,
+                           http_error="Not Found")
+
+@APP.errorhandler(Forbidden)
+def forbidden_handler(forbidden):
+    """Basic not found request handler."""
+    return render_template('except.html',
+                           http_excep=forbidden,
+                           message='You\'re not permitted access to this ' +\
+                                   'S3 Bucket with the given s3 credentials',
+                           http_code=403,
+                           http_error="Forbidden")
 
 @APP.errorhandler(Unauthorized)
 def unauth_handler(unauthorized):
     """Basic not found request handler."""
-    return render_template('401.html', unauthorized=unauthorized)
+    return render_template('except.html',
+                           http_excep=unauthorized,
+                           message='It appears there are no S3 credentials ' +\
+                                   'available to the application',
+                           http_code=401,
+                           http_error="Unauthorized")
 
 @APP.teardown_appcontext
 def shutdown_session(exception=None):
@@ -337,9 +360,13 @@ def _get_fs_and_key(source, encoded_filepath, is_folder=True):
         _fs = AS3Bucket(source) \
             if source.scheme == SCHEMES['AS3'] else FileSystem(source)
     except ValueError:
-        raise NotFound('Could not find item %s in source %s' % encoded_filepath, source.name)
+        logging.warning('Could not find source %s.', source.name)
+        raise NotFound('Could not find source {}'.format(source.name))
+    logging.debug('Found source %s.', source.name)
     path = unquote(encoded_filepath)
-    key = SourceKey(path, is_folder) if path else None
+    logging.debug('Got file systems and now getting key for %s.', encoded_filepath)
+    key = SourceKey(path, is_folder)
+    logging.debug('Keys is %s.', str(key))
     return _fs, key
 
 def _download_item(source, encoded_filepath):
