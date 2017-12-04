@@ -214,6 +214,11 @@ class KeyProperty(BASE):
         ret_val.append(self.prop.name)
         return "".join(ret_val)
 
+    @property
+    def namespace(self):
+        """Return the namespace of the source for this key property."""
+        return self.key.source.namespace
+
     def put(self):
         """Add this KeyProperty instance to the database."""
         return _add(self)
@@ -359,6 +364,11 @@ class ByteSequenceProperty(BASE):
         ret_val.append(':')
         ret_val.append(self.prop.name)
         return "".join(ret_val)
+
+    @property
+    def namespace(self):
+        """Return the namspace of the too for this byte sequence property."""
+        return self.format_tool_release.format_tool.namespace
 
     def put(self):
         """Add this ByteSequenceProperty instance to the database."""
