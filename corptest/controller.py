@@ -267,7 +267,7 @@ def not_found_handler(not_found):
     """Basic not found request handler."""
     return render_template('except.html',
                            http_excep=not_found,
-                           message='Not found at this address.....',
+                           message='Not resource found at this URL.',
                            http_code=404,
                            http_error="Not Found")
 
@@ -276,8 +276,7 @@ def forbidden_handler(forbidden):
     """Basic not found request handler."""
     return render_template('except.html',
                            http_excep=forbidden,
-                           message='You\'re not permitted access to this ' +\
-                                   'S3 Bucket with the given s3 credentials',
+                           message='You\'re forbidden to access this resource.',
                            http_code=403,
                            http_error="Forbidden")
 

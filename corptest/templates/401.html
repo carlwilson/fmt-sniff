@@ -1,7 +1,0 @@
-{% extends "page.html" %}
-{% block title %}Unauthorized request.{% endblock %}
-{% block page_content %}
-  <h2>{{ unauthorized }}</h2>
-  <p>401: Unauthorized, it appears there are no S3 credentials available to the application</p>
-  <p>Please refer to the <a href="https://github.com/carlwilson/fmt-sniff#amazon-s3-credentials">Amazon S3 credenitals section of the README</a> for setup instructions.</p>
-{% endblock page_content %}
