@@ -62,7 +62,7 @@ class Source(BASE):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def __hash__(self):
+    def __hash__(self): # pragma: no cover
         return hash(self.__key())
 
     def __rep__(self): # pragma: no cover
@@ -80,7 +80,7 @@ class Source(BASE):
         ret_val.append("]")
         return "".join(ret_val)
 
-    def __str__(self):
+    def __str__(self): # pragma: no cover
         return self.__rep__()
 
     @staticmethod
@@ -108,6 +108,7 @@ class Source(BASE):
     @staticmethod
     def by_namespace_and_name(namespace, name):
         """Query for Source with matching namespace and name."""
+        check_param_not_none(namespace, "namespace")
         check_param_not_none(name, "name")
         return Source.query.filter(and_(Source.namespace == namespace,
                                         Source.name == name)).first()
@@ -192,7 +193,7 @@ class SourceIndex(BASE):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def __hash__(self):
+    def __hash__(self): # pragma: no cover
         return hash(self.__key())
 
     def __rep__(self): # pragma: no cover
@@ -279,7 +280,7 @@ class Key(BASE):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def __hash__(self):
+    def __hash__(self): # pragma: no cover
         return hash(self.__key())
 
     def __str__(self): # pragma: no cover
@@ -368,13 +369,13 @@ class ByteSequence(BASE):
         """ Define an inequality test for ByteSequence """
         return not self.__eq__(other)
 
-    def __hash__(self):
+    def __hash__(self): # pragma: no cover
         return hash(self.__key())
 
-    def __str__(self):
+    def __str__(self): # pragma: no cover
         return self.__rep__()
 
-    def __rep__(self):
+    def __rep__(self): # pragma: no cover
         ret_val = []
         ret_val.append("ByteSequence : [sha1=")
         ret_val.append(self.sha1)
@@ -504,13 +505,13 @@ class FormatTool(BASE):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def __hash__(self):
+    def __hash__(self): # pragma: no cover
         return hash(self.__key())
 
-    def __str__(self):
+    def __str__(self): # pragma: no cover
         return self.__rep__()
 
-    def __rep__(self):
+    def __rep__(self): # pragma: no cover
         ret_val = []
         ret_val.append("FormatTool : [id =")
         ret_val.append(str(self.id))
@@ -629,13 +630,13 @@ class FormatToolRelease(BASE):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def __hash__(self):
+    def __hash__(self): # pragma: no cover
         return hash(self.__key())
 
-    def __str__(self):
+    def __str__(self): # pragma: no cover
         return self.__rep__()
 
-    def __rep__(self):
+    def __rep__(self): # pragma: no cover
         ret_val = []
         ret_val.append("corptest.model.FormatToolRelease : [id = ")
         ret_val.append(str(self.id))

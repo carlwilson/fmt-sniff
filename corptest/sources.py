@@ -30,7 +30,7 @@ import tempfile
 from botocore import exceptions
 from boto3 import client, resource
 from tzlocal import get_localzone
-from werkzeug.exceptions import Forbidden
+from werkzeug.exceptions import Forbidden, NotFound, Unauthorized
 
 from .corptest import APP
 from .blobstore import Sha1Lookup, BlobStore
@@ -164,10 +164,10 @@ class SourceKey(object):
         """ Define an inequality test for ByteSequence """
         return not self.__eq__(other)
 
-    def __hash__(self):
+    def __hash__(self): # pragma: no cover
         return hash(self.__key())
 
-    def __str__(self):
+    def __str__(self): # pragma: no cover
         return self.__rep__()
 
     def __rep__(self): # pragma: no cover
@@ -325,16 +325,30 @@ class AS3Bucket(SourceBase):
             prefix = super(AS3Bucket, self)._validate_key_and_return_prefix(key)
             if prefix and not prefix.endswith('/'):
                 prefix += '/'
-            result = s3_client.list_objects_v2(Bucket=self.bucket.location,
-                                               Prefix=prefix, Delimiter='/')
+            result = AS3Bucket._list_objects(bucket=self.bucket.location,
+                                             prefix=prefix)
             if not result.get('CommonPrefixes'):
                 if not result.get('Contents'):
                     return False
         else:
             try:
                 s3_client.head_object(Bucket=self.bucket.location, Key=key.value)
-            except exceptions.ClientError:
-                return False
+            except exceptions.ClientError as boto_client_excep:
+                # If a client error is thrown, then check that it was a 404 error.
+                # If it was a 404 error, then the bucket does not exist.
+                error_code = int(boto_client_excep.response['Error']['Code'])
+                if error_code == 404:
+                    return False
+                elif error_code == 403:
+                    raise Forbidden(description="You are forbidden from reading key " +\
+                                                "{} in bucket {}".format(key.value,
+                                                                         self.bucket.location))
+                else:
+                    raise boto_client_excep
+            except exceptions.NoCredentialsError as boto_s3_creds_excep:
+                # If a boto-authentication exception is thrown then log it here
+                logging.exception("No S3 credentials found in user home directory.")
+                raise boto_s3_creds_excep
         return True
 
     def get_key(self, path): # pragma: no cover
@@ -354,11 +368,12 @@ class AS3Bucket(SourceBase):
 
     def list_folders(self, filter_key=None, recurse=False):
         prefix = super(AS3Bucket, self)._validate_key_and_return_prefix(filter_key)
+        logging.debug('Prefix calculated: %s.', prefix)
         if prefix and not prefix.endswith('/'):
             prefix += '/'
-        s3_client = client('s3')
-        result = s3_client.list_objects_v2(Bucket=self.bucket.location,
-                                           Prefix=prefix, Delimiter='/')
+        logging.debug('Adjusted prefix is: %s.', prefix)
+        result = AS3Bucket._list_objects(bucket=self.bucket.location,
+                                         prefix=prefix)
         if result.get('CommonPrefixes'):
             for common_prefix in result.get('CommonPrefixes'):
                 yield SourceKey(common_prefix.get('Prefix'))
@@ -371,9 +386,8 @@ class AS3Bucket(SourceBase):
         prefix = super(AS3Bucket, self)._validate_key_and_return_prefix(filter_key)
         if prefix and not prefix.endswith('/'):
             prefix += '/'
-        s3_client = client('s3')
-        result = s3_client.list_objects_v2(Bucket=self.bucket.location,
-                                           Prefix=prefix, Delimiter='/')
+        result = AS3Bucket._list_objects(bucket=self.bucket.location,
+                                         prefix=prefix)
         if result.get('Contents'):
             for obj_summary in result.get('Contents'):
                 key = SourceKey(obj_summary.get('Key'), False, obj_summary.get('Size'),
@@ -396,6 +410,31 @@ class AS3Bucket(SourceBase):
         if _bs.size > 0:
             props = super(AS3Bucket, self)._format_properties_from_path(path)
         return _bs, props
+
+    @staticmethod
+    def _list_objects(bucket='', prefix='/', delimeter='/'):
+        s3_client = client('s3')
+        try:
+            result = s3_client.list_objects_v2(Bucket=bucket,
+                                               Prefix=prefix,
+                                               Delimiter=delimeter)
+        except exceptions.ClientError as boto_client_excep:
+            # If a client error is thrown, then check that it was a 404 error.
+            # If it was a 404 error, then the bucket does not exist.
+            error_code = int(boto_client_excep.response['Error']['Code'])
+            if error_code == 404:
+                raise NotFound(description="No resource found for " +\
+                                           "key {} in bucket {}.".format(prefix, bucket))
+            elif error_code == 403:
+                raise Forbidden(description="You are forbidden to list key " +\
+                                            " {} in bucket {}.".format(prefix, bucket))
+            else:
+                raise boto_client_excep
+        except exceptions.NoCredentialsError:
+            # If a boto-authentication exception is thrown then log it here
+            logging.exception("No S3 credentials found in user home directory.")
+            raise Unauthorized("Unauthorized in Source._list_objects")
+        return result
 
     def _get_object_result(self, key_value):
         s3_client = client('s3')
@@ -469,12 +508,15 @@ class AS3Bucket(SourceBase):
             if error_code == 404:
                 exists = False
             elif error_code == 403:
-                raise Forbidden
+                logging.exception("The supplied S3 credentials are forbidden for bucket %s.",
+                                  bucket_name)
+                raise Forbidden(description="The supplied S3 credentials are " +\
+                                            "forbidden from accessing {}".format(bucket_name))
             else:
                 raise boto_client_excep
         except exceptions.NoCredentialsError as boto_s3_creds_excep:
             # If a boto-authentication exception is thrown then log it here
-            logging.exception("No S3 credentials found in user home directory.")
+            logging.exception("No S3 credentials found by application for bucket %s.", bucket_name)
             raise boto_s3_creds_excep
         return exists
 

@@ -99,6 +99,12 @@ def test_add_source(session):# pylint: disable-msg=W0621, W0613
     assert Source.count() == base_count + 1
     retrieved_source = Source.by_name(TEST_NAME)
     assert bucket_source == retrieved_source
+    bucket_by_id = Source.by_id(bucket_source.id)
+    assert bucket_source == bucket_by_id
+    bucket_by_namespace = Source.by_namespace_and_name(TEST_NAMESPACE, TEST_NAME)
+    assert bucket_source == bucket_by_namespace
+    source_by_scheme_count = len(Source.by_scheme(SCHEMES['AS3']))
+    assert  source_by_scheme_count > 0
     for _source in Source.all():
         if _source.id == bucket_source.id:
             assert _source == bucket_source
@@ -206,13 +212,18 @@ def test_add_files(session):# pylint: disable-msg=W0621, W0613
     file_system_index = SourceIndex(file_system_source, datetime.now())
     file_system_index.put()
     file_system = FileSystem(file_system_source)
+    size_total_check = 0
     for key in file_system.all_file_keys():
-        _source_key = Key(file_system_index, key.value, int(key.size),
+        size_total_check += key.size
+        _source_key = Key(file_system_index, key.value, key.size,
                           dateutil.parser.parse(key.last_modified))
         _source_key.put()
     DB_SESSION.commit()
-
+    assert file_system_index.size == size_total_check
+    assert file_system_index.key_count > 0
     assert Key.count() == corp_file_count
+    by_index_id_count = len(Key.by_index_id(file_system_index.id))
+    assert by_index_id_count == Key.count()
     for key in Key.all():
         file_key = SourceKey(key.path, False, key.size, key.last_modified)
         assert key.last_modified == dateutil.parser.parse(file_key.last_modified)

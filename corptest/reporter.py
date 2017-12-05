@@ -13,7 +13,7 @@
 import collections
 from fpdf import FPDF
 
-class PDF(FPDF):
+class PDF(FPDF): # pragma: no cover
     """PDF report generator with header and footer."""
     def header(self):
         # Logo
@@ -42,7 +42,7 @@ class PDF(FPDF):
         # Page number
         self.cell(0, 10, 'Page ' + str(self.page_no()) + '/{nb}', 0, 0, 'C')
 
-def item_pdf_report(key, report_path):
+def item_pdf_report(key, report_path): # pragma: no cover
     """Generates a PDF report for an item."""
     pdf = PDF()
     pdf.add_page()
@@ -59,7 +59,7 @@ def item_pdf_report(key, report_path):
         pdf.cell_pair_line(prop.qualified_name, prop.prop_val.value)
     pdf.output(report_path, 'F')
 
-def pdf_report(report, report_path):
+def pdf_report(report, report_path): # pragma: no cover
     """Generates a PDF report for an item."""
     pdf = PDF()
     pdf.add_page()
