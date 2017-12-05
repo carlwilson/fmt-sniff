@@ -49,8 +49,10 @@ def home():
 @APP.route('/source/<int:source_id>/folder/<path:encoded_filepath>/')
 def list_folder(source_id, encoded_filepath):
     """Display the contents of a source folder."""
+    show_hidden = request.args.get('show_hidden', '').lower() == 'true'
+    logging.debug('Show hidden: %s', show_hidden)
     try:
-        return _folder_list(Source.by_id(source_id), encoded_filepath)
+        return _folder_list(Source.by_id(source_id), encoded_filepath, show_hidden)
     except exceptions.NoCredentialsError:
         raise Unauthorized('No S3 credentials found.')
 
@@ -297,14 +299,15 @@ def shutdown_session(exception=None):
         logging.warning("Shutting down database session with exception.")
     DB_SESSION.remove()
 
-def _folder_list(source, encoded_filepath):
+def _folder_list(source, encoded_filepath, show_hidden):
     _fs, filter_key = _get_fs_and_key(source, encoded_filepath)
     if not _fs.key_exists(filter_key):
         raise NotFound('Folder %s not found' % encoded_filepath)
-    folders = _fs.list_folders(filter_key=filter_key)
-    files = _fs.list_files(filter_key=filter_key)
+    folders = _fs.list_folders(filter_key=filter_key, show_hidden=show_hidden)
+    files = _fs.list_files(filter_key=filter_key, show_hidden=show_hidden)
     return render_template('folder_list.html', source=source, filter_key=filter_key,
-                           properties=_fs.supported_properties, folders=folders, files=files)
+                           properties=_fs.supported_properties, folders=folders,
+                           files=files, show_hidden=show_hidden)
 
 def _add_index(source, encoded_filepath, analyse_sub_folders):
     _fs, filter_key = _get_fs_and_key(source, encoded_filepath)
