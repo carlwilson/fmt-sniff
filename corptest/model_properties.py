@@ -50,13 +50,13 @@ class Property(BASE):
         """ Define an inequality test for ByteSequence """
         return not self.__eq__(other)
 
-    def __hash__(self):
+    def __hash__(self): # pragma: no cover
         return hash(self.__key())
 
-    def __str__(self):
+    def __str__(self): # pragma: no cover
         return self.__rep__()
 
-    def __rep__(self):
+    def __rep__(self): # pragma: no cover
         ret_val = []
         ret_val.append("Property : [name=")
         ret_val.append(self.name)
@@ -130,13 +130,13 @@ class PropertyValue(BASE):
         """ Define an inequality test for ByteSequence """
         return not self.__eq__(other)
 
-    def __hash__(self):
+    def __hash__(self): # pragma: no cover
         return hash(self.__key())
 
-    def __str__(self):
+    def __str__(self): # pragma: no cover
         return self.__rep__()
 
-    def __rep__(self):
+    def __rep__(self): # pragma: no cover
         ret_val = []
         ret_val.append("PropertyValue : [value=")
         ret_val.append(self.value)
@@ -236,13 +236,13 @@ class KeyProperty(BASE):
         """ Define an inequality test for KeyProperty """
         return not self.__eq__(other)
 
-    def __hash__(self):
+    def __hash__(self): # pragma: no cover
         return hash(self.__key())
 
-    def __str__(self):
+    def __str__(self): # pragma: no cover
         return self.__rep__()
 
-    def __rep__(self):
+    def __rep__(self): # pragma: no cover
         ret_val = []
         ret_val.append("KeyProperty : [key=")
         ret_val.append(self.key)
@@ -387,13 +387,13 @@ class ByteSequenceProperty(BASE):
         """ Define an inequality test for ByteSequenceProperty """
         return not self.__eq__(other)
 
-    def __hash__(self):
+    def __hash__(self): # pragma: no cover
         return hash(self.__key())
 
-    def __str__(self):
+    def __str__(self): # pragma: no cover
         return self.__rep__()
 
-    def __rep__(self):
+    def __rep__(self): # pragma: no cover
         ret_val = []
         ret_val.append("ByteSequenceProperty : [byte_sequence=")
         ret_val.append(self.byte_sequence)

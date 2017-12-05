@@ -25,7 +25,7 @@ DATACITE_PAGES = range(1, 4)
 DATACITE_HTML_ROOT = 'https://search.datacite.org'
 DATACITE_BL_QUERY = '/data-centers?member-id=bl&page='
 
-class DataciteDoiLookup(object):
+class DataciteDoiLookup(object): # pragma: no cover
     """ Class that provides lookup of Datacite datacentre details by DOI. """
     DATACENTRES = collections.defaultdict(dict)
 
@@ -89,7 +89,7 @@ class DataciteDoiLookup(object):
         file like object)."""
         cls.DATACENTRES = json.load(src, object_hook=DataciteDatacentre.json_decode)
 
-class DataciteDatacentre(object):
+class DataciteDatacentre(object): # pragma: no cover
     """ Skinny class to hold Datacite Datacentre details. """
     def __init__(self, name, doi, bl_id):
         self.name = name
@@ -128,7 +128,7 @@ class DataciteDatacentre(object):
             return cls(data_cent['name'], data_cent['doi'], data_cent['bl_id'])
         return obj
 
-def datacite_datacentre_iterator():
+def datacite_datacentre_iterator(): # pragma: no cover
     """
     Grabs the datacite home page's HTML and then yields each entry's name and
     sub-page location, for parsing the DOI.
@@ -146,7 +146,7 @@ def datacite_datacentre_iterator():
         for datacentre_link in datacentre_links:
             yield datacentre_link.text.strip(), datacentre_link.get('href')
 
-def scrape_datacite_doi(datacentre_page_rel_url):
+def scrape_datacite_doi(datacentre_page_rel_url): # pragma: no cover
     """ Scrapes the DOI from a datacentre's home page and returns the DOI and
     the BL identifier as a tuple.
     """

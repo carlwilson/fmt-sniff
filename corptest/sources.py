@@ -164,10 +164,10 @@ class SourceKey(object):
         """ Define an inequality test for ByteSequence """
         return not self.__eq__(other)
 
-    def __hash__(self):
+    def __hash__(self): # pragma: no cover
         return hash(self.__key())
 
-    def __str__(self):
+    def __str__(self): # pragma: no cover
         return self.__rep__()
 
     def __rep__(self): # pragma: no cover
