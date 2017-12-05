@@ -215,7 +215,7 @@ class SourceBase(object):
         """Check to see if a key exists, returns true if it does, false otherwise."""
         return
 
-    @abc.abstractmethod # pragma: no cover
+    @abc.abstractmethod
     def get_key(self, path): # pragma: no cover
         """ Get the basic key details for a path."""
         return
@@ -591,39 +591,42 @@ class FileSystem(SourceBase):
 
     def list_folders(self, filter_key=None, recurse=False, show_hidden=False):
         prefix = super(FileSystem, self)._validate_key_and_return_prefix(filter_key)
-        return self.yield_keys(prefix, list_files=False, recurse=recurse,
-                               show_hidden=show_hidden)
+        return self._yield_keys(prefix, list_files=False, recurse=recurse,
+                                show_hidden=show_hidden)
 
     def list_files(self, filter_key=None, recurse=False, show_hidden=False):
         prefix = super(FileSystem, self)._validate_key_and_return_prefix(filter_key)
-        return self.yield_keys(prefix, list_folders=False, recurse=recurse,
-                               show_hidden=show_hidden)
+        return self._yield_keys(prefix, list_folders=False, recurse=recurse,
+                                show_hidden=show_hidden)
 
-    def yield_keys(self, prefix='', list_files=True, list_folders=True, recurse=False,
-                   show_hidden=False):
+    def _yield_keys(self, prefix='', list_files=True, list_folders=True, recurse=False,
+                    show_hidden=False):
         """Generator that yields a list of file and or folder keys from a root
         directory."""
         path = os.path.join(self.file_system.location, prefix)
-        if os.access(path, os.R_OK):
-            for entry in scandir(os.path.join(self.file_system.location, prefix)):
-                if not entry.name.startswith('.') or show_hidden:
-                    if list_files and entry.is_file(follow_symlinks=False):
-                        key = SourceKey(os.path.join(prefix, entry.name), False,
-                                        int(entry.stat().st_size),
-                                        datetime.fromtimestamp(entry.stat().st_mtime,
-                                                               self.TIME_ZONE))
+        if not os.access(path, os.R_OK):
+            logging.warning("File system access to %s not allowed", path)
+            raise Forbidden(description='File system access to {}'.format(path) +\
+                                        ' is not allowed for this account.')
+        for entry in scandir(os.path.join(self.file_system.location, prefix)):
+            if entry.name.startswith('.') and not show_hidden:
+                continue
+            if list_files and entry.is_file(follow_symlinks=False):
+                key = SourceKey(os.path.join(prefix, entry.name), False,
+                                int(entry.stat().st_size),
+                                datetime.fromtimestamp(entry.stat().st_mtime,
+                                                       self.TIME_ZONE))
+                yield key
 
-                        yield key
-
-                    if entry.is_dir(follow_symlinks=False):
-                        if list_folders:
-                            yield SourceKey(os.path.join(prefix, entry.name))
-                        if recurse:
-                            for child in self.yield_keys(prefix=os.path.join(prefix, entry.name),
-                                                         list_files=list_files,
-                                                         list_folders=list_folders,
-                                                         recurse=True):
-                                yield child
+            if entry.is_dir(follow_symlinks=False):
+                if list_folders:
+                    yield SourceKey(os.path.join(prefix, entry.name))
+                if recurse:
+                    for child in self._yield_keys(prefix=os.path.join(prefix, entry.name),
+                                                  list_files=list_files,
+                                                  list_folders=list_folders,
+                                                  recurse=True):
+                        yield child
 
     def get_byte_sequence_properties(self, key):
         if not key or key.is_folder:

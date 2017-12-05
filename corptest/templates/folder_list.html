@@ -54,6 +54,10 @@
 
 {% block page_script %}
 <script>
+/**
+ * Acknowledgements to:
+ * https://stackoverflow.com/questions/5999118/how-can-i-add-or-update-a-query-string-parameter
+ */
 function updateQueryStringParameter(uri, key, value) {
   var re = new RegExp("([?&])" + key + "=.*?(&|$)", "i");
   var separator = uri.indexOf('?') !== -1 ? "&" : "?";
