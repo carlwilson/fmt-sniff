@@ -29,8 +29,8 @@ import tempfile
 
 from botocore import exceptions
 from boto3 import client, resource
-
 from tzlocal import get_localzone
+from werkzeug.exceptions import Forbidden, NotFound, Unauthorized
 
 from .corptest import APP
 from .blobstore import Sha1Lookup, BlobStore
@@ -68,6 +68,7 @@ class SourceKey(object):
         self.__size = size
         self.__last_modified = last_modified
         self.__properties = collections.defaultdict()
+        self.__bs = ByteSequence()
 
     @property
     def value(self):
@@ -107,6 +108,11 @@ class SourceKey(object):
         return self.__properties
 
     @property
+    def byte_sequence(self):
+        """Get the key's byte sequence."""
+        return self.__bs
+
+    @property
     def last_modified(self):
         """ Return the last modified date as a String. """
         return timestamp_fmt(self.__last_modified) if not self.is_folder else 'n/a'
@@ -124,6 +130,10 @@ class SourceKey(object):
         if prop_dict is None:
             raise ValueError("Argument prop_dict can not be None.")
         self.__properties.update(prop_dict)
+
+    def add_byte_sequence(self, byte_sequence):
+        """Add a byte_sequence to a key."""
+        self.__bs = byte_sequence
 
     def add_bs_properties(self, prop_dict):
         """Add the key value pairs in prop_dict to this."""
@@ -154,10 +164,10 @@ class SourceKey(object):
         """ Define an inequality test for ByteSequence """
         return not self.__eq__(other)
 
-    def __hash__(self):
+    def __hash__(self): # pragma: no cover
         return hash(self.__key())
 
-    def __str__(self):
+    def __str__(self): # pragma: no cover
         return self.__rep__()
 
     def __rep__(self): # pragma: no cover
@@ -176,11 +186,9 @@ class SourceKey(object):
 
         return "".join(ret_val)
 
-PYTHON_NAMESPACE = 'os.python.org'
 class SourceBase(object):
     """Base class for different sources."""
     __metaclass__ = abc.ABCMeta
-    PYTHON_NAMESPACE = PYTHON_NAMESPACE
 
     @abc.abstractmethod
     def namespace(self): # pragma: no cover
@@ -259,10 +267,10 @@ class SourceBase(object):
         return ret_val
 
     @staticmethod
-    def _create_properties_from_names(names, namespace=PYTHON_NAMESPACE):
+    def _create_properties_from_names(names):
         ret_val = collections.defaultdict()
         for name in names:
-            prop = Property(namespace, name)
+            prop = Property(name)
             ret_val[name] = prop
         return ret_val
 
@@ -276,19 +284,18 @@ class SourceBase(object):
                 logging.debug("Invoking %s", tool.format_tool_release.format_tool.name)
                 metadata = tool.identify(path)
                 if metadata:
-                    props[tool.NAMESPACE] = metadata
+                    props[tool_release] = metadata
         return props
 
 class AS3Bucket(SourceBase):
     """A Source based on an Amazon S3 bucket."""
-    NAMESPACE = 's3.amazon.com'
+    NAMESPACE = 'com.amazon.s3'
     FOLDER_REGEX = re.compile('.*/$')
     S3_RESOURCE = None
     ETAG = 'ETag'
     CONT_TYPE = 'ContentType'
     CONT_ENC = 'ContentEncoding'
-    __PROPERTIES = SourceBase._create_properties_from_names(set([ETAG]),
-                                                            namespace=NAMESPACE)
+    __PROPERTIES = SourceBase._create_properties_from_names(set([ETAG]))
 
     def __init__(self, bucket):
         if not bucket:
@@ -318,16 +325,30 @@ class AS3Bucket(SourceBase):
             prefix = super(AS3Bucket, self)._validate_key_and_return_prefix(key)
             if prefix and not prefix.endswith('/'):
                 prefix += '/'
-            result = s3_client.list_objects_v2(Bucket=self.bucket.location,
-                                               Prefix=prefix, Delimiter='/')
+            result = AS3Bucket._list_objects(bucket=self.bucket.location,
+                                             prefix=prefix)
             if not result.get('CommonPrefixes'):
                 if not result.get('Contents'):
                     return False
         else:
             try:
                 s3_client.head_object(Bucket=self.bucket.location, Key=key.value)
-            except exceptions.ClientError:
-                return False
+            except exceptions.ClientError as boto_client_excep:
+                # If a client error is thrown, then check that it was a 404 error.
+                # If it was a 404 error, then the bucket does not exist.
+                error_code = int(boto_client_excep.response['Error']['Code'])
+                if error_code == 404:
+                    return False
+                elif error_code == 403:
+                    raise Forbidden(description="You are forbidden from reading key " +\
+                                                "{} in bucket {}".format(key.value,
+                                                                         self.bucket.location))
+                else:
+                    raise boto_client_excep
+            except exceptions.NoCredentialsError as boto_s3_creds_excep:
+                # If a boto-authentication exception is thrown then log it here
+                logging.exception("No S3 credentials found in user home directory.")
+                raise boto_s3_creds_excep
         return True
 
     def get_key(self, path): # pragma: no cover
@@ -347,11 +368,12 @@ class AS3Bucket(SourceBase):
 
     def list_folders(self, filter_key=None, recurse=False):
         prefix = super(AS3Bucket, self)._validate_key_and_return_prefix(filter_key)
+        logging.debug('Prefix calculated: %s.', prefix)
         if prefix and not prefix.endswith('/'):
             prefix += '/'
-        s3_client = client('s3')
-        result = s3_client.list_objects_v2(Bucket=self.bucket.location,
-                                           Prefix=prefix, Delimiter='/')
+        logging.debug('Adjusted prefix is: %s.', prefix)
+        result = AS3Bucket._list_objects(bucket=self.bucket.location,
+                                         prefix=prefix)
         if result.get('CommonPrefixes'):
             for common_prefix in result.get('CommonPrefixes'):
                 yield SourceKey(common_prefix.get('Prefix'))
@@ -364,9 +386,8 @@ class AS3Bucket(SourceBase):
         prefix = super(AS3Bucket, self)._validate_key_and_return_prefix(filter_key)
         if prefix and not prefix.endswith('/'):
             prefix += '/'
-        s3_client = client('s3')
-        result = s3_client.list_objects_v2(Bucket=self.bucket.location,
-                                           Prefix=prefix, Delimiter='/')
+        result = AS3Bucket._list_objects(bucket=self.bucket.location,
+                                         prefix=prefix)
         if result.get('Contents'):
             for obj_summary in result.get('Contents'):
                 key = SourceKey(obj_summary.get('Key'), False, obj_summary.get('Size'),
@@ -389,6 +410,31 @@ class AS3Bucket(SourceBase):
         if _bs.size > 0:
             props = super(AS3Bucket, self)._format_properties_from_path(path)
         return _bs, props
+
+    @staticmethod
+    def _list_objects(bucket='', prefix='/', delimeter='/'):
+        s3_client = client('s3')
+        try:
+            result = s3_client.list_objects_v2(Bucket=bucket,
+                                               Prefix=prefix,
+                                               Delimiter=delimeter)
+        except exceptions.ClientError as boto_client_excep:
+            # If a client error is thrown, then check that it was a 404 error.
+            # If it was a 404 error, then the bucket does not exist.
+            error_code = int(boto_client_excep.response['Error']['Code'])
+            if error_code == 404:
+                raise NotFound(description="No resource found for " +\
+                                           "key {} in bucket {}.".format(prefix, bucket))
+            elif error_code == 403:
+                raise Forbidden(description="You are forbidden to list key " +\
+                                            " {} in bucket {}.".format(prefix, bucket))
+            else:
+                raise boto_client_excep
+        except exceptions.NoCredentialsError:
+            # If a boto-authentication exception is thrown then log it here
+            logging.exception("No S3 credentials found in user home directory.")
+            raise Unauthorized("Unauthorized in Source._list_objects")
+        return result
 
     def _get_object_result(self, key_value):
         s3_client = client('s3')
@@ -455,12 +501,23 @@ class AS3Bucket(SourceBase):
 
         try:
             cls.S3_RESOURCE.meta.client.head_bucket(Bucket=bucket_name)
-        except exceptions.ClientError as boto_excep:
+        except exceptions.ClientError as boto_client_excep:
             # If a client error is thrown, then check that it was a 404 error.
             # If it was a 404 error, then the bucket does not exist.
-            error_code = int(boto_excep.response['Error']['Code'])
+            error_code = int(boto_client_excep.response['Error']['Code'])
             if error_code == 404:
                 exists = False
+            elif error_code == 403:
+                logging.exception("The supplied S3 credentials are forbidden for bucket %s.",
+                                  bucket_name)
+                raise Forbidden(description="The supplied S3 credentials are " +\
+                                            "forbidden from accessing {}".format(bucket_name))
+            else:
+                raise boto_client_excep
+        except exceptions.NoCredentialsError as boto_s3_creds_excep:
+            # If a boto-authentication exception is thrown then log it here
+            logging.exception("No S3 credentials found by application for bucket %s.", bucket_name)
+            raise boto_s3_creds_excep
         return exists
 
     def __rep__(self): # pragma: no cover
@@ -476,6 +533,7 @@ class AS3Bucket(SourceBase):
 
 class FileSystem(SourceBase):
     """A source based on a file system"""
+    NAMESPACE = 'org.python.os'
     TIME_ZONE = get_localzone()
     CREATED = 'Created'
     ACCESSED = 'LastAccessed'
@@ -496,7 +554,7 @@ class FileSystem(SourceBase):
 
     @property
     def namespace(self):
-        return super(FileSystem, self).PYTHON_NAMESPACE
+        return self.NAMESPACE
 
     @property
     def supported_properties(self): # pragma: no cover

@@ -38,11 +38,11 @@
           <span class="badge">{{ byte_sequence.sha1 }}</span>
           SHA1
         </li>
-        {%- for namespace in bs_props %}
-        {%- for key, value in bs_props.get(namespace).items() %}
+        {%- for tool_release in bs_props %}
+        {%- for key, value in bs_props.get(tool_release).items() %}
         <li class="list-group-item">
           <span class="badge">{{ value }}</span>
-          {{ namespace }}:{{ key }}
+          {{ tool_release.format_tool.namespace }}:{{ key }}
         </li>
         {% endfor -%}
         {% endfor -%}

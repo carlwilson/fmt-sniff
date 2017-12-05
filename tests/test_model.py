@@ -22,7 +22,8 @@ from corptest.utilities import ObjectJsonEncoder
 from corptest.format_tools import FormatToolRelease, get_format_tool_instance
 from corptest.sources import FileSystem, SourceKey
 
-from tests.const import THIS_DIR, TEST_DESCRIPTION, TEST_NAME, TEST_BUCKET_NAME
+from tests.const import THIS_DIR, TEST_DESCRIPTION, TEST_BUCKET_NAME
+from tests.const import TEST_NAME, TEST_NAMESPACE
 from tests.conf_test import db, session, app# pylint: disable-msg=W0611
 
 TEST_ROOT = "__root__"
@@ -31,24 +32,35 @@ TEST_BYTES_ROOT = os.path.join(THIS_DIR, "content-corpus")
 
 class AS3BucketSourceTestCase(unittest.TestCase):
     """ Test cases for the AS3BucketSource class and methods. """
+    def test_null_namespace(self):
+        """ Test case for None name case. """
+        with self.assertRaises(ValueError) as _:
+            Source(None, TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
+
+    def test_empty_namespace(self):
+        """ Test case for empty name case. """
+        with self.assertRaises(ValueError) as _:
+            Source('', TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
+
     def test_null_name(self):
         """ Test case for None name case. """
         with self.assertRaises(ValueError) as _:
-            Source(None, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
+            Source(TEST_NAMESPACE, None, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
 
     def test_empty_name(self):
         """ Test case for empty name case. """
         with self.assertRaises(ValueError) as _:
-            Source('', TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
+            Source(TEST_NAMESPACE, '', TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
 
     def test_null_description(self):
         """ Test case for None description case. """
         with self.assertRaises(ValueError) as _:
-            Source(TEST_NAME, None, SCHEMES['AS3'], TEST_BUCKET_NAME)
+            Source(TEST_NAMESPACE, TEST_NAME, None, SCHEMES['AS3'], TEST_BUCKET_NAME)
 
     def test_get_details(self):
         """ Test case for ensuring details threadthrough works. """
-        bucket_source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
+        bucket_source = Source(TEST_NAMESPACE, TEST_NAME, TEST_DESCRIPTION,
+                               SCHEMES['AS3'], TEST_BUCKET_NAME)
         self.assertEqual(bucket_source.name, TEST_NAME, \
         'bucket_source.name should equal test instance TEST_NAME')
         self.assertEqual(bucket_source.description, TEST_DESCRIPTION, \
@@ -57,26 +69,29 @@ class AS3BucketSourceTestCase(unittest.TestCase):
     def test_empty_bucket_name(self):
         """ Test case for empty name. """
         with self.assertRaises(ValueError) as _:
-            Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], '')
+            Source(TEST_NAMESPACE, TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], '')
 
     def test_null_bucket_name(self):
         """ Test case for None name cases. """
         with self.assertRaises(ValueError) as _:
-            Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], None)
+            Source(TEST_NAMESPACE, TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], None)
 
     def test_bucket_name(self):
         """ Test case for bucket name. """
-        bucket_source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
+        bucket_source = Source(TEST_NAMESPACE, TEST_NAME, TEST_DESCRIPTION,
+                               SCHEMES['AS3'], TEST_BUCKET_NAME)
         self.assertEqual(bucket_source.location, TEST_BUCKET_NAME, \
         'bucket_source.bucket_name should equal test instance TEST_BUCKET_NAME')
-        bucket_source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], JISC_BUCKET)
+        bucket_source = Source(TEST_NAMESPACE, TEST_NAME, TEST_DESCRIPTION,
+                               SCHEMES['AS3'], JISC_BUCKET)
         self.assertEqual(bucket_source.location, JISC_BUCKET, \
         'bucket_source.bucket_name should equal test instance JISC_BUCKET')
 
 def test_add_source(session):# pylint: disable-msg=W0621, W0613
     """Test Source model class persistence."""
     base_count = Source.count()
-    bucket_source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
+    bucket_source = Source(TEST_NAMESPACE, TEST_NAME, TEST_DESCRIPTION,
+                           SCHEMES['AS3'], TEST_BUCKET_NAME)
     Source.add(bucket_source)
     assert bucket_source.id > 0
     assert Source.count() == base_count + 1
@@ -84,6 +99,12 @@ def test_add_source(session):# pylint: disable-msg=W0621, W0613
     assert Source.count() == base_count + 1
     retrieved_source = Source.by_name(TEST_NAME)
     assert bucket_source == retrieved_source
+    bucket_by_id = Source.by_id(bucket_source.id)
+    assert bucket_source == bucket_by_id
+    bucket_by_namespace = Source.by_namespace_and_name(TEST_NAMESPACE, TEST_NAME)
+    assert bucket_source == bucket_by_namespace
+    source_by_scheme_count = len(Source.by_scheme(SCHEMES['AS3']))
+    assert  source_by_scheme_count > 0
     for _source in Source.all():
         if _source.id == bucket_source.id:
             assert _source == bucket_source
@@ -99,13 +120,15 @@ class SourceIndexTestCase(unittest.TestCase):
 
     def test_get_timestamp(self):
         """ Test case for retrieveing timestamp. """
-        _source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
+        _source = Source(TEST_NAMESPACE, TEST_NAME, TEST_DESCRIPTION,
+                         SCHEMES['AS3'], TEST_BUCKET_NAME)
         _source_index = SourceIndex(_source)
         self.assertTrue(_source_index.timestamp < datetime.now())
 
     def test_get_iso_timestamp(self):
         """ Test case for retrieveing timestamp. """
-        _source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
+        _source = Source(TEST_NAMESPACE, TEST_NAME, TEST_DESCRIPTION,
+                         SCHEMES['AS3'], TEST_BUCKET_NAME)
         _timestamp = datetime.now()
         _source_index = SourceIndex(_source, _timestamp)
         self.assertEqual(_source_index.timestamp, _timestamp)
@@ -114,7 +137,8 @@ class SourceIndexTestCase(unittest.TestCase):
 
     def test_get_source(self):
         """ Test case for getting index sourdce. """
-        _source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
+        _source = Source(TEST_NAMESPACE, TEST_NAME, TEST_DESCRIPTION,
+                         SCHEMES['AS3'], TEST_BUCKET_NAME)
         _source_index = SourceIndex(_source)
         self.assertEqual(_source_index.source, _source)
 
@@ -123,7 +147,8 @@ def test_source_index_add(session):# pylint: disable-msg=W0621, W0613
     index_count = SourceIndex.count()
     _source = Source.by_name(TEST_NAME)
     if not _source:
-        _source = Source(TEST_NAME, TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
+        _source = Source(TEST_NAMESPACE, TEST_NAME, TEST_DESCRIPTION,
+                         SCHEMES['AS3'], TEST_BUCKET_NAME)
         _source.put()
     assert _source.id > 0
     _source_index = SourceIndex(_source)
@@ -132,7 +157,8 @@ def test_source_index_add(session):# pylint: disable-msg=W0621, W0613
     assert SourceIndex.count() > index_count
     _retrieved_index = SourceIndex.by_id(_source_index.id)
     assert _source_index == _retrieved_index
-    _source = Source(TEST_NAME + " test", TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
+    _source = Source(TEST_NAMESPACE, TEST_NAME + " test",
+                     TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
     _source_index = SourceIndex(_source)
     _source_index.put()
     assert _source_index != _retrieved_index
@@ -143,7 +169,7 @@ class KeyTestCase(unittest.TestCase):
     """ Test cases for the Key class and methods. """
     def setUp(self):
         """ Set up default instance """
-        self.default_source = Source(TEST_NAME + " test",
+        self.default_source = Source(TEST_NAMESPACE, TEST_NAME + " test",
                                      TEST_DESCRIPTION, SCHEMES['AS3'], TEST_BUCKET_NAME)
         self.def_index = SourceIndex(self.default_source)
 
@@ -181,18 +207,23 @@ class KeyTestCase(unittest.TestCase):
 def test_add_files(session):# pylint: disable-msg=W0621, W0613
     """ Set up default instance """
     corp_file_count = file_count(TEST_READABLE_ROOT)
-    file_system_source = Source("Readable Test", TEST_DESCRIPTION, SCHEMES['FILE'],
+    file_system_source = Source("test.readable", "Readable Test", TEST_DESCRIPTION, SCHEMES['FILE'],
                                 TEST_READABLE_ROOT)
     file_system_index = SourceIndex(file_system_source, datetime.now())
     file_system_index.put()
     file_system = FileSystem(file_system_source)
+    size_total_check = 0
     for key in file_system.all_file_keys():
-        _source_key = Key(file_system_index, key.value, int(key.size),
+        size_total_check += key.size
+        _source_key = Key(file_system_index, key.value, key.size,
                           dateutil.parser.parse(key.last_modified))
         _source_key.put()
     DB_SESSION.commit()
-
+    assert file_system_index.size == size_total_check
+    assert file_system_index.key_count > 0
     assert Key.count() == corp_file_count
+    by_index_id_count = len(Key.by_index_id(file_system_index.id))
+    assert by_index_id_count == Key.count()
     for key in Key.all():
         file_key = SourceKey(key.path, False, key.size, key.last_modified)
         assert key.last_modified == dateutil.parser.parse(file_key.last_modified)
@@ -292,7 +323,7 @@ class ByteSequenceTestCase(unittest.TestCase):
 def test_add_bytesequence(session):# pylint: disable-msg=W0621, W0613
     """ Set up default instance """
     corp_file_count = file_count(TEST_BYTES_ROOT)
-    file_system_source = Source("BS Test", TEST_DESCRIPTION, SCHEMES['FILE'],
+    file_system_source = Source("bs.test", "BS Test", TEST_DESCRIPTION, SCHEMES['FILE'],
                                 TEST_BYTES_ROOT)
     file_system_index = SourceIndex(file_system_source)
     file_system_index.put()

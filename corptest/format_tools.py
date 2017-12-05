@@ -34,7 +34,6 @@ class FineFreeFile(object):
         "mime" : ['file', '--mime']
     }
     __version = None
-    NAMESPACE = 'com.darwinsys.file'
     def __init__(self, format_tool):
         check_param_not_none(format_tool, "format_tool")
         FineFreeFile.__version = FineFreeFile.__version \
@@ -90,10 +89,10 @@ class FineFreeFile(object):
             mime_type.get_short_string()
         return metadata
 
-    def __str__(self):
+    def __str__(self): # pragma: no cover
         return self.__rep__()
 
-    def __rep__(self):
+    def __rep__(self): # pragma: no cover
         return str(self.__format_tool_release)
 
     @classmethod
@@ -118,7 +117,7 @@ class DROID(object):
                    ]
     }
     __version = None
-    NAMESPACE = 'uk.gov.tna.droid'
+
     def __init__(self, format_tool):
         check_param_not_none(format_tool, "format_tool")
         DROID.__version = DROID.__version \
@@ -168,10 +167,10 @@ class DROID(object):
         metadata['PUID'] = output[output.rindex(',')+1:]
         return metadata
 
-    def __str__(self):
+    def __str__(self): # pragma: no cover
         return self.__rep__()
 
-    def __rep__(self):
+    def __rep__(self): # pragma: no cover
         return str(self.__format_tool_release)
 
     @classmethod
@@ -190,7 +189,6 @@ class FIDO(object):
     __executions__ = {
     }
     __version = __opf_fido_version__ if APP.config['IS_FIDO'] else None
-    NAMESPACE = 'org.openpreservation.fido'
 
     def __init__(self, format_tool):
         check_param_not_none(format_tool, "format_tool")
@@ -240,10 +238,10 @@ class FIDO(object):
             metadata['MIME'] = pronom_result.mime
         return metadata
 
-    def __str__(self):
+    def __str__(self): # pragma: no cover
         return self.__rep__()
 
-    def __rep__(self):
+    def __rep__(self): # pragma: no cover
         return str(self.__format_tool_release)
 
     @classmethod
@@ -265,7 +263,6 @@ class FIDO(object):
 class PythonMagic(object):
     """PythonMagic encapsulated"""
     __version = __python_magic_version__
-    NAMESPACE = 'os.python.org.libmagic'
 
     def __init__(self, format_tool):
         check_param_not_none(format_tool, "format_tool")
@@ -300,10 +297,10 @@ class PythonMagic(object):
             FormatToolRelease.by_tool_and_version(self.__format_tool_release.format_tool,
                                                   self.__format_tool_release.version)
 
-    def __str__(self):
+    def __str__(self): # pragma: no cover
         return self.__rep__()
 
-    def __rep__(self):
+    def __rep__(self): # pragma: no cover
         return str(self.__format_tool_release)
 
     def identify(self, path):
@@ -323,7 +320,6 @@ class PythonMagic(object):
 
 class Tika(object):
     """Tika encapsulated"""
-    NAMESPACE = 'org.apache.tika'
     __executions__ = {
         "version" : ['tika', '--version'],
         "identify" : ['tika-tools']
@@ -365,10 +361,10 @@ class Tika(object):
             FormatToolRelease.by_tool_and_version(self.__format_tool_release.format_tool,
                                                   self.__format_tool_release.version)
 
-    def __str__(self):
+    def __str__(self): # pragma: no cover
         return self.__rep__()
 
-    def __rep__(self):
+    def __rep__(self): # pragma: no cover
         return str(self.__format_tool_release)
 
     def identify(self, path):
@@ -421,7 +417,7 @@ FILE_DEFAULT = os.path.join(RDSS_CACHE, 'file-blobs.out')
 DROID_DEFAULT = os.path.join(RDSS_CACHE, 'droid-blobs.out')
 TIKA_DEFAULT = os.path.join(RDSS_CACHE, 'tika-blobs.out')
 
-class MagicLookup(object):
+class MagicLookup(object): # pragma: no cover
     """ Look up class for serialised file magic results. """
     def __init__(self, source_path=MAGIC_DEFAULT):
         self.source_path = source_path
@@ -444,7 +440,7 @@ class MagicLookup(object):
                 magic_lookup.update({sha1 : magic_string})
         return magic_lookup
 
-class MimeLookup(object):
+class MimeLookup(object): # pragma: no cover
     """ Look up class for serialised file mime results. """
     def __init__(self, source_path=FILE_DEFAULT):
         self.source_path = source_path
@@ -467,7 +463,7 @@ class MimeLookup(object):
                 mime_lookup.update({sha1 : mime_string})
         return mime_lookup
 
-class DroidLookup(object):
+class DroidLookup(object): # pragma: no cover
     """ Look up class for serialised droid results. """
     def __init__(self, source_path=DROID_DEFAULT):
         self.source_path = source_path
@@ -490,7 +486,7 @@ class DroidLookup(object):
                 puid_lookup.update({sha1 : puid})
         return puid_lookup
 
-class TikaLookup(object):
+class TikaLookup(object): # pragma: no cover
     """ Lookup class for Tika tika-ident pairs in serialised output. """
     def __init__(self, source_path=TIKA_DEFAULT):
         self.source_path = source_path

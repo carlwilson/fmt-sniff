@@ -22,7 +22,7 @@ from .model_sources import ByteSequence
 
 RDSS_ROOT = APP.config.get('RDSS_ROOT')
 
-class Sha1Lookup(object):
+class Sha1Lookup(object): # pragma: no cover
     """ Look up class for serialsed sha1sum() results. """
     sha1_lookup = collections.defaultdict(dict)
 
@@ -196,7 +196,7 @@ class BlobStore(object):
             byte_seq = ByteSequence(blob_name, size)
             self.blobs.update({byte_seq.sha1 : byte_seq})
 
-def main():
+def main(): # pragma: no cover
     """
     Main method entry point, parses DOIs from Datacite and outputs to
     STDOUT.
@@ -205,5 +205,5 @@ def main():
     print('Blobstore contains {} blobs, {} bytes'.format(blob_store.blob_count,
                                                          blob_store.size))
 
-if __name__ == "__main__":
+if __name__ == "__main__": # pragma: no cover
     main()

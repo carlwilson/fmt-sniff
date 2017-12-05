@@ -36,7 +36,7 @@ class BlobStoreTestCase(unittest.TestCase):
         'Empty BlobStore should have root same as tmp_store'
 
     def test_add_item(self):
-        """ Test for empty store properties adding item works properly. """
+        """ Test that adding item works properly. """
         self.blobstore.clear()
         assert self.blobstore.blob_count == 0, \
         'Reset BlobStore should have blob count 0'
@@ -48,6 +48,20 @@ class BlobStoreTestCase(unittest.TestCase):
         'Returned ByteSequence should have size 0'
         assert byte_seq.sha1 == ByteSequence.EMPTY_SHA1, \
         'Returned ByteSequence should have null stream SHA1 value'
+
+    def test_has_copy(self):
+        """ Test for Checking for existing item. """
+        self.blobstore.clear()
+        assert self.blobstore.blob_count == 0, \
+        'Reset BlobStore should have blob count 0'
+        byte_seq = ByteSequence.default_instance()
+        assert not self.blobstore.has_copy(byte_seq.sha1), \
+        'Blobstore.has_copy() should return False'
+        self.store_file('empty')
+        assert self.blobstore.blob_count == 1, \
+        'BlobStore should contain a single item'
+        assert self.blobstore.has_copy(byte_seq.sha1), \
+        'Blobstore.has_copy() should return True'
 
     def test_add_item_with_hash(self):
         """ Test for empty store properties adding item works properly. """

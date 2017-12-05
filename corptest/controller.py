@@ -20,17 +20,18 @@ try:
 except ImportError:
     from urllib import unquote as unquote, quote as quote
 
+from botocore import exceptions
 import dateutil.parser
 import dicttoxml
-from flask import render_template, send_file, request, make_response, abort
+from flask import render_template, send_file, request, make_response
 from flask_negotiate import produces
-from werkzeug.exceptions import BadRequest, NotFound
+from werkzeug.exceptions import BadRequest, Forbidden, NotFound, Unauthorized
 
 from .corptest import APP, __version__
 from .database import DB_SESSION
 from .model_sources import SCHEMES, Source, FormatToolRelease, SourceIndex, Key
 from .model_properties import KeyProperty, Property, PropertyValue, ByteSequenceProperty
-from .reporter import item_pdf_report
+from .reporter import item_pdf_report, source_key_to_dict, report_to_dict, pdf_report
 from .sources import SourceKey, FileSystem, AS3Bucket, BLOBSTORE
 from .utilities import ObjectJsonEncoder, PrettyJsonEncoder
 ROUTES = True
@@ -48,28 +49,42 @@ def home():
 @APP.route('/source/<int:source_id>/folder/<path:encoded_filepath>/')
 def list_folder(source_id, encoded_filepath):
     """Display the contents of a source folder."""
-    return _folder_list(Source.by_id(source_id), encoded_filepath)
+    try:
+        return _folder_list(Source.by_id(source_id), encoded_filepath)
+    except exceptions.NoCredentialsError:
+        raise Unauthorized('No S3 credentials found.')
 
 @APP.route("/source/<int:source_id>/file/<path:encoded_filepath>/")
 def details_fs(source_id, encoded_filepath):
     """Display details of a source file."""
-    return _file_details(Source.by_id(source_id), encoded_filepath)
+    try:
+        return _file_details(Source.by_id(source_id), encoded_filepath)
+    except exceptions.NoCredentialsError:
+        raise Unauthorized('No S3 credentials found.')
 
 @APP.route("/download/source/<source_id>/<path:encoded_filepath>/")
 def download_fs(source_id, encoded_filepath):
     """Download a file from a source."""
-    return _download_item(Source.by_id(source_id), encoded_filepath)
+    try:
+        return _download_item(Source.by_id(source_id), encoded_filepath)
+    except exceptions.NoCredentialsError:
+        raise Unauthorized('No S3 credentials found.')
 
 @APP.route("/api/analyse/<source_id>/<path:encoded_filepath>/")
 @produces(JSON_MIME, XML_MIME, PDF_MIME)
 def file_report(source_id, encoded_filepath):
     """Download a file from a source."""
-    _fs, _key = _get_fs_and_key(Source.by_id(source_id), encoded_filepath, is_folder=False)
-    if not _fs.key_exists(_key):
-        raise NotFound('File %s not found' % encoded_filepath)
+    try:
+        _fs, _key = _get_fs_and_key(Source.by_id(source_id), encoded_filepath, is_folder=False)
+        if not _fs.key_exists(_key):
+            raise NotFound('File %s not found' % encoded_filepath)
+    except exceptions.NoCredentialsError:
+        raise Unauthorized('No S3 credentials found.')
+
     key = _fs.get_key(unquote(encoded_filepath))
     _bs, bs_props = _fs.get_byte_sequence_properties(key)
-    key.add_bs_properties(bs_props)
+    _add_byte_sequence_properties(_bs, bs_props)
+    key.add_byte_sequence(_bs)
     if _request_wants_json():
         logging.debug("JSON file report for %s", key.value)
         return _json_file_report(key)
@@ -81,14 +96,14 @@ def file_report(source_id, encoded_filepath):
 
 def _json_file_report(key):
     response = APP.response_class(
-        response=dumps(key, cls=PrettyJsonEncoder),
+        response=dumps(source_key_to_dict(key), cls=PrettyJsonEncoder),
         status=200,
         mimetype=JSON_MIME
     )
     return response
 
 def _xml_file_report(key):
-    xml = dicttoxml.dicttoxml(key.__dict__)
+    xml = dicttoxml.dicttoxml(source_key_to_dict(key))
     response = APP.response_class(
         response=xml,
         status=200,
@@ -107,6 +122,52 @@ def _pdf_file_report(key):
             "attachment; " \
             "filename*=UTF-8''{quoted_filename}".format(
                 quoted_filename=quote(key.name.encode('utf8'))
+                )
+        return response
+
+@APP.route("/api/report/<report_id>/")
+@produces(JSON_MIME, XML_MIME, PDF_MIME)
+def full_report(report_id):
+    """Download a full file system analysis report."""
+    report = SourceIndex.by_id(report_id)
+    if _request_wants_json():
+        logging.debug("JSON file report for %s:%s", report.source.name, report.root_key)
+        return _json_report(report)
+    elif _request_wants_xml():
+        logging.debug("XML file report for %s:%s", report.source.name, report.root_key)
+        return _xml_report(report)
+    logging.debug("PDF file report for %s:%s", report.source.name, report.root_key)
+    return _pdf_report(report)
+
+
+def _json_report(report):
+    response = APP.response_class(
+        response=dumps(report_to_dict(report)),
+        status=200,
+        mimetype=JSON_MIME
+    )
+    return response
+
+def _xml_report(report):
+    xml = dicttoxml.dicttoxml(report_to_dict(report))
+    response = APP.response_class(
+        response=xml,
+        status=200,
+        mimetype=XML_MIME
+    )
+    return response
+
+def _pdf_report(report):
+    """Download a file from a source."""
+    dest_name = ''
+    with tempfile.NamedTemporaryFile(delete=False) as temp:
+        pdf_report(report, temp.name)
+        dest_name = temp.name
+        response = make_response(send_file(dest_name, mimetype=PDF_MIME))
+        response.headers["Content-Disposition"] = \
+            "attachment; " \
+            "filename*=UTF-8''{quoted_filename}".format(
+                quoted_filename=quote(report.source.name)
                 )
         return response
 
@@ -195,12 +256,39 @@ def about():
 @APP.errorhandler(BadRequest)
 def bad_request_handler(bad_request):
     """Basic bad request handler."""
-    return "bad request %s" % bad_request
+    return render_template('except.html',
+                           http_excep=bad_request,
+                           message='bad request {}'.format(str(bad_request)),
+                           http_code=403,
+                           http_error="Bad Request")
 
 @APP.errorhandler(NotFound)
 def not_found_handler(not_found):
     """Basic not found request handler."""
-    return render_template('404.html', not_found=not_found)
+    return render_template('except.html',
+                           http_excep=not_found,
+                           message='Not resource found at this URL.',
+                           http_code=404,
+                           http_error="Not Found")
+
+@APP.errorhandler(Forbidden)
+def forbidden_handler(forbidden):
+    """Basic not found request handler."""
+    return render_template('except.html',
+                           http_excep=forbidden,
+                           message='You\'re forbidden to access this resource.',
+                           http_code=403,
+                           http_error="Forbidden")
+
+@APP.errorhandler(Unauthorized)
+def unauth_handler(unauthorized):
+    """Basic not found request handler."""
+    return render_template('except.html',
+                           http_excep=unauthorized,
+                           message='It appears there are no S3 credentials ' +\
+                                   'available to the application',
+                           http_code=401,
+                           http_error="Unauthorized")
 
 @APP.teardown_appcontext
 def shutdown_session(exception=None):
@@ -233,23 +321,23 @@ def _add_index(source, encoded_filepath, analyse_sub_folders):
         key = Key(_index, source_key.value, source_key.size,
                   dateutil.parser.parse(source_key.last_modified), byte_sequence=_bs)
         key.put()
-        _add_key_properties(_fs, key, full_source_key.properties)
+        _add_key_properties(key, full_source_key.properties)
         _add_byte_sequence_properties(_bs, bs_props)
     return list_reports()
 
-def _add_key_properties(fs_source, key, properties):
+def _add_key_properties(key, properties):
     for prop_name in properties:
-        db_prop = Property.putdate(fs_source.namespace, prop_name)
+        db_prop = Property.putdate(prop_name)
         db_prop_val = PropertyValue.putdate(properties[prop_name])
         KeyProperty.putdate(key, db_prop, db_prop_val)
 
 def _add_byte_sequence_properties(byte_sequence, properties):
-    for namespace in properties:
-        logging.debug("ByteSequence property namespace: %s", namespace)
-        for prop_name in properties[namespace]:
-            db_prop = Property.putdate(namespace, prop_name)
-            db_prop_val = PropertyValue.putdate(properties[namespace][prop_name])
-            ByteSequenceProperty.putdate(byte_sequence, db_prop, db_prop_val)
+    for format_tool_release in properties:
+        logging.debug("ByteSequence property from tool: %s", format_tool_release)
+        for prop_name in properties[format_tool_release]:
+            db_prop = Property.putdate(prop_name)
+            db_prop_val = PropertyValue.putdate(properties[format_tool_release][prop_name])
+            ByteSequenceProperty.putdate(byte_sequence, format_tool_release, db_prop, db_prop_val)
 
 def _file_details(source, encoded_filepath):
     _fs, _key = _get_fs_and_key(source, encoded_filepath, is_folder=False)
@@ -271,9 +359,13 @@ def _get_fs_and_key(source, encoded_filepath, is_folder=True):
         _fs = AS3Bucket(source) \
             if source.scheme == SCHEMES['AS3'] else FileSystem(source)
     except ValueError:
-        abort(404)
+        logging.warning('Could not find source %s.', source.name)
+        raise NotFound('Could not find source {}'.format(source.name))
+    logging.debug('Found source %s.', source.name)
     path = unquote(encoded_filepath)
-    key = SourceKey(path, is_folder) if path else None
+    logging.debug('Got file systems and now getting key for %s.', encoded_filepath)
+    key = SourceKey(path, is_folder)
+    logging.debug('Keys is %s.', str(key))
     return _fs, key
 
 def _download_item(source, encoded_filepath):

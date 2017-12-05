@@ -50,13 +50,14 @@ else:
 
 from .model_sources import Source, FormatTool, FormatToolRelease # pylint: disable-msg=C0413
 from .format_tools import get_format_tool_instance # pylint: disable-msg=C0413
+from .sources import AS3Bucket, FileSystem # pylint: disable-msg=C0413
 
 BUCKET_LIST = APP.config.get('BUCKETS', {})
 logging.info("Loading config BUCKETS to the bucket table")
 for _bucket in BUCKET_LIST:
     logging.debug("Checking bucket: %s", _bucket)
     if not Source.by_location(_bucket['location']):
-        _source = Source(_bucket['name'], _bucket['description'],
+        _source = Source(AS3Bucket.NAMESPACE, _bucket['name'], _bucket['description'],
                          SCHEMES['AS3'], _bucket['location'])
         logging.debug("Adding bucket source: %s", _source)
         Source.add(_source)
@@ -69,7 +70,7 @@ logging.info("Loading config FOLDERS the file_system table")
 for _folder in FOLDER_LIST:
     logging.debug("Checking folder: %s", _folder)
     if not Source.by_location(_folder['location']):
-        _source = Source(_folder['name'], _folder['description'],
+        _source = Source(FileSystem.NAMESPACE, _folder['name'], _folder['description'],
                          SCHEMES['FILE'], _folder['location'])
         logging.debug("Adding folder source: %s", _source)
         Source.add(_source)
@@ -81,7 +82,7 @@ TOOL_LIST = APP.config.get('TOOLS', {})
 logging.debug("Loading config TOOLS to the format_tools table")
 for _tool in TOOL_LIST:
     logging.debug("Registering tool: %s, from tool list.", _tool)
-    FormatTool.putdate(_tool['name'], _tool['description'], _tool['reference'])
+    FormatTool.putdate(_tool['namespace'], _tool['name'], _tool['description'], _tool['reference'])
 
 logging.debug("Setting all tools unavailable")
 FormatToolRelease.all_unavailable()
