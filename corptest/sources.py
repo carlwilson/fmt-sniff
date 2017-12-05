@@ -87,6 +87,11 @@ class SourceKey(object):
         return parts[-2] if self.value.endswith('/') else parts[-1]
 
     @property
+    def is_hidden(self):
+        """Returns true if the file name starts with a period character, '.'."""
+        return self.name.startswith('.')
+
+    @property
     def extension(self):
         """Resturn the extension part of the key value."""
         _ext = Extension.parse_from_file_name(self.value)
@@ -216,31 +221,31 @@ class SourceBase(object):
         return
 
     @abc.abstractmethod
-    def list_folders(self, filter_key=None, recurse=False): # pragma: no cover
+    def list_folders(self, filter_key=None, recurse=False, show_hidden=False): # pragma: no cover
         """Generator that lists the keys for all folders that are children of
         filter_key which is a SourceKey instance and must be a folder. The
         method will recurse into children if recurse is True."""
         return
 
     @abc.abstractmethod
-    def list_files(self, filter_key=None, recurse=False): # pragma: no cover
+    def list_files(self, filter_key=None, recurse=False, show_hidden=False): # pragma: no cover
         """Generator that lists the keys for all files that are children of
         filter_key which is a SourceKey instance and must be a folder. The
         method will recurse into children if recurse is True."""
         return
 
-    @abc.abstractmethod
+    @abc.abstractmethod # pragma: no cover
     def get_key_properties(self, key):
         """Takes a key and augments it with detailed metadata about a File
         element. Throws a ValueError if a folder key is passed."""
         return
 
-    @abc.abstractmethod
+    @abc.abstractmethod # pragma: no cover
     def get_path_and_byte_seq(self, key, sha1):
         """ Returns a file path and ByteSequence tuple for the key. """
         return
 
-    @abc.abstractmethod
+    @abc.abstractmethod # pragma: no cover
     def get_byte_sequence_properties(self, key):
         """For a given key returns the ByteSequence and ByteSequenceProperty tuple."""
         return
@@ -366,7 +371,7 @@ class AS3Bucket(SourceBase):
             if self.FOLDER_REGEX.match(obj_summary.key) is None:
                 yield SourceKey(obj_summary.key, False)
 
-    def list_folders(self, filter_key=None, recurse=False):
+    def list_folders(self, filter_key=None, recurse=False, show_hidden=False):
         prefix = super(AS3Bucket, self)._validate_key_and_return_prefix(filter_key)
         logging.debug('Prefix calculated: %s.', prefix)
         if prefix and not prefix.endswith('/'):
@@ -376,13 +381,15 @@ class AS3Bucket(SourceBase):
                                          prefix=prefix)
         if result.get('CommonPrefixes'):
             for common_prefix in result.get('CommonPrefixes'):
-                yield SourceKey(common_prefix.get('Prefix'))
-                if recurse:
-                    key = SourceKey(common_prefix.get('Prefix'))
-                    for res in self.list_folders(filter_key=key, recurse=True):
-                        yield res
+                key = SourceKey(common_prefix.get('Prefix'))
+                if not key.is_hidden or show_hidden:
+                    yield key
+                    if recurse:
+                        for res in self.list_folders(filter_key=key, recurse=True,
+                                                     show_hidden=show_hidden):
+                            yield res
 
-    def list_files(self, filter_key=None, recurse=False):
+    def list_files(self, filter_key=None, recurse=False, show_hidden=False):
         prefix = super(AS3Bucket, self)._validate_key_and_return_prefix(filter_key)
         if prefix and not prefix.endswith('/'):
             prefix += '/'
@@ -392,14 +399,18 @@ class AS3Bucket(SourceBase):
             for obj_summary in result.get('Contents'):
                 key = SourceKey(obj_summary.get('Key'), False, obj_summary.get('Size'),
                                 obj_summary.get('LastModified'))
-                key.add_property(self.__PROPERTIES[self.ETAG], self._etag_from_result(obj_summary))
-                yield key
+                if not key.is_hidden or show_hidden:
+                    key.add_property(self.__PROPERTIES[self.ETAG],
+                                     self._etag_from_result(obj_summary))
+                    yield key
         if recurse:
             if result.get('CommonPrefixes'):
                 for common_prefix in result.get('CommonPrefixes'):
                     key = SourceKey(common_prefix.get('Prefix'))
-                    for res in self.list_files(filter_key=key, recurse=True):
-                        yield res
+                    if (not key.is_hidden) or show_hidden:
+                        for res in self.list_files(filter_key=key, recurse=True,
+                                                   show_hidden=show_hidden):
+                            yield res
 
     def get_byte_sequence_properties(self, key):
         if not key or key.is_folder:
@@ -578,36 +589,44 @@ class FileSystem(SourceBase):
     def all_file_keys(self):
         return self.list_files(recurse=True)
 
-    def list_folders(self, filter_key=None, recurse=False):
+    def list_folders(self, filter_key=None, recurse=False, show_hidden=False):
         prefix = super(FileSystem, self)._validate_key_and_return_prefix(filter_key)
-        return self.yield_keys(prefix, list_files=False, recurse=recurse)
+        return self._yield_keys(prefix, list_files=False, recurse=recurse,
+                                show_hidden=show_hidden)
 
-    def list_files(self, filter_key=None, recurse=False):
+    def list_files(self, filter_key=None, recurse=False, show_hidden=False):
         prefix = super(FileSystem, self)._validate_key_and_return_prefix(filter_key)
-        return self.yield_keys(prefix, list_folders=False, recurse=recurse)
+        return self._yield_keys(prefix, list_folders=False, recurse=recurse,
+                                show_hidden=show_hidden)
 
-    def yield_keys(self, prefix='', list_files=True, list_folders=True, recurse=False):
+    def _yield_keys(self, prefix='', list_files=True, list_folders=True, recurse=False,
+                    show_hidden=False):
         """Generator that yields a list of file and or folder keys from a root
         directory."""
         path = os.path.join(self.file_system.location, prefix)
-        if os.access(path, os.R_OK):
-            for entry in scandir(os.path.join(self.file_system.location, prefix)):
-                if list_files and entry.is_file(follow_symlinks=False):
-                    key = SourceKey(os.path.join(prefix, entry.name), False,
-                                    int(entry.stat().st_size),
-                                    datetime.fromtimestamp(entry.stat().st_mtime, self.TIME_ZONE))
+        if not os.access(path, os.R_OK):
+            logging.warning("File system access to %s not allowed", path)
+            raise Forbidden(description='File system access to {}'.format(path) +\
+                                        ' is not allowed for this account.')
+        for entry in scandir(os.path.join(self.file_system.location, prefix)):
+            if entry.name.startswith('.') and not show_hidden:
+                continue
+            if list_files and entry.is_file(follow_symlinks=False):
+                key = SourceKey(os.path.join(prefix, entry.name), False,
+                                int(entry.stat().st_size),
+                                datetime.fromtimestamp(entry.stat().st_mtime,
+                                                       self.TIME_ZONE))
+                yield key
 
-                    yield key
-
-                if entry.is_dir(follow_symlinks=False):
-                    if list_folders:
-                        yield SourceKey(os.path.join(prefix, entry.name))
-                    if recurse:
-                        for child in self.yield_keys(prefix=os.path.join(prefix, entry.name),
-                                                     list_files=list_files,
-                                                     list_folders=list_folders,
-                                                     recurse=True):
-                            yield child
+            if entry.is_dir(follow_symlinks=False):
+                if list_folders:
+                    yield SourceKey(os.path.join(prefix, entry.name))
+                if recurse:
+                    for child in self._yield_keys(prefix=os.path.join(prefix, entry.name),
+                                                  list_files=list_files,
+                                                  list_folders=list_folders,
+                                                  recurse=True):
+                        yield child
 
     def get_byte_sequence_properties(self, key):
         if not key or key.is_folder:

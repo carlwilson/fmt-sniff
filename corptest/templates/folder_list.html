@@ -28,6 +28,11 @@
           <input type="checkbox" name="analyse_sub_folders"> Analyse sub-folders.
         </label>
       </div>
+      <div class="checkbox">
+        <label>
+          <input id="show_hidden" type="checkbox" name="analyse_hidden" {{ 'checked' if show_hidden }}> Show &amp; analyse hidden files and folders.
+        </label>
+      </div>
       <p class="help">Start analysis of this folder and optionally its sub-folders.</p>
     </div>
   </form>
@@ -47,6 +52,31 @@
   </table>
 {% endblock page_content %}
 
+{% block page_script %}
+<script>
+/**
+ * Acknowledgements to:
+ * https://stackoverflow.com/questions/5999118/how-can-i-add-or-update-a-query-string-parameter
+ */
+function updateQueryStringParameter(uri, key, value) {
+  var re = new RegExp("([?&])" + key + "=.*?(&|$)", "i");
+  var separator = uri.indexOf('?') !== -1 ? "&" : "?";
+  if (uri.match(re)) {
+    return uri.replace(re, '$1' + key + "=" + value + '$2');
+  }
+  else {
+    return uri + separator + key + "=" + value;
+  }
+}
+
+$('#show_hidden').change(function() {
+  window.location = updateQueryStringParameter(window.location + '', this.id, this.checked);
+});
+
+</script>
+{% endblock page_script %}
+
+
   {% macro key_rows(source_id, keys) %}
   {% for key in keys %}
     {{ key_row(source_id, key) }}
@@ -59,7 +89,7 @@
       <td><a href="/source/{{ source_id }}/{{ 'folder' if item.is_folder else 'file' }}/{{ item.value }}" >{{ item.name }}</a></td>
       <td>{{ item.extension }}</td>
       <td>{{ item.last_modified }}</td>
-      <td>{{ sizeof_fmt(item.size) }}</td>
+      <td>{{ sizeof_fmt(item.size) if not item.is_folder else 'n/a' }}</td>
       {%- for key, value in properties.items() %}
       <td>{{ item.properties.get(value, '') }}</td>
       {% endfor %}
