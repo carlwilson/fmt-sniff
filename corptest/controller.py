@@ -64,14 +64,6 @@ def details_fs(source_id, encoded_filepath):
     except exceptions.NoCredentialsError:
         raise Unauthorized('No S3 credentials found.')
 
-@APP.route("/download/source/<source_id>/<path:encoded_filepath>/")
-def download_fs(source_id, encoded_filepath):
-    """Download a file from a source."""
-    try:
-        return _download_item(Source.by_id(source_id), encoded_filepath)
-    except exceptions.NoCredentialsError:
-        raise Unauthorized('No S3 credentials found.')
-
 @APP.route("/api/analyse/<source_id>/<path:encoded_filepath>/")
 @produces(JSON_MIME, XML_MIME, PDF_MIME)
 def file_report(source_id, encoded_filepath):
