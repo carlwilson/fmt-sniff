@@ -2,17 +2,26 @@
 {% block title %}Folder List{% endblock %}
 {% block page_content %}
   <h2>Report Listing</h2>
-  <table class="table table-striped">
-    <tr>
-      <th>Source</th>
-      <th>Root Path</th>
-      <th>Created</th>
-      <th>Files</th>
-      <th>Size</th>
-    </tr>
-    {{ key_rows(reports) }}
+  <table id="report_listing" class="table table-striped">
+    <thead>
+      <tr>
+        <th>Source</th>
+        <th>Root Path</th>
+        <th>Created</th>
+        <th>Files</th>
+        <th>Size</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{ key_rows(reports) }}
+    </tbody>
   </table>
 {% endblock page_content %}
+{% block page_script %}
+{% with table_id='report_listing' %}
+{% include "table_sort.html" %}
+{% endwith %}
+{% endblock page_script %}
 
   {% macro key_rows(reports) %}
   {% for report in reports %}
@@ -21,11 +30,11 @@
   {% endmacro %}
 
   {% macro key_row(report) %}
-    <tr>
-      <td><a href="{{ report.id }}">{{ report.source.name }}</a></td>
-      <td>{{ report.root_key }}</td>
-      <td>{{ report.short_iso_timestamp }}</td>
-      <td>{{ report.key_count }}</td>
-      <td>{{ sizeof_fmt(report.size) if report.size else 0 }}</td>
-    </tr>
+      <tr>
+        <td><a href="{{ report.id }}">{{ report.source.name }}</a></td>
+        <td>{{ report.root_key }}</td>
+        <td>{{ report.short_iso_timestamp }}</td>
+        <td>{{ report.key_count }}</td>
+        <td>{{ sizeof_fmt(report.size) if report.size else 0 }}</td>
+      </tr>
   {% endmacro -%}
