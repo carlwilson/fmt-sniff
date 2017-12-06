@@ -4,20 +4,29 @@
   <h2>Property Value Details for {{ prop.namespace }}:{{ prop.name }}=={{ prop_val.value }}</h2>
   <p class="lead">
   </p>
-  <table class="table table-striped">
-    <tr>
-      <th>Name</th>
-      <th>Ext</th>
-      <th>Size</th>
-      <th>DROID</th>
-      <th>FIDO</th>
-      <th>File</th>
-      <th>Lib Magic</th>
-      <th>Tika</th>
-    </tr>
-    {{ key_rows(report.source_id, keys) }}
+  <table id="file_listing" class="table table-striped">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Ext</th>
+        <th>Size</th>
+        <th>DROID</th>
+        <th>FIDO</th>
+        <th>File</th>
+        <th>Lib Magic</th>
+        <th>Tika</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{ key_rows(report.source_id, keys) }}
+    </tbody>
   </table>
 {% endblock page_content %}
+{% block page_script %}
+{% with table_id='file_listing' %}
+{% include "table_sort.html" %}
+{% endwith %}
+{% endblock page_script %}
 
   {% macro key_rows(source_id, keys) %}
   {% for key in keys %}
@@ -26,14 +35,14 @@
   {% endmacro %}
 
   {% macro key_row(source_id, item) %}
-    <tr>
-      <td><a href="/source/{{ source_id }}/file/{{ item.path }}" >{{ item.name }}</a></td>
-      <td>{{ item.extension }}</td>
-      <td>{{ sizeof_fmt(item.size) }}</td>
-      <td>{{ get_property_from_bs(item.byte_sequence, 'uk.gov.tna.droid', 'PUID') }}</td>
-      <td>{{ get_property_from_bs(item.byte_sequence, 'org.openpreservation.fido', 'PUID') }}</td>
-      <td>{{ get_property_from_bs(item.byte_sequence, 'com.darwinsys.file', 'MIME') }}</td>
-      <td>{{ get_property_from_bs(item.byte_sequence, 'os.python.org.libmagic', 'MIME') }}</td>
-      <td>{{ get_property_from_bs(item.byte_sequence, 'org.apache.tika', 'MIME') }}</td>
-    </tr>
+      <tr>
+        <td><a href="/source/{{ source_id }}/file/{{ item.path }}" >{{ item.name }}</a></td>
+        <td>{{ item.extension }}</td>
+        <td>{{ sizeof_fmt(item.size) }}</td>
+        <td>{{ get_property_from_bs(item.byte_sequence, 'uk.gov.tna.droid', 'PUID') }}</td>
+        <td>{{ get_property_from_bs(item.byte_sequence, 'org.openpreservation.fido', 'PUID') }}</td>
+        <td>{{ get_property_from_bs(item.byte_sequence, 'com.darwinsys.file', 'MIME') }}</td>
+        <td>{{ get_property_from_bs(item.byte_sequence, 'os.python.org.libmagic', 'MIME') }}</td>
+        <td>{{ get_property_from_bs(item.byte_sequence, 'org.apache.tika', 'MIME') }}</td>
+      </tr>
   {% endmacro -%}
